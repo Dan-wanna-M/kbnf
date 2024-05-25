@@ -1,0 +1,9 @@
+[package]
+name = "kbnf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ahash = "0.8.11"
+bit-set = "0.5.3"
+thiserror = "1.0.61"
