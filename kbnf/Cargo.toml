@@ -9,6 +9,6 @@ bit-set = "0.5.3"
 thiserror = "1.0.61"
 ebnf = {git="https://github.com/Dan-wanna-M/ebnf.git"}
 num = "0.4.3"
-jaggedarray = "0.1.1"
+jaggedarray = "0.2.1"
 string-interner = "0.17.0"
 nom = "7.1.3"

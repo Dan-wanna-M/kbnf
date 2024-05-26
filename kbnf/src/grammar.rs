@@ -21,6 +21,7 @@ where
     Terminal(TerminalID<T>),
     Nonterminal(NonterminalID<T>),
 }
+
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TerminalID<T>(T)
 where
@@ -60,11 +61,11 @@ where
     TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
 {
-    start_nonterminal_id:  NonterminalID<TI>,
-    rules: JaggedArray<LNFNode<TI, TE>, usize, 3>,
+    start_nonterminal_id: NonterminalID<TI>,
+    rules: JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
-    id_to_terminals: JaggedArray<u8, usize, 2>,
+    id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -101,18 +102,18 @@ where
         })?;
         let grammar = grammar.validate_grammar(start_nonterminal, config.regex_config)?;
         let grammar = grammar.simplify_grammar(config.compression_config);
-        let mut id_to_terminals = JaggedArray::<u8, usize, 2>::new();
+        let mut id_to_terminals = JaggedArray::<u8, Vec<usize>, 2>::new();
         for (id, terminal) in grammar.interned_strings.terminals.iter() {
             id_to_terminals.new_row::<0>();
             id_to_terminals.extend_last_row_from_slice(terminal.as_bytes());
             assert!(id_to_terminals.len() - 1 == id.to_usize());
         }
-        let mut rules = JaggedArray::<LNFNode<TI, TE>, usize, 3>::with_capacity([
+        let mut rules = JaggedArray::<LNFNode<TI, TE>, Vec<usize>, 3>::with_capacity([
             grammar.expressions.len(),
             1,
             1,
         ]);
-        for (_, Rhs { mut alternations }) in grammar.expressions.into_iter() {
+        for Rhs { mut alternations } in grammar.expressions.into_iter() {
             rules.new_row::<0>();
             alternations.sort_unstable_by_key(|x| x.concatenations.len());
             let len = alternations.last().unwrap().concatenations.len();
@@ -148,11 +149,12 @@ where
                 }
             }
         }
+        let id_to_regexes = grammar.id_to_regex;
         Ok(Self {
             start_nonterminal_id: NonterminalID(grammar.start_symbol.to_usize().as_()),
             rules,
             interned_strings: grammar.interned_strings,
-            id_to_regexes: grammar.id_to_regex,
+            id_to_regexes,
             id_to_terminals,
         })
     }
@@ -187,6 +189,6 @@ where
     }
 
     pub fn get_terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
-        &self.id_to_terminals[terminal_id.0.as_()]
+        self.id_to_terminals.view([terminal_id.0.as_()]).as_slice()
     }
 }
