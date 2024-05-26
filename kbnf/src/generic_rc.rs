@@ -1,6 +1,6 @@
-use std::{ops::Deref, rc::Rc, sync::Arc};
+use std::{borrow::Borrow, ops::Deref, rc::Rc, sync::Arc};
 
-pub trait ReferenceCounter: Clone + Deref<Target = Self::Inner> {
+pub trait ReferenceCounter: Clone + Deref<Target = Self::Inner>+AsRef<Self::Inner>+Borrow<Self::Inner> {
     type Inner;
     fn new(obj: Self::Inner) -> Self;
 }
