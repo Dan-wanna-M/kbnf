@@ -1,10 +1,10 @@
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::Path;
+use std::sync::Arc;
 
 use ahash::AHashMap;
 
-use crate::generic_rc::ReferenceCounter;
 use crate::vocabulary::{Token, Vocabulary};
 #[derive(Debug, thiserror::Error)]
 pub enum ReadRWKVVocabError {
@@ -15,9 +15,7 @@ pub enum ReadRWKVVocabError {
 }
 
 /// Read the vocabulary from RWKV-world model series vocabulary file.
-pub fn read_rwkv_world_vocab<TRc>(path: impl AsRef<Path>) -> Result<TRc, ReadRWKVVocabError>
-where
-    TRc: ReferenceCounter + ReferenceCounter<Inner = Vocabulary>,
+pub fn read_rwkv_world_vocab(path: impl AsRef<Path>) -> Result<Arc<Vocabulary>, ReadRWKVVocabError>
 {
     let path = path.as_ref();
     let file = File::open(path).unwrap();
@@ -62,7 +60,7 @@ where
     for (k, v) in id_to_token_string.into_iter() {
         id_to_token_string_vec[k as usize] = v;
     }
-    Ok(TRc::new(Vocabulary::new(
+    Ok(Arc::new(Vocabulary::new(
         token_to_id,
         id_to_token_vec,
         id_to_token_string_vec,

@@ -1,7 +1,6 @@
 pub mod engine;
 pub mod utils;
 pub mod vocabulary;
-mod generic_rc;
 pub mod grammar;
 pub mod config;
 
