@@ -1,5 +1,4 @@
 use ahash::AHashMap;
-use bit_set::BitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
@@ -58,22 +57,6 @@ impl Vocabulary {
         }
     }
 
-    pub fn get_token_strings_from_token_ids<'a>(
-        &'a self,
-        token_ids: &'a BitSet,
-    ) -> impl Iterator<Item = &'a str> {
-        token_ids
-            .iter()
-            .map(|x| self.id_to_token_string[x].as_str())
-    }
-
-    pub fn get_token_from_token_ids<'a>(
-        &'a self,
-        token_ids: &'a BitSet,
-    ) -> impl Iterator<Item = &'a [u8]> {
-        token_ids.iter().map(|x| self.id_to_token[x].0.as_ref())
-    }
-
     pub fn get_token_id_from_token(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
@@ -86,6 +69,10 @@ impl Vocabulary {
         self.id_to_token_string
             .get(token_id as usize)
             .map(|x| x.as_str())
+    }
+
+    pub fn get_vocab_size(&self) -> usize {
+        self.id_to_token.len()
     }
 
     pub(crate) fn get_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {

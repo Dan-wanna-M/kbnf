@@ -4,8 +4,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ahash::AHashMap;
+use fixedbitset::on_stack::{get_nblock, FixedBitSet};
 
 use crate::vocabulary::{Token, Vocabulary};
+
+pub(crate) type ByteSet = FixedBitSet<{get_nblock(u8::MAX as usize)}>;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ReadRWKVVocabError {
     #[error("IO error: {0}")]
