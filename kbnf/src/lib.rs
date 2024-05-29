@@ -1,8 +1,8 @@
+pub mod config;
 pub mod engine;
+pub mod grammar;
 pub mod utils;
 pub mod vocabulary;
-pub mod grammar;
-pub mod config;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

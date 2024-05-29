@@ -12,11 +12,12 @@ use regex_automata::dfa::Automaton;
 use regex_automata::hybrid::dfa::Cache;
 use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
-use std::borrow::BorrowMut;
 use std::sync::Arc;
 
 use crate::grammar::ExceptedID;
 use crate::grammar::RegexID;
+use crate::grammar::INVALID_REPETITION;
+use crate::utils;
 use crate::utils::ByteSet;
 use crate::{
     grammar::{Grammar, LNFNode, NonterminalID},
@@ -60,17 +61,25 @@ pub struct EngineConfig {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
-    #[error("Terminal length {0} exceeds {1}, the maximum terminal length allowed by current size of StateID(TS).
-     Consider reducing terminal length or use larger StateID(TS).")]
+    #[error(
+        "Terminal length {0} exceeds {1}, the maximum terminal length allowed by current size of StateID(TS).
+     Consider reducing terminal length or use larger StateID(TS)."
+    )]
     TerminalTooLong(usize, usize),
-    #[error("Regex length {0} exceeds {1}, the maximum regex length allowed by current size of StateID(TS).
-     Consider reducing regex states or use larger StateID(TS).")]
+    #[error(
+        "Regex length {0} exceeds {1}, the maximum regex length allowed by current size of StateID(TS).
+     Consider reducing regex states or use larger StateID(TS)."
+    )]
     RegexTooLarge(usize, usize),
-    #[error("Except! length {0} exceeds {1}, the maximum excepted length allowed by current size of StateID(TS).
-     Consider reducing excepted terminals, use larger StateID(TS) or less repetition.")]
+    #[error(
+        "Except! length {0} exceeds {1}, the maximum excepted length allowed by current size of StateID(TS).
+     Consider reducing excepted terminals, use larger StateID(TS) or less repetition."
+    )]
     ExceptedTooLarge(usize, usize),
-    #[error("Repetition in regex {0} exceeds {1}, the maximum repetition allowed by current size of StateID(TS).
-     Consider reducing repetition or use larger StateID(TS).")]
+    #[error(
+        "Repetition in regex {0} exceeds {1}, the maximum repetition allowed by current size of StateID(TS).
+     Consider reducing repetition or use larger StateID(TS)."
+    )]
     RepetitionInExceptedTooLarge(usize, usize),
 }
 
@@ -113,7 +122,7 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + num::Bounded
-        + std::convert::From<usize>,
+        + std::convert::TryFrom<usize>,
     TI: Eq + std::hash::Hash + PartialEq,
     TE: Num
         + AsPrimitive<usize>
@@ -123,7 +132,7 @@ where
         + std::hash::Hash
         + PartialEq
         + num::Bounded
-        + std::convert::From<usize>,
+        + std::convert::TryFrom<usize>,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -136,6 +145,9 @@ where
         + num::traits::AsPrimitive<TS>,
 {
     const STATE_ID_TYPE_SIZE: usize = std::mem::size_of::<TS>();
+    const EXCEPTED_ID_TYPE_SIZE: usize = std::mem::size_of::<TE>();
+    const STATE_ID_TYPE_BIT: usize = Self::STATE_ID_TYPE_SIZE * 8;
+    const EXCEPTED_ID_TYPE_BIT: usize = Self::EXCEPTED_ID_TYPE_SIZE * 8;
     pub fn new(
         vocabulary: Arc<Vocabulary>,
         grammar: Arc<Grammar<TI, TE>>,
@@ -188,7 +200,7 @@ where
 
     fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
         let terminals = grammar.get_id_to_terminals();
-        let max: usize = (1 << (Self::STATE_ID_TYPE_SIZE * 8)) - 1;
+        let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
             let terminal = terminals.view::<1, 1>([i]);
             if terminal.len() > max {
@@ -200,7 +212,7 @@ where
 
     fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
         let regexes = grammar.get_id_to_regexes();
-        let max: usize = (1 << (Self::STATE_ID_TYPE_SIZE * 8)) - 1;
+        let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
             match fsa {
                 FiniteStateAutomaton::Dfa(dfa) => {
@@ -230,7 +242,7 @@ where
                         // repetition is verified in grammar
                         let fsa = grammar.get_excepted(id);
                         let max: usize =
-                            (1 << ((Self::STATE_ID_TYPE_SIZE - std::mem::size_of::<TE>()) * 8)) - 1;
+                            (1 << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) - 1;
                         match fsa {
                             FiniteStateAutomaton::Dfa(dfa) => {
                                 if dfa.state_len() > max {
@@ -341,7 +353,7 @@ where
                                     // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                                     let start = dfa
                                         .start_state(
-                                            self.excepted_id_to_cache.get_mut(&id).unwrap(),
+                                            self.excepted_id_to_cache.get_mut(id).unwrap(),
                                             &self.excepted_start_config,
                                         )
                                         .unwrap();
@@ -394,7 +406,7 @@ where
     }
     #[inline]
     fn item_should_be_completed(
-        &self,
+        grammar: &Grammar<TI, TE>,
         nonterminal_id: NonterminalID<TI>,
         new_dot_position: TD,
         production_id: TP,
@@ -403,25 +415,31 @@ where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
-        let view = self.grammar.get_dotted_productions(nonterminal_id);
+        let view = grammar.get_dotted_productions(nonterminal_id);
         if new_dot_position.as_() < view.len() {
             let view = view.view::<1, 1>([new_dot_position.as_()]);
             if production_id.as_() < view.len() {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     /// This function requires the newest Earley set has been created.
-    fn advance_item(&mut self, item: EarleyItem<TI, TD, TP, TSP, TS>) {
+    fn advance_item(
+        grammar: &Grammar<TI, TE>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        item: EarleyItem<TI, TD, TP, TSP, TS>,
+    ) {
         let new_dotted_position = item.dot_position + 1.as_();
-        if self.item_should_be_completed(
+        if Self::item_should_be_completed(
+            grammar,
             item.nonterminal_id,
             new_dotted_position,
             item.production_index,
         ) {
-            self.to_be_completed_items.insert(ToBeCompletedItem {
+            to_be_completed_items.insert(ToBeCompletedItem {
                 nonterminal_id: item.nonterminal_id,
                 start_position: item.start_position,
             });
@@ -433,15 +451,28 @@ where
                 start_position: item.start_position,
                 state_id: item.state_id,
             };
-            self.earley_sets.push_to_last_row(new_item);
+            earley_sets.push_to_last_row(new_item);
         }
     }
-    /// ### SAFETY
-    ///
-    /// This function can only be called when state_id is actually a index(integers within usize range), otherwise it will produce invalid index.
     #[inline]
-    unsafe fn from_state_id_to_index(state_id: TS) -> usize {
+    fn add_item_with_new_state(&mut self, item: EarleyItem<TI, TD, TP, TSP, TS>, state_id: TS) {
+        let new_item = EarleyItem {
+            nonterminal_id: item.nonterminal_id,
+            dot_position: item.dot_position,
+            production_index: item.production_index,
+            start_position: item.start_position,
+            state_id,
+        };
+        self.earley_sets.push_to_last_row(new_item);
+    }
+
+    #[inline]
+    fn from_state_id_to_index(state_id: TS) -> usize {
         state_id.as_()
+    }
+    #[inline]
+    fn from_index_to_state_id(index: usize) -> TS {
+        index.as_()
     }
     #[inline]
     fn from_dfa_state_id_to_state_id(state_id: StateID, stride2: usize) -> TS {
@@ -451,38 +482,63 @@ where
         ((id >> stride2) as usize).as_()
     }
     #[inline]
+    fn from_state_id_to_dfa_state_id(state_id: TS, stride2: usize) -> StateID {
+        // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
+        unsafe { std::mem::transmute((state_id.as_() << stride2) as u32) }
+    }
+    #[inline]
     fn from_dfa_state_id_to_state_id_with_r(state_id: StateID, stride2: usize, r: TE) -> TS {
         // SAFETY: state_id is a u32 due to #[repr(transparent)] attribute
         let id: u32 = unsafe { std::mem::transmute(state_id) };
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
         let a = ((id >> stride2) as usize)
-            + (r.as_() << ((std::mem::size_of::<TS>() - std::mem::size_of::<TE>()) * 8));
+            + (r.as_() << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT));
         a.as_()
     }
     #[inline]
+    fn from_state_id_to_dfa_state_id_with_r(state_id: TS, stride2: usize) -> (StateID, TE) {
+        let id: u32 = state_id.as_() as u32;
+        let r = (id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) as usize;
+        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
+        let state_id = ((id as usize
+            - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
+            << stride2) as u32;
+        // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
+        (unsafe { std::mem::transmute(state_id) }, r.as_())
+    }
+    #[inline]
     fn from_ldfa_state_id_to_state_id(state_id: LazyStateID) -> TS {
-        // SAFETY: state_id is a u32 due to #[repr(transparent)] attribute
+        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
         let id: u32 = unsafe { std::mem::transmute(state_id) };
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
         (id as usize).as_()
     }
     #[inline]
+    fn from_state_id_to_ldfa_state_id(state_id: TS) -> LazyStateID {
+        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
+        unsafe { std::mem::transmute((state_id.as_()) as u32) }
+    }
+    #[inline]
     fn from_ldfa_state_id_to_state_id_with_r(state_id: LazyStateID, r: TE) -> TS {
-        // SAFETY: state_id is a u32 due to #[repr(transparent)] attribute
+        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
         let id: u32 = unsafe { std::mem::transmute(state_id) };
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
         let a = (id as usize)
             + (r.as_() << ((std::mem::size_of::<TS>() - std::mem::size_of::<TE>()) * 8));
         a.as_()
     }
-    /// ### SAFETY
-    ///
-    /// This function can only be called when state_id is actually a index AND index can be represented as a state_id
     #[inline]
-    unsafe fn from_index_to_state_id(index: usize) -> TS {
-        index.as_()
+    fn from_state_id_to_ldfa_state_id_with_r(state_id: TS) -> (LazyStateID, TE) {
+        let id: u32 = state_id.as_() as u32;
+        let r = (id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) as usize;
+        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
+        let state_id =
+            (id as usize - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT))) as u32;
+        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
+        (unsafe { std::mem::transmute(state_id) }, r.as_())
     }
-
+    /// This function requires the newest Earley set has been created.
+    // TODO: find some methods to reduce the repetitive code for regex and except!. Maybe we can use a trait to abstract the common part
     fn scan(&mut self, byte: u8) {
         let earley_set_index = self.earley_sets.len() - 1;
         let earley_set_len = self.earley_sets.view::<1, 1>([earley_set_index]).len();
@@ -496,41 +552,188 @@ where
             match node {
                 LNFNode::Terminal(terminal_id) => {
                     let terminal = self.grammar.get_terminal(terminal_id);
-                    // SAFETY: state_id is guaranteed to be a valid index due to the terminal branch
-                    let index = unsafe { Self::from_state_id_to_index(item.state_id) };
+                    let index = Self::from_state_id_to_index(item.state_id);
                     if terminal[index] == byte {
                         let index = index + 1;
                         if index < terminal.len() {
-                            // SAFETY: state_id is guaranteed to be a valid index and the check in Self::new() ensures it is representable as a state id
-                            let new_state_index = unsafe { Self::from_index_to_state_id(index) };
-                            let new_item = EarleyItem {
-                                nonterminal_id: item.nonterminal_id,
-                                dot_position: item.dot_position,
-                                production_index: item.production_index,
-                                start_position: item.start_position,
-                                state_id: new_state_index,
-                            };
-                            self.earley_sets.push_to_last_row(new_item);
+                            let new_state_index = Self::from_index_to_state_id(index);
+                            self.add_item_with_new_state(item, new_state_index);
                         } else {
-                            self.advance_item(item);
+                            Self::advance_item(
+                                &self.grammar,
+                                &mut self.to_be_completed_items,
+                                &mut self.earley_sets,
+                                item,
+                            );
                         }
                     }
                 }
+
                 LNFNode::RegexString(regex_id) => {
                     let regex = self.grammar.get_regex(regex_id);
+                    match regex {
+                        FiniteStateAutomaton::Dfa(dfa) => {
+                            let state_id =
+                                Self::from_state_id_to_dfa_state_id(item.state_id, dfa.stride2());
+                            let state_id = dfa.next_state(state_id, byte);
+                            match utils::check_dfa_state_status(state_id, dfa) {
+                                utils::FsaStateStatus::Accept => {
+                                    Self::advance_item(
+                                        &self.grammar,
+                                        &mut self.to_be_completed_items,
+                                        &mut self.earley_sets,
+                                        item,
+                                    );
+                                    let state_id = Self::from_dfa_state_id_to_state_id(
+                                        state_id,
+                                        dfa.stride2(),
+                                    );
+                                    self.add_item_with_new_state(item, state_id);
+                                }
+                                utils::FsaStateStatus::Reject => {}
+                                utils::FsaStateStatus::InProgress => {
+                                    let state_id = Self::from_dfa_state_id_to_state_id(
+                                        state_id,
+                                        dfa.stride2(),
+                                    );
+                                    self.add_item_with_new_state(item, state_id);
+                                }
+                            }
+                        }
+                        FiniteStateAutomaton::LazyDFA(ldfa) => {
+                            let state_id = Self::from_state_id_to_ldfa_state_id(item.state_id);
+                            let cache = self.regex_id_to_cache.get_mut(&regex_id).unwrap();
+                            let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
+                            match utils::check_ldfa_state_status(state_id, cache, ldfa) {
+                                utils::FsaStateStatus::Accept => {
+                                    Self::advance_item(
+                                        &self.grammar,
+                                        &mut self.to_be_completed_items,
+                                        &mut self.earley_sets,
+                                        item,
+                                    );
+                                    let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
+                                    self.add_item_with_new_state(item, state_id);
+                                }
+                                utils::FsaStateStatus::Reject => {}
+                                utils::FsaStateStatus::InProgress => {
+                                    let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
+                                    self.add_item_with_new_state(item, state_id);
+                                }
+                            }
+                        }
+                    }
+                }
+                LNFNode::Nonterminal(_) => {}
+                LNFNode::EXCEPT(excepted_id, _) => {
+                    let fsa = self.grammar.get_excepted(excepted_id);
+                    match fsa {
+                        FiniteStateAutomaton::Dfa(dfa) => {
+                            let (state_id, r) = Self::from_state_id_to_dfa_state_id_with_r(
+                                item.state_id,
+                                dfa.stride2(),
+                            );
+                            let state_id = dfa.next_state(state_id, byte);
+                            match utils::check_dfa_state_status(state_id, dfa) {
+                                utils::FsaStateStatus::Accept => {}
+                                utils::FsaStateStatus::Reject => {
+                                    unreachable!("Except! should not reject")
+                                }
+                                utils::FsaStateStatus::InProgress => {
+                                    if r.as_() == INVALID_REPETITION
+                                    // repeat 1 or infinite times
+                                    {
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                        let state_id = Self::from_dfa_state_id_to_state_id(
+                                            state_id,
+                                            dfa.stride2(),
+                                        );
+                                        self.add_item_with_new_state(item, state_id);
+                                        continue;
+                                    }
+                                    let r = r - TE::ONE;
+                                    if !r.is_zero() {
+                                        // repetition is not exhausted
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                        let state_id = Self::from_dfa_state_id_to_state_id_with_r(
+                                            state_id,
+                                            dfa.stride2(),
+                                            r,
+                                        );
+                                        self.add_item_with_new_state(item, state_id);
+                                    } else {
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        FiniteStateAutomaton::LazyDFA(ldfa) => {
+                            let (state_id, r) =
+                                Self::from_state_id_to_ldfa_state_id_with_r(item.state_id);
+                            let cache = self.excepted_id_to_cache.get_mut(&excepted_id).unwrap();
+                            let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
+                            match utils::check_ldfa_state_status(state_id, cache, ldfa) {
+                                utils::FsaStateStatus::Accept => {}
+                                utils::FsaStateStatus::Reject => {
+                                    unreachable!("Except! should not reject")
+                                }
+                                utils::FsaStateStatus::InProgress => {
+                                    if r.as_() == INVALID_REPETITION
+                                    // repeat 1 or infinite times
+                                    {
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                        let state_id =
+                                            Self::from_ldfa_state_id_to_state_id(state_id);
+                                        self.add_item_with_new_state(item, state_id);
+                                        continue;
+                                    }
+                                    let r = r - TE::ONE;
+                                    if !r.is_zero() {
+                                        // repetition is not exhausted
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                        let state_id = Self::from_ldfa_state_id_to_state_id_with_r(
+                                            state_id, r,
+                                        );
+                                        self.add_item_with_new_state(item, state_id);
+                                    } else {
+                                        Self::advance_item(
+                                            &self.grammar,
+                                            &mut self.to_be_completed_items,
+                                            &mut self.earley_sets,
+                                            item,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
-
-    fn advance_fsa(fsa: &FiniteStateAutomaton, state_id: TS, byte: u8) -> Vec<usize> {
-        let mut result = vec![];
-        let mut state = fsa.get_state(state_id);
-        for transition in state.transitions.iter() {
-            if transition.0.contains(byte) {
-                result.push(transition.1);
-            }
-        }
-        result
     }
 }

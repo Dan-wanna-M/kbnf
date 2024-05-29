@@ -5,10 +5,14 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use fixedbitset::on_stack::{get_nblock, FixedBitSet};
+use regex_automata::dfa::Automaton;
+use regex_automata::hybrid::dfa::Cache;
+use regex_automata::hybrid::LazyStateID;
+use regex_automata::util::primitives::StateID;
 
 use crate::vocabulary::{Token, Vocabulary};
 
-pub(crate) type ByteSet = FixedBitSet<{get_nblock(u8::MAX as usize)}>;
+pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReadRWKVVocabError {
@@ -18,9 +22,55 @@ pub enum ReadRWKVVocabError {
     LineParseError(String, String),
 }
 
+pub(crate) enum FsaStateStatus {
+    Accept,
+    Reject,
+    InProgress,
+}
+
+pub(crate) fn check_dfa_state_status(
+    dfa_state: StateID,
+    dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
+) -> FsaStateStatus {
+    if dfa.is_special_state(dfa_state)
+        && (dfa.is_dead_state(dfa_state)
+            || dfa.is_quit_state(dfa_state)
+            || dfa.is_match_state(dfa_state))
+    {
+        // match state is delayed by one byte, so if the current state is match state, it means the last byte is matched and hence we should terminate
+        return FsaStateStatus::Reject;
+    }
+    let dfa_state = dfa.next_eoi_state(dfa_state);
+    if dfa.is_match_state(dfa_state) {
+        FsaStateStatus::Accept
+    } else {
+        FsaStateStatus::InProgress
+    }
+}
+
+pub(crate) fn check_ldfa_state_status(
+    ldfa_state: LazyStateID,
+    cache: &mut Cache,
+    ldfa: &regex_automata::hybrid::dfa::DFA,
+) -> FsaStateStatus {
+    if ldfa_state.is_tagged()
+        && (ldfa_state.is_dead() || ldfa_state.is_quit() || ldfa_state.is_match())
+    {
+        // match state is delayed by one byte, so if the current state is match state, it means the last byte is matched and hence we should terminate
+        return FsaStateStatus::Reject;
+    }
+    let ldfa_state = ldfa.next_eoi_state(cache, ldfa_state).unwrap();
+    if ldfa_state.is_match() {
+        FsaStateStatus::Accept
+    } else {
+        FsaStateStatus::InProgress
+    }
+}
+
 /// Read the vocabulary from RWKV-world model series vocabulary file.
-pub fn read_rwkv_world_vocab(path: impl AsRef<Path>) -> Result<Arc<Vocabulary>, ReadRWKVVocabError>
-{
+pub fn read_rwkv_world_vocab(
+    path: impl AsRef<Path>,
+) -> Result<Arc<Vocabulary>, ReadRWKVVocabError> {
     let path = path.as_ref();
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);

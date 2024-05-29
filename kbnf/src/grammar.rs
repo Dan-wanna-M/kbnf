@@ -15,7 +15,7 @@ use num::{
 use regex_automata::dfa::Automaton;
 use regex_automata::Anchored;
 use string_interner::Symbol;
-
+pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TerminalID<T>(pub T)
 where
@@ -90,9 +90,14 @@ where
         + NumOps
         + NumAssign
         + std::cmp::PartialOrd
-        + std::convert::From<usize>
+        + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + std::convert::From<usize> + num::Bounded,
+    TE: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
 {
     pub fn new(input: &str, start_nonterminal: &str, config: Config) -> Result<Self, GrammarError> {
         let grammar = ebnf::get_grammar(input).map_err(|e| match e {

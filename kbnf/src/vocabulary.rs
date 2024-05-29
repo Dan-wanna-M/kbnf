@@ -35,7 +35,7 @@ impl Vocabulary {
         assert!(
             id_to_token.len() < 0x1000000,
             "max token id is larger than 2^24: {}",
-            id_to_token.len()-1
+            id_to_token.len() - 1
         );
         let mut first_byte_to_token = JaggedArray::with_capacity([256, 256]);
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
@@ -96,7 +96,9 @@ impl Vocabulary {
     }
 
     pub(crate) fn get_tokens_containing_separators(&self) -> impl Iterator<Item = (u32, &Token)> {
-        self.tokens_containing_separators.iter().map(|(x, y)| (*x, y))
+        self.tokens_containing_separators
+            .iter()
+            .map(|(x, y)| (*x, y))
     }
 }
 
