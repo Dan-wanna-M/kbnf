@@ -1,11 +1,10 @@
 use crate::config::Config;
 use crate::utils::ByteSet;
-use ebnf::node::{FinalNode, FinalRhs, OperatorFlattenedNode, Rhs};
+use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
 use ebnf::{self, regex::FiniteStateAutomaton};
-use fixedbitset::FixedBitSet;
-use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
+use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use nom::error::VerboseError;
 use num::traits::{NumAssign, NumOps};
 use num::{
@@ -60,6 +59,7 @@ where
     rules: JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
+    id_to_excepteds: Vec<FiniteStateAutomaton>,
     id_to_regex_first_bytes: Vec<ByteSet>,
     id_to_excepted_first_bytes: Vec<ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
@@ -71,6 +71,8 @@ pub enum GrammarError {
     ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to do this to remove lifetime so pyo3 works later
     #[error("EBNF semantics error: {0}")]
     SemanticError(#[from] Box<ebnf::semantic_error::SemanticError>),
+    #[error("The number of {0}, which is {1}, exceeds the maximum value {2}.")]
+    IntConversionError(String, usize, usize),
     #[error("Regex initialization error: {0}")]
     DfaStartError(#[from] regex_automata::dfa::StartError),
     #[error("Regex initialization error: {0}")]
@@ -81,9 +83,16 @@ pub enum GrammarError {
 
 impl<TI, TE> Grammar<TI, TE>
 where
-    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero + NumOps + NumAssign + std::cmp::PartialOrd,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    usize: num::traits::AsPrimitive<TI> + num::traits::AsPrimitive<TE>,
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::From<usize>
+        + num::Bounded,
+    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + std::convert::From<usize> + num::Bounded,
 {
     pub fn new(input: &str, start_nonterminal: &str, config: Config) -> Result<Self, GrammarError> {
         let grammar = ebnf::get_grammar(input).map_err(|e| match e {
@@ -119,24 +128,57 @@ where
         for FinalRhs { mut alternations } in grammar.expressions.into_iter() {
             rules.new_row::<0>();
             alternations.sort_unstable_by_key(|x| x.concatenations.len());
-            let len = alternations.last().unwrap().concatenations.len();
+            let len = alternations.last().unwrap().concatenations.len(); // Use the maximum length
             for dot in 0..len {
                 rules.new_row::<1>();
                 for alt in alternations.iter() {
                     if let Some(node) = alt.concatenations.get(dot) {
                         rules.push_to_last_row(match node {
-                            FinalNode::Terminal(x) => {
-                                LNFNode::Terminal(TerminalID(x.to_usize().as_()))
-                            }
-                            FinalNode::RegexString(x) => {
-                                LNFNode::RegexString(RegexID(x.to_usize().as_()))
-                            }
-                            FinalNode::Nonterminal(x) => {
-                                LNFNode::Nonterminal(NonterminalID(x.to_usize().as_()))
-                            }
+                            FinalNode::Terminal(x) => LNFNode::Terminal(TerminalID(
+                                x.to_usize().try_into().map_err(|_| {
+                                    GrammarError::IntConversionError(
+                                        "terminal".to_string(),
+                                        x.to_usize(),
+                                        TI::max_value().as_(),
+                                    )
+                                })?,
+                            )),
+                            FinalNode::RegexString(x) => LNFNode::RegexString(RegexID(
+                                x.to_usize().try_into().map_err(|_| {
+                                    GrammarError::IntConversionError(
+                                        "regex".to_string(),
+                                        x.to_usize(),
+                                        TI::max_value().as_(),
+                                    )
+                                })?,
+                            )),
+                            FinalNode::Nonterminal(x) => LNFNode::Nonterminal(NonterminalID(
+                                x.to_usize().try_into().map_err(|_| {
+                                    GrammarError::IntConversionError(
+                                        "nonterminal".to_string(),
+                                        x.to_usize(),
+                                        TI::max_value().as_(),
+                                    )
+                                })?,
+                            )),
                             FinalNode::EXCEPT(x, r) => LNFNode::EXCEPT(
-                                ExceptedID(x.to_usize().as_()),
-                                r.map(|x| x.to_usize().as_()),
+                                ExceptedID(x.to_usize().try_into().map_err(|_| {
+                                    GrammarError::IntConversionError(
+                                        "excepted".to_string(),
+                                        x.to_usize(),
+                                        TI::max_value().as_(),
+                                    )
+                                })?),
+                                match r {
+                                    Some(r) => Some(r.to_usize().try_into().map_err(|_| {
+                                        GrammarError::IntConversionError(
+                                            "repetition".to_string(),
+                                            r.to_usize(),
+                                            TE::max_value().as_(),
+                                        )
+                                    })?),
+                                    None => None,
+                                },
                             ),
                         });
                     }
@@ -144,19 +186,29 @@ where
             }
         }
         let id_to_regexes = grammar.id_to_regex;
+        let id_to_excepteds = grammar.id_to_excepted;
         let config = regex_automata::util::start::Config::new().anchored(Anchored::Yes);
         let id_to_regex_first_bytes =
             Self::construct_regex_first_bytes(&id_to_regexes, &config, false)?;
         let id_to_excepted_first_bytes =
-            Self::construct_regex_first_bytes(&grammar.id_to_excepted, &config, true)?;
+            Self::construct_regex_first_bytes(&id_to_excepteds, &config, true)?;
         Ok(Self {
-            start_nonterminal_id: NonterminalID(grammar.start_symbol.to_usize().as_()),
+            start_nonterminal_id: NonterminalID(
+                grammar.start_symbol.to_usize().try_into().map_err(|_| {
+                    GrammarError::IntConversionError(
+                        "start_nonterminal".to_string(),
+                        grammar.start_symbol.to_usize(),
+                        TI::max_value().as_(),
+                    )
+                })?,
+            ),
             rules,
             interned_strings: grammar.interned_strings,
             id_to_regexes,
             id_to_terminals,
             id_to_regex_first_bytes,
             id_to_excepted_first_bytes,
+            id_to_excepteds,
         })
     }
 
@@ -227,7 +279,7 @@ where
     }
     #[inline]
     pub fn get_production_len(&self, nonterminal_id: NonterminalID<TI>) -> usize {
-        self.rules.view::<1, 2>([nonterminal_id.0.as_()]).len()
+        self.rules.view::<2, 1>([nonterminal_id.0.as_(), 0]).len()
     }
     #[inline]
     pub fn get_interned_strings(&self) -> &InternedStrings {
@@ -238,19 +290,46 @@ where
         &self.id_to_regexes[regex_id.0.as_()]
     }
     #[inline]
+    pub fn get_excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
+        &self.id_to_excepteds[excepted_id.0.as_()]
+    }
+    #[inline]
     pub fn get_terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
         self.id_to_terminals.view([terminal_id.0.as_()]).as_slice()
+    }
+    #[inline]
+    pub fn get_id_to_terminals(&self) -> &JaggedArray<u8, Vec<usize>, 2> {
+        &self.id_to_terminals
+    }
+    #[inline]
+    pub fn get_id_to_regexes(&self) -> &[FiniteStateAutomaton] {
+        &self.id_to_regexes
+    }
+    #[inline]
+    pub fn get_id_to_excepteds(&self) -> &[FiniteStateAutomaton] {
+        &self.id_to_excepteds
     }
     #[inline]
     pub fn get_nonterminals_size(&self) -> usize {
         self.interned_strings.nonterminals.len()
     }
     #[inline]
-    pub fn get_first_bytes_from_regex(&self, regex_id: RegexID<TI>) -> &ByteSet {
+    pub(crate) fn get_first_bytes_from_regex(&self, regex_id: RegexID<TI>) -> &ByteSet {
         &self.id_to_regex_first_bytes[regex_id.0.as_()]
     }
     #[inline]
-    pub fn get_first_bytes_from_excepted(&self, excepted_id: ExceptedID<TI>) -> &ByteSet {
+    pub(crate) fn get_first_bytes_from_excepted(&self, excepted_id: ExceptedID<TI>) -> &ByteSet {
         &self.id_to_excepted_first_bytes[excepted_id.0.as_()]
+    }
+    #[inline]
+    pub(crate) fn get_dotted_productions(
+        &self,
+        nonterminal_id: NonterminalID<TI>,
+    ) -> JaggedArrayView<LNFNode<TI, TE>, usize, 2> {
+        self.rules.view::<1, 2>([nonterminal_id.0.as_()])
+    }
+    #[inline]
+    pub(crate) fn get_rules(&self) -> &JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3> {
+        &self.rules
     }
 }
