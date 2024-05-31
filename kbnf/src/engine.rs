@@ -54,6 +54,39 @@ where
     start_position: TSP,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Dotted<TN, TSP>
+where
+    TN: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+{
+    postdot_nonterminal_id: NonterminalID<TN>,
+    column: TSP,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum PostDotItems<TN, TD, TP, TSP, TS>
+where
+    TN: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    usize: num::traits::AsPrimitive<TN>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>,
+{
+    LeoEligible(EarleyItem<TN, TD, TP, TSP, TS>),
+    NormalItems(Vec<EarleyItem<TN, TD, TP, TSP, TS>>),
+}
+
+pub enum AcceptTokenResult {
+    InvalidTokenID,
+    Accepted,
+    Rejected,
+    Finished,
+}
+
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
     pub cache_enabled: bool,
@@ -82,7 +115,7 @@ pub enum EngineError {
     )]
     RepetitionInExceptedTooLarge(usize, usize),
 }
-
+#[allow(clippy::type_complexity)]
 #[derive(Debug, Clone)]
 pub struct Engine<TI, TE, TD, TP, TSP, TS>
 where
@@ -106,12 +139,21 @@ where
     regex_id_to_cache: AHashMap<RegexID<TI>, Cache>,
     excepted_id_to_cache: AHashMap<ExceptedID<TI>, Cache>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
+    to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
+    // Maybe a smallvec will be better. Profiling is needed to make a decision.
+    // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
+    postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+    // Maybe we could do a tree-like search to broaden the definition of leo items later.
+    leo_items: AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+    leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
     already_predicted_nonterminals: FixedBitSet,
+    finished: bool,
     config: EngineConfig,
     regex_start_config: regex_automata::util::start::Config,
     excepted_start_config: regex_automata::util::start::Config,
 }
-
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 impl<TI, TE, TD, TP, TSP, TS> Engine<TI, TE, TD, TP, TSP, TS>
 where
     TI: Num
@@ -175,6 +217,7 @@ where
         let regex_id_to_cache = AHashMap::default();
         let excepted_id_to_cache = AHashMap::default();
         let start = grammar.get_start_nonterminal_id();
+        let postdot_items = AHashMap::default();
         let mut engine = Self {
             vocabulary,
             grammar,
@@ -191,11 +234,88 @@ where
                 .anchored(regex_automata::Anchored::No),
             regex_id_to_cache,
             excepted_id_to_cache,
+            postdot_items,
+            leo_items: AHashMap::default(),
+            finished: false,
+            to_be_completed_items_buffer: AHashSet::default(),
+            leo_items_buffer: Vec::new(),
         };
-        engine.predict_nonterminal(start, 0); // init the first earley set
-        engine.predict(); // run a full prediction for the first earley set
+        Self::predict_nonterminal(
+            &engine.grammar,
+            &mut engine.earley_sets,
+            &mut engine.already_predicted_nonterminals,
+            &engine.regex_start_config,
+            &mut engine.regex_id_to_cache,
+            &mut engine.excepted_id_to_cache,
+            &engine.excepted_start_config,
+            start,
+            0,
+        ); // init the first Earley set
+        Self::predict(
+            &engine.grammar,
+            &mut engine.earley_sets,
+            &engine.regex_start_config,
+            &engine.excepted_start_config,
+            &mut engine.regex_id_to_cache,
+            &mut engine.excepted_id_to_cache,
+            &mut engine.already_predicted_nonterminals,
+        ); // run a full prediction for the first earley set
         engine.update_allowed_first_bytes();
+        Self::update_postdot_items(
+            &engine.grammar,
+            &mut engine.earley_sets,
+            &mut engine.postdot_items,
+        );
         Ok(engine)
+    }
+
+    pub fn try_accept_new_token(&mut self, token_id: u32) -> AcceptTokenResult {
+        let token = match self.vocabulary.get_token_from_token_id(token_id) {
+            Some(token) => token,
+            None => return AcceptTokenResult::InvalidTokenID,
+        };
+        if self.finished {
+            return AcceptTokenResult::Rejected; // already finished engine cannot accept new token
+        }
+        if self.allowed_token_ids.contains(token_id as usize) {
+            for &byte in token.0.iter() {
+                Self::scan(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.to_be_completed_items,
+                    &mut self.regex_id_to_cache,
+                    &mut self.excepted_id_to_cache,
+                    byte,
+                ); // create the next Earley set
+                Self::complete(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.to_be_completed_items,
+                    &mut self.to_be_completed_items_buffer,
+                    &mut self.leo_items,
+                    &mut self.leo_items_buffer,
+                    &self.postdot_items,
+                    &mut self.finished,
+                ); // complete the next Earley set
+                Self::predict(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &self.regex_start_config,
+                    &self.excepted_start_config,
+                    &mut self.regex_id_to_cache,
+                    &mut self.excepted_id_to_cache,
+                    &mut self.already_predicted_nonterminals,
+                ); // predict the next Earley set
+                Self::update_postdot_items(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.postdot_items,
+                ); // update postdot items for the next Earley item
+            }
+            AcceptTokenResult::Accepted
+        } else {
+            AcceptTokenResult::Rejected
+        }
     }
 
     fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
@@ -268,36 +388,61 @@ where
         Ok(())
     }
 
-    /// Run prediction stage of Earley algorithm.
-    fn predict(&mut self) {
-        let earley_set_index = self.earley_sets.len() - 1;
-        let mut earley_set_len = self.earley_sets.view::<1, 1>([earley_set_index]).len();
+    /// Run prediction stage of Earley algorithm on last Earley set and current already_predicted_nonterminals content
+    fn predict(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        regex_start_config: &regex_automata::util::start::Config,
+        excepted_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        already_predicted_nonterminals: &mut FixedBitSet,
+    ) {
+        let earley_set_index = earley_sets.len() - 1;
+        let mut earley_set_len = earley_sets.view::<1, 1>([earley_set_index]).len();
         let mut i = 0;
         while i < earley_set_len {
-            let item = self.earley_sets[[earley_set_index, i]];
-            let node = *self.grammar.get_node(
+            let item = earley_sets[[earley_set_index, i]];
+            let node = *grammar.get_node(
                 item.nonterminal_id,
                 item.dot_position,
                 item.production_index,
             );
             if let LNFNode::Nonterminal(nonterminal_id) = node {
-                earley_set_len += self.predict_nonterminal(nonterminal_id, earley_set_index);
+                earley_set_len += Self::predict_nonterminal(
+                    grammar,
+                    earley_sets,
+                    already_predicted_nonterminals,
+                    regex_start_config,
+                    regex_id_to_cache,
+                    excepted_id_to_cache,
+                    excepted_start_config,
+                    nonterminal_id,
+                    earley_set_index,
+                );
             }
             i += 1;
         }
+        already_predicted_nonterminals.clear();
     }
-    /// Predict one nonterminal according to Earley algorithm.
+    /// Predict one nonterminal according to Earley algorithm on the last Earley set.
     /// This function ensures no duplication happens.
     /// Returns earley set length increment due to prediction
     fn predict_nonterminal(
-        &mut self,
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        already_predicted_nonterminals: &mut FixedBitSet,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         nonterminal_id: NonterminalID<TI>,
         earley_set_index: usize,
     ) -> usize {
         let nid = nonterminal_id.0.as_();
-        if !self.already_predicted_nonterminals.contains(nid) {
-            self.already_predicted_nonterminals.insert(nid);
-            let production_len = self.grammar.get_production_len(nonterminal_id);
+        if !already_predicted_nonterminals.contains(nid) {
+            already_predicted_nonterminals.insert(nid);
+            let production_len = grammar.get_production_len(nonterminal_id);
             for j in 0..production_len {
                 let production_index = j.as_();
                 let new_item = EarleyItem {
@@ -305,25 +450,21 @@ where
                     dot_position: TD::ZERO,
                     production_index,
                     start_position: earley_set_index.as_(),
-                    state_id: match self.grammar.get_node(
-                        nonterminal_id,
-                        TD::ZERO,
-                        production_index,
-                    ) {
+                    state_id: match grammar.get_node(nonterminal_id, TD::ZERO, production_index) {
                         &LNFNode::RegexString(id) => {
-                            let fsa = self.grammar.get_regex(id);
+                            let fsa = grammar.get_regex(id);
                             match fsa {
                                 FiniteStateAutomaton::Dfa(dfa) => {
                                     // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start = dfa.start_state(&self.regex_start_config).unwrap();
+                                    let start = dfa.start_state(regex_start_config).unwrap();
                                     Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
                                 }
                                 FiniteStateAutomaton::LazyDFA(dfa) => {
                                     // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                                     let start = dfa
                                         .start_state(
-                                            self.regex_id_to_cache.get_mut(&id).unwrap(),
-                                            &self.regex_start_config,
+                                            regex_id_to_cache.get_mut(&id).unwrap(),
+                                            regex_start_config,
                                         )
                                         .unwrap();
                                     Self::from_ldfa_state_id_to_state_id(start)
@@ -331,12 +472,11 @@ where
                             }
                         }
                         LNFNode::EXCEPT(id, r) => {
-                            let fsa = self.grammar.get_excepted(*id);
+                            let fsa = grammar.get_excepted(*id);
                             match fsa {
                                 FiniteStateAutomaton::Dfa(dfa) => {
                                     // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start =
-                                        dfa.start_state(&self.excepted_start_config).unwrap();
+                                    let start = dfa.start_state(excepted_start_config).unwrap();
                                     match r {
                                         Some(r) => Self::from_dfa_state_id_to_state_id_with_r(
                                             start,
@@ -353,8 +493,8 @@ where
                                     // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                                     let start = dfa
                                         .start_state(
-                                            self.excepted_id_to_cache.get_mut(id).unwrap(),
-                                            &self.excepted_start_config,
+                                            excepted_id_to_cache.get_mut(id).unwrap(),
+                                            excepted_start_config,
                                         )
                                         .unwrap();
                                     match r {
@@ -369,7 +509,7 @@ where
                         _ => TS::ZERO,
                     },
                 };
-                self.earley_sets.push_to_last_row(new_item);
+                earley_sets.push_to_last_row(new_item);
             }
             production_len
         } else {
@@ -425,7 +565,7 @@ where
         true
     }
 
-    /// This function requires the newest Earley set has been created.
+    /// This function requires the next Earley set has been created.
     fn advance_item(
         grammar: &Grammar<TI, TE>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -455,7 +595,11 @@ where
         }
     }
     #[inline]
-    fn add_item_with_new_state(&mut self, item: EarleyItem<TI, TD, TP, TSP, TS>, state_id: TS) {
+    fn add_item_with_new_state(
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        item: EarleyItem<TI, TD, TP, TSP, TS>,
+        state_id: TS,
+    ) {
         let new_item = EarleyItem {
             nonterminal_id: item.nonterminal_id,
             dot_position: item.dot_position,
@@ -463,7 +607,7 @@ where
             start_position: item.start_position,
             state_id,
         };
-        self.earley_sets.push_to_last_row(new_item);
+        earley_sets.push_to_last_row(new_item);
     }
 
     #[inline]
@@ -476,7 +620,7 @@ where
     }
     #[inline]
     fn from_dfa_state_id_to_state_id(state_id: StateID, stride2: usize) -> TS {
-        // SAFETY: state_id is a u32 due to #[repr(transparent)] attribute
+        // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         let id: u32 = unsafe { std::mem::transmute(state_id) };
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
         ((id >> stride2) as usize).as_()
@@ -537,40 +681,42 @@ where
         // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
         (unsafe { std::mem::transmute(state_id) }, r.as_())
     }
-    /// This function requires the newest Earley set has been created.
-    // TODO: find some methods to reduce the repetitive code for regex and except!. Maybe we can use a trait to abstract the common part
-    fn scan(&mut self, byte: u8) {
-        let earley_set_index = self.earley_sets.len() - 1;
-        let earley_set_len = self.earley_sets.view::<1, 1>([earley_set_index]).len();
+    // TODO: find some methods to reduce the repetitive code for regex and except!. Maybe we need a macro.
+    fn scan(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        byte: u8,
+    ) {
+        let earley_set_index = earley_sets.len() - 1;
+        let earley_set_len = earley_sets.view::<1, 1>([earley_set_index]).len();
+        earley_sets.new_row::<0>();
         for i in 0..earley_set_len {
-            let item = self.earley_sets[[earley_set_index, i]];
-            let node = *self.grammar.get_node(
+            let item = earley_sets[[earley_set_index, i]];
+            let node = *grammar.get_node(
                 item.nonterminal_id,
                 item.dot_position,
                 item.production_index,
             );
             match node {
                 LNFNode::Terminal(terminal_id) => {
-                    let terminal = self.grammar.get_terminal(terminal_id);
+                    let terminal = grammar.get_terminal(terminal_id);
                     let index = Self::from_state_id_to_index(item.state_id);
                     if terminal[index] == byte {
                         let index = index + 1;
                         if index < terminal.len() {
                             let new_state_index = Self::from_index_to_state_id(index);
-                            self.add_item_with_new_state(item, new_state_index);
+                            Self::add_item_with_new_state(earley_sets, item, new_state_index);
                         } else {
-                            Self::advance_item(
-                                &self.grammar,
-                                &mut self.to_be_completed_items,
-                                &mut self.earley_sets,
-                                item,
-                            );
+                            Self::advance_item(grammar, to_be_completed_items, earley_sets, item);
                         }
                     }
                 }
 
                 LNFNode::RegexString(regex_id) => {
-                    let regex = self.grammar.get_regex(regex_id);
+                    let regex = grammar.get_regex(regex_id);
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             let state_id =
@@ -579,16 +725,16 @@ where
                             match utils::check_dfa_state_status(state_id, dfa) {
                                 utils::FsaStateStatus::Accept => {
                                     Self::advance_item(
-                                        &self.grammar,
-                                        &mut self.to_be_completed_items,
-                                        &mut self.earley_sets,
+                                        grammar,
+                                        to_be_completed_items,
+                                        earley_sets,
                                         item,
                                     );
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
                                     );
-                                    self.add_item_with_new_state(item, state_id);
+                                    Self::add_item_with_new_state(earley_sets, item, state_id);
                                 }
                                 utils::FsaStateStatus::Reject => {}
                                 utils::FsaStateStatus::InProgress => {
@@ -596,29 +742,29 @@ where
                                         state_id,
                                         dfa.stride2(),
                                     );
-                                    self.add_item_with_new_state(item, state_id);
+                                    Self::add_item_with_new_state(earley_sets, item, state_id);
                                 }
                             }
                         }
                         FiniteStateAutomaton::LazyDFA(ldfa) => {
                             let state_id = Self::from_state_id_to_ldfa_state_id(item.state_id);
-                            let cache = self.regex_id_to_cache.get_mut(&regex_id).unwrap();
+                            let cache = regex_id_to_cache.get_mut(&regex_id).unwrap();
                             let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
                             match utils::check_ldfa_state_status(state_id, cache, ldfa) {
                                 utils::FsaStateStatus::Accept => {
                                     Self::advance_item(
-                                        &self.grammar,
-                                        &mut self.to_be_completed_items,
-                                        &mut self.earley_sets,
+                                        grammar,
+                                        to_be_completed_items,
+                                        earley_sets,
                                         item,
                                     );
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
-                                    self.add_item_with_new_state(item, state_id);
+                                    Self::add_item_with_new_state(earley_sets, item, state_id);
                                 }
                                 utils::FsaStateStatus::Reject => {}
                                 utils::FsaStateStatus::InProgress => {
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
-                                    self.add_item_with_new_state(item, state_id);
+                                    Self::add_item_with_new_state(earley_sets, item, state_id);
                                 }
                             }
                         }
@@ -626,7 +772,7 @@ where
                 }
                 LNFNode::Nonterminal(_) => {}
                 LNFNode::EXCEPT(excepted_id, _) => {
-                    let fsa = self.grammar.get_excepted(excepted_id);
+                    let fsa = grammar.get_excepted(excepted_id);
                     match fsa {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             let (state_id, r) = Self::from_state_id_to_dfa_state_id_with_r(
@@ -644,25 +790,25 @@ where
                                     // repeat 1 or infinite times
                                     {
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                         let state_id = Self::from_dfa_state_id_to_state_id(
                                             state_id,
                                             dfa.stride2(),
                                         );
-                                        self.add_item_with_new_state(item, state_id);
+                                        Self::add_item_with_new_state(earley_sets, item, state_id);
                                         continue;
                                     }
                                     let r = r - TE::ONE;
                                     if !r.is_zero() {
                                         // repetition is not exhausted
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                         let state_id = Self::from_dfa_state_id_to_state_id_with_r(
@@ -670,12 +816,12 @@ where
                                             dfa.stride2(),
                                             r,
                                         );
-                                        self.add_item_with_new_state(item, state_id);
+                                        Self::add_item_with_new_state(earley_sets, item, state_id);
                                     } else {
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                     }
@@ -685,7 +831,7 @@ where
                         FiniteStateAutomaton::LazyDFA(ldfa) => {
                             let (state_id, r) =
                                 Self::from_state_id_to_ldfa_state_id_with_r(item.state_id);
-                            let cache = self.excepted_id_to_cache.get_mut(&excepted_id).unwrap();
+                            let cache = excepted_id_to_cache.get_mut(&excepted_id).unwrap();
                             let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
                             match utils::check_ldfa_state_status(state_id, cache, ldfa) {
                                 utils::FsaStateStatus::Accept => {}
@@ -697,34 +843,34 @@ where
                                     // repeat 1 or infinite times
                                     {
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                         let state_id =
                                             Self::from_ldfa_state_id_to_state_id(state_id);
-                                        self.add_item_with_new_state(item, state_id);
+                                        Self::add_item_with_new_state(earley_sets, item, state_id);
                                         continue;
                                     }
                                     let r = r - TE::ONE;
                                     if !r.is_zero() {
                                         // repetition is not exhausted
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                         let state_id = Self::from_ldfa_state_id_to_state_id_with_r(
                                             state_id, r,
                                         );
-                                        self.add_item_with_new_state(item, state_id);
+                                        Self::add_item_with_new_state(earley_sets, item, state_id);
                                     } else {
                                         Self::advance_item(
-                                            &self.grammar,
-                                            &mut self.to_be_completed_items,
-                                            &mut self.earley_sets,
+                                            grammar,
+                                            to_be_completed_items,
+                                            earley_sets,
                                             item,
                                         );
                                     }
@@ -734,6 +880,175 @@ where
                     }
                 }
             }
+        }
+    }
+    fn update_postdot_items(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+    ) {
+        let earley_set_index = earley_sets.len() - 1;
+        let earley_set = earley_sets.view::<1, 1>([earley_set_index]).as_slice();
+        for item in earley_set.iter() {
+            let node = *grammar.get_node(
+                item.nonterminal_id,
+                item.dot_position,
+                item.production_index,
+            );
+            if let LNFNode::Nonterminal(nonterminal) = node {
+                let postdot = Dotted {
+                    postdot_nonterminal_id: nonterminal,
+                    column: earley_set_index.as_(),
+                };
+                match postdot_items.entry(postdot) {
+                    std::collections::hash_map::Entry::Occupied(mut entry) => {
+                        let mut_ref = entry.get_mut();
+                        match mut_ref {
+                            &mut PostDotItems::LeoEligible(old_item) => {
+                                *mut_ref = PostDotItems::NormalItems(vec![old_item, *item]);
+                            }
+                            PostDotItems::NormalItems(items) => {
+                                items.push(*item);
+                            }
+                        }
+                    }
+                    std::collections::hash_map::Entry::Vacant(entry) => {
+                        entry.insert(PostDotItems::LeoEligible(*item));
+                    }
+                }
+            }
+        }
+        for v in postdot_items.values_mut() {
+            if let &mut PostDotItems::LeoEligible(item) = v {
+                if !Self::item_should_be_completed(
+                    grammar,
+                    item.nonterminal_id,
+                    item.dot_position + TD::ONE,
+                    item.production_index,
+                ) {
+                    // not a leo item
+                    *v = PostDotItems::NormalItems(vec![item]);
+                }
+            }
+        }
+    }
+    #[allow(clippy::type_complexity)]
+    fn try_leo_complete_item(
+        leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        mut topmost_item: ToBeCompletedItem<TI, TSP>,
+    ) -> Option<ToBeCompletedItem<TI, TSP>> {
+        if let Some(&leo_item) = leo_items.get(&topmost_item) {
+            return Some(leo_item);
+        }
+        leo_items_buffer.clear();
+        let mut is_leo = true;
+        while is_leo {
+            match postdot_items.get(&Dotted {
+                postdot_nonterminal_id: topmost_item.nonterminal_id,
+                column: topmost_item.start_position,
+            }) {
+                Some(v) => match v {
+                    &PostDotItems::LeoEligible(leo_item) => {
+                        leo_items_buffer.push(ToBeCompletedItem {
+                            nonterminal_id: topmost_item.nonterminal_id,
+                            start_position: topmost_item.start_position,
+                        });
+                        topmost_item = ToBeCompletedItem {
+                            nonterminal_id: leo_item.nonterminal_id,
+                            start_position: leo_item.start_position,
+                        };
+                    }
+                    PostDotItems::NormalItems(_) => {
+                        is_leo = false;
+                    }
+                },
+                None => {
+                    // We reach the beginning of the Earley sets
+                    is_leo = false;
+                }
+            };
+        }
+        if leo_items_buffer.is_empty() {
+            None
+        } else {
+            leo_items.reserve(leo_items_buffer.len());
+            for &leo_item in leo_items_buffer.iter() {
+                leo_items.insert(leo_item, topmost_item);
+            }
+            Some(topmost_item)
+        }
+    }
+    #[allow(clippy::type_complexity)]
+    fn earley_complete_one_item(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_item: ToBeCompletedItem<TI, TSP>,
+        postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        is_finished: &mut bool,
+    ) {
+        match postdot_items.get(&Dotted {
+            postdot_nonterminal_id: to_be_completed_item.nonterminal_id,
+            column: to_be_completed_item.start_position,
+        }) {
+            Some(v) => match v {
+                &PostDotItems::LeoEligible(_) => {
+                    unreachable!("Leo item should already be handled")
+                }
+                PostDotItems::NormalItems(items) => {
+                    for &item in items.iter() {
+                        Self::advance_item(grammar, to_be_completed_items_buffer, earley_sets, item)
+                    }
+                }
+            },
+            None => {
+                if grammar.get_start_nonterminal_id() == to_be_completed_item.nonterminal_id
+                    && to_be_completed_item.start_position == TSP::ZERO
+                {
+                    *is_finished = true;
+                }
+            }
+        }
+    }
+
+    fn complete(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
+        postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        finished: &mut bool,
+    ) {
+        to_be_completed_items_buffer.clear();
+        while !to_be_completed_items.is_empty() {
+            for item in to_be_completed_items.drain() {
+                if let Some(topmost_item) =
+                    Self::try_leo_complete_item(leo_items_buffer, leo_items, postdot_items, item)
+                {
+                    Self::earley_complete_one_item(
+                        grammar,
+                        earley_sets,
+                        topmost_item,
+                        postdot_items,
+                        to_be_completed_items_buffer,
+                        finished,
+                    );
+                } else {
+                    Self::earley_complete_one_item(
+                        grammar,
+                        earley_sets,
+                        item,
+                        postdot_items,
+                        to_be_completed_items_buffer,
+                        finished,
+                    );
+                }
+            }
+            std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
         }
     }
 }

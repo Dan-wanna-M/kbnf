@@ -56,6 +56,7 @@ where
     TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
 {
     start_nonterminal_id: NonterminalID<TI>,
+    // Maybe storing the nonterminal id with the node is better. Profiling is needed.
     rules: JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
@@ -68,7 +69,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum GrammarError {
     #[error("EBNF parsing error: {0}")]
-    ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to do this to remove lifetime so pyo3 works later
+    ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to clone the str to remove lifetime so pyo3 works later
     #[error("EBNF semantics error: {0}")]
     SemanticError(#[from] Box<ebnf::semantic_error::SemanticError>),
     #[error("The number of {0}, which is {1}, exceeds the maximum value {2}.")]
