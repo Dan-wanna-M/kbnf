@@ -1,6 +1,6 @@
 use ebnf::{grammar::CompressionConfig, regex::FiniteStateAutomatonConfig};
 
-use crate::engine::EngineConfig;
+use crate::engine_base::EngineConfig;
 #[derive(Debug, Clone)]
 pub struct Config {
     pub regex_config: FiniteStateAutomatonConfig,

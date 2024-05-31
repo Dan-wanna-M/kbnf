@@ -7,6 +7,7 @@ use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use nom::error::VerboseError;
 use num::traits::{NumAssign, NumOps};
+use num::Bounded;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero},
@@ -42,7 +43,7 @@ where
 pub enum LNFNode<T, TE>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq,
 {
     Terminal(TerminalID<T>),
     RegexString(RegexID<T>),
@@ -53,7 +54,7 @@ where
 pub struct Grammar<TI, TE>
 where
     TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq + Bounded,
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
@@ -93,12 +94,13 @@ where
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + std::convert::TryFrom<usize>,
 {
     pub fn new(input: &str, start_nonterminal: &str, config: Config) -> Result<Self, GrammarError> {
         let grammar = ebnf::get_grammar(input).map_err(|e| match e {
