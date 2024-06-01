@@ -137,6 +137,7 @@ where
     excepted_id_to_cache: AHashMap<ExceptedID<TI>, Cache>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
+    deduplication_buffer: AHashSet<EarleyItem<TI, TD,TP,TSP,TS>>,
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
@@ -236,6 +237,7 @@ where
             to_be_completed_items_buffer: AHashSet::default(),
             leo_items_buffer: Vec::new(),
             added_postdot_items: AHashSet::default(),
+            deduplication_buffer: AHashSet::default(),
         };
         engine.reset();
         Ok(engine)
@@ -488,13 +490,14 @@ where
         true
     }
 
-    /// This function requires the next Earley set has been created.
-    fn advance_item(
+    fn advance_item<T>(
         grammar: &Grammar<TI, TE>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        add_to_earley_set: T,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
-    ) {
+    ) where
+        T: FnOnce(EarleyItem<TI, TD, TP, TSP, TS>),
+    {
         let new_dotted_position = item.dot_position + 1.as_();
         if Self::item_should_be_completed(
             grammar,
@@ -514,9 +517,26 @@ where
                 start_position: item.start_position,
                 state_id: item.state_id,
             };
-            earley_sets.push_to_last_row(new_item);
+            add_to_earley_set(new_item);
         }
     }
+
+    fn advance_item_normal(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        item: EarleyItem<TI, TD, TP, TSP, TS>,
+    ) {
+        Self::advance_item(
+            grammar,
+            to_be_completed_items,
+            |new_item| {
+                earley_sets.push_to_last_row(new_item);
+            },
+            item,
+        );
+    }
+
     #[inline]
     fn add_item_with_new_state(
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -633,7 +653,12 @@ where
                             let new_state_index = Self::from_index_to_state_id(index);
                             Self::add_item_with_new_state(earley_sets, item, new_state_index);
                         } else {
-                            Self::advance_item(grammar, to_be_completed_items, earley_sets, item);
+                            Self::advance_item_normal(
+                                grammar,
+                                earley_sets,
+                                to_be_completed_items,
+                                item,
+                            );
                         }
                     }
                 }
@@ -647,10 +672,10 @@ where
                             let state_id = dfa.next_state(state_id, byte);
                             match utils::check_dfa_state_status(state_id, dfa) {
                                 utils::FsaStateStatus::Accept => {
-                                    Self::advance_item(
+                                    Self::advance_item_normal(
                                         grammar,
-                                        to_be_completed_items,
                                         earley_sets,
+                                        to_be_completed_items,
                                         item,
                                     );
                                     let state_id = Self::from_dfa_state_id_to_state_id(
@@ -675,10 +700,10 @@ where
                             let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
                             match utils::check_ldfa_state_status(state_id, cache, ldfa) {
                                 utils::FsaStateStatus::Accept => {
-                                    Self::advance_item(
+                                    Self::advance_item_normal(
                                         grammar,
-                                        to_be_completed_items,
                                         earley_sets,
+                                        to_be_completed_items,
                                         item,
                                     );
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
@@ -712,10 +737,10 @@ where
                                     if r.as_() == INVALID_REPETITION
                                     // repeat 1 or infinite times
                                     {
-                                        Self::advance_item(
+                                        Self::advance_item_normal(
                                             grammar,
-                                            to_be_completed_items,
                                             earley_sets,
+                                            to_be_completed_items,
                                             item,
                                         );
                                         let state_id = Self::from_dfa_state_id_to_state_id(
@@ -729,10 +754,10 @@ where
                                     match r {
                                         Some(r) => {
                                             // repetition is not exhausted
-                                            Self::advance_item(
+                                            Self::advance_item_normal(
                                                 grammar,
-                                                to_be_completed_items,
                                                 earley_sets,
+                                                to_be_completed_items,
                                                 item,
                                             );
                                             let state_id =
@@ -748,10 +773,10 @@ where
                                             );
                                         }
                                         None => {
-                                            Self::advance_item(
+                                            Self::advance_item_normal(
                                                 grammar,
-                                                to_be_completed_items,
                                                 earley_sets,
+                                                to_be_completed_items,
                                                 item,
                                             );
                                         }
@@ -773,10 +798,10 @@ where
                                     if r.as_() == INVALID_REPETITION
                                     // repeat 1 or infinite times
                                     {
-                                        Self::advance_item(
+                                        Self::advance_item_normal(
                                             grammar,
-                                            to_be_completed_items,
                                             earley_sets,
+                                            to_be_completed_items,
                                             item,
                                         );
                                         let state_id =
@@ -788,10 +813,10 @@ where
                                     match r {
                                         Some(r) => {
                                             // repetition is not exhausted
-                                            Self::advance_item(
+                                            Self::advance_item_normal(
                                                 grammar,
-                                                to_be_completed_items,
                                                 earley_sets,
+                                                to_be_completed_items,
                                                 item,
                                             );
                                             let state_id =
@@ -805,10 +830,10 @@ where
                                             );
                                         }
                                         None => {
-                                            Self::advance_item(
+                                            Self::advance_item_normal(
                                                 grammar,
-                                                to_be_completed_items,
                                                 earley_sets,
+                                                to_be_completed_items,
                                                 item,
                                             );
                                         }
@@ -924,10 +949,10 @@ where
     #[allow(clippy::type_complexity)]
     fn earley_complete_one_item(
         grammar: &Grammar<TI, TE>,
-        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
         is_finished: &mut bool,
     ) {
         match postdot_items.get(&Dotted {
@@ -940,7 +965,11 @@ where
                 }
                 PostDotItems::NormalItems(items) => {
                     for &item in items.iter() {
-                        Self::advance_item(grammar, to_be_completed_items_buffer, earley_sets, item)
+                        Self::advance_item(grammar, to_be_completed_items_buffer, 
+                            |item|{
+                                deduplication_buffer.insert(item);
+                            } // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
+                            , item)
                     }
                 }
             },
@@ -962,6 +991,7 @@ where
         leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
         finished: &mut bool,
     ) {
         to_be_completed_items_buffer.clear();
@@ -972,25 +1002,28 @@ where
                 {
                     Self::earley_complete_one_item(
                         grammar,
-                        earley_sets,
                         topmost_item,
                         postdot_items,
                         to_be_completed_items_buffer,
+                        deduplication_buffer,
                         finished,
                     );
                 } else {
                     Self::earley_complete_one_item(
                         grammar,
-                        earley_sets,
                         item,
                         postdot_items,
                         to_be_completed_items_buffer,
+                        deduplication_buffer,
                         finished,
                     );
                 }
             }
             std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
         }
+        for item in deduplication_buffer.drain() {
+            earley_sets.push_to_last_row(item);
+        } 
     }
 
     fn revert_change(
@@ -1028,6 +1061,7 @@ where
         regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
         excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         already_predicted_nonterminals: &mut FixedBitSet,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         previous_earley_set_length: usize,
@@ -1060,6 +1094,7 @@ where
             leo_items,
             leo_items_buffer,
             postdot_items,
+            deduplication_buffer,
             finished,
         ); // complete the next Earley set
         if Self::is_rejected(earley_sets) {
@@ -1144,6 +1179,7 @@ where
                 &mut self.regex_id_to_cache,
                 &mut self.excepted_id_to_cache,
                 &mut self.already_predicted_nonterminals,
+                &mut self.deduplication_buffer,
                 &self.regex_start_config,
                 &self.excepted_start_config,
                 len,
@@ -1188,6 +1224,7 @@ where
                                 &mut self.regex_id_to_cache,
                                 &mut self.excepted_id_to_cache,
                                 &mut self.already_predicted_nonterminals,
+                                &mut self.deduplication_buffer,
                                 &self.regex_start_config,
                                 &self.excepted_start_config,
                                 len,
@@ -1257,6 +1294,7 @@ where
                     &mut self.regex_id_to_cache,
                     &mut self.excepted_id_to_cache,
                     &mut self.already_predicted_nonterminals,
+                    &mut self.deduplication_buffer,
                     &self.regex_start_config,
                     &self.excepted_start_config,
                     len,
