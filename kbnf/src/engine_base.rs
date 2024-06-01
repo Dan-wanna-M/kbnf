@@ -3,6 +3,7 @@ use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
+use nonmax::NonMaxU32;
 use num::Bounded;
 use num::CheckedSub;
 use num::{
@@ -16,6 +17,7 @@ use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 use std::sync::Arc;
 
+use crate::engine_like::EngineLike;
 use crate::grammar::ExceptedID;
 use crate::grammar::RegexID;
 use crate::grammar::INVALID_REPETITION;
@@ -147,7 +149,6 @@ where
     config: EngineConfig,
     regex_start_config: regex_automata::util::start::Config,
     excepted_start_config: regex_automata::util::start::Config,
-    temporary_change: bool,
 }
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
@@ -212,7 +213,6 @@ where
             FixedBitSet::with_capacity(grammar.get_nonterminals_size());
         let regex_id_to_cache = AHashMap::default();
         let excepted_id_to_cache = AHashMap::default();
-        let start = grammar.get_start_nonterminal_id();
         let postdot_items = AHashMap::default();
         let mut engine = Self {
             vocabulary,
@@ -235,35 +235,9 @@ where
             finished: false,
             to_be_completed_items_buffer: AHashSet::default(),
             leo_items_buffer: Vec::new(),
-            temporary_change: false,
             added_postdot_items: AHashSet::default(),
         };
-        Self::predict_nonterminal(
-            &engine.grammar,
-            &mut engine.earley_sets,
-            &mut engine.already_predicted_nonterminals,
-            &engine.regex_start_config,
-            &mut engine.regex_id_to_cache,
-            &mut engine.excepted_id_to_cache,
-            &engine.excepted_start_config,
-            start,
-            0,
-        ); // init the first Earley set
-        Self::predict(
-            &engine.grammar,
-            &mut engine.earley_sets,
-            &engine.regex_start_config,
-            &engine.excepted_start_config,
-            &mut engine.regex_id_to_cache,
-            &mut engine.excepted_id_to_cache,
-            &mut engine.already_predicted_nonterminals,
-        ); // run a full prediction for the first earley set
-        engine.update_allowed_first_bytes();
-        Self::update_postdot_items(
-            &engine.grammar,
-            &mut engine.earley_sets,
-            &mut engine.postdot_items,
-        );
+        engine.reset();
         Ok(engine)
     }
 
@@ -851,6 +825,7 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
         let earley_set = earley_sets.view::<1, 1>([earley_set_index]).as_slice();
@@ -879,6 +854,7 @@ where
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
                         entry.insert(PostDotItems::LeoEligible(*item));
+                        added_postdot_items.insert(postdot);
                     }
                 }
             }
@@ -1015,5 +991,374 @@ where
             }
             std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
         }
+    }
+
+    fn revert_change(
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        earley_set_length: usize,
+        finished: &mut bool,
+    ) {
+        earley_sets.truncate::<0>(earley_set_length);
+        *finished = false;
+        for postdot in added_postdot_items.iter() {
+            postdot_items.remove(postdot);
+        }
+        added_postdot_items.clear();
+    }
+
+    fn commit_change(&mut self) {
+        self.added_postdot_items.clear();
+    }
+
+    fn is_rejected(earley_sets: &EarleySets<TI, TD, TP, TSP, TS>) -> bool {
+        earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
+    }
+
+    fn accept_byte(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        already_predicted_nonterminals: &mut FixedBitSet,
+        regex_start_config: &regex_automata::util::start::Config,
+        excepted_start_config: &regex_automata::util::start::Config,
+        previous_earley_set_length: usize,
+        finished: &mut bool,
+        byte: u8,
+    ) -> Result<(), crate::engine_like::AcceptTokenError> {
+        if *finished {
+            Self::revert_change(
+                earley_sets,
+                postdot_items,
+                added_postdot_items,
+                previous_earley_set_length,
+                finished,
+            );
+            return Err(crate::engine_like::AcceptTokenError::Rejected);
+        }
+        Self::scan(
+            grammar,
+            earley_sets,
+            to_be_completed_items,
+            regex_id_to_cache,
+            excepted_id_to_cache,
+            byte,
+        ); // scan the current Earley set and creates the next Earley set
+        Self::complete(
+            grammar,
+            earley_sets,
+            to_be_completed_items,
+            to_be_completed_items_buffer,
+            leo_items,
+            leo_items_buffer,
+            postdot_items,
+            finished,
+        ); // complete the next Earley set
+        if Self::is_rejected(earley_sets) {
+            Self::revert_change(
+                earley_sets,
+                postdot_items,
+                added_postdot_items,
+                previous_earley_set_length,
+                finished,
+            );
+            return Err(crate::engine_like::AcceptTokenError::Rejected);
+        }
+        Self::predict(
+            grammar,
+            earley_sets,
+            regex_start_config,
+            excepted_start_config,
+            regex_id_to_cache,
+            excepted_id_to_cache,
+            already_predicted_nonterminals,
+        ); // predict the next Earley set
+        Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
+        Ok(())
+    }
+}
+
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
+impl<TI, TE, TD, TP, TSP, TS> EngineLike for EngineBase<TI, TE, TD, TP, TSP, TS>
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + num::Bounded
+        + std::convert::TryFrom<usize>,
+    TI: Eq + std::hash::Hash + PartialEq,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + CheckedSub,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TI>
+        + num::traits::AsPrimitive<TE>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>
+        + num::traits::AsPrimitive<TS>,
+{
+    fn try_accept_new_token(
+        &mut self,
+        token_id: u32,
+    ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
+        if self.is_finished() {
+            return Err(crate::engine_like::AcceptTokenError::Finished);
+        }
+        let token = match self.vocabulary.get_token_from_token_id(token_id) {
+            Some(token) => token,
+            None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
+        };
+        let len = self.earley_sets.len();
+        for byte in token.0.iter() {
+            Self::accept_byte(
+                &self.grammar,
+                &mut self.earley_sets,
+                &mut self.to_be_completed_items,
+                &mut self.to_be_completed_items_buffer,
+                &mut self.leo_items,
+                &mut self.leo_items_buffer,
+                &mut self.postdot_items,
+                &mut self.added_postdot_items,
+                &mut self.regex_id_to_cache,
+                &mut self.excepted_id_to_cache,
+                &mut self.already_predicted_nonterminals,
+                &self.regex_start_config,
+                &self.excepted_start_config,
+                len,
+                &mut self.finished,
+                *byte,
+            )?;
+        }
+        self.commit_change();
+        if self.is_finished() {
+            Ok(crate::engine_like::AcceptTokenResult::Finished)
+        } else {
+            Ok(crate::engine_like::AcceptTokenResult::Ongoing)
+        }
+    }
+
+    fn compute_allowed_token_ids(&mut self) {
+        self.allowed_token_ids.clear();
+        if self.is_finished() {
+            return;
+        }
+        let len = self.earley_sets.len();
+        self.update_allowed_first_bytes();
+        for byte in self.allowed_first_bytes.ones() {
+            let mut current_token_id: Option<NonMaxU32> = None;
+            let mut token_iter = self
+                .vocabulary
+                .get_normal_tokens_from_first_byte(byte as u8);
+            #[allow(clippy::while_let_loop)]
+            'outer: loop {
+                if let Some(token_byte) = token_iter.next() {
+                    match token_byte {
+                        Some(token_byte) => {
+                            if Self::accept_byte(
+                                &self.grammar,
+                                &mut self.earley_sets,
+                                &mut self.to_be_completed_items,
+                                &mut self.to_be_completed_items_buffer,
+                                &mut self.leo_items,
+                                &mut self.leo_items_buffer,
+                                &mut self.postdot_items,
+                                &mut self.added_postdot_items,
+                                &mut self.regex_id_to_cache,
+                                &mut self.excepted_id_to_cache,
+                                &mut self.already_predicted_nonterminals,
+                                &self.regex_start_config,
+                                &self.excepted_start_config,
+                                len,
+                                &mut self.finished,
+                                token_byte.into(),
+                            )
+                            .is_err()
+                            // The token is rejected
+                            {
+                                loop {
+                                    let a = token_iter.next();
+                                    match a {
+                                        Some(Some(_)) => {} // skip the remaining token bytes
+                                        Some(None) => {
+                                            // reach the next token
+                                            current_token_id = token_iter.get_current_token_id();
+                                            break;
+                                        }
+                                        None => {
+                                            // reach the end of the token iterator
+                                            break 'outer;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            // The token is accepted
+                            Self::revert_change(
+                                &mut self.earley_sets,
+                                &mut self.postdot_items,
+                                &mut self.added_postdot_items,
+                                len,
+                                &mut self.finished,
+                            );
+                            if let Some(token_id) = current_token_id {
+                                self.allowed_token_ids.insert(token_id.get() as usize);
+                            }
+                            current_token_id = token_iter.get_current_token_id();
+                        }
+                    }
+                } else {
+                    // reach the end of the token iterator, revert the last token's change
+                    Self::revert_change(
+                        &mut self.earley_sets,
+                        &mut self.postdot_items,
+                        &mut self.added_postdot_items,
+                        len,
+                        &mut self.finished,
+                    );
+                    break;
+                }
+            }
+        }
+        for (token_id, token) in self.vocabulary.get_tokens_containing_separators() {
+            let mut accepted = true;
+            for byte in token.0.iter() {
+                if Self::accept_byte(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.to_be_completed_items,
+                    &mut self.to_be_completed_items_buffer,
+                    &mut self.leo_items,
+                    &mut self.leo_items_buffer,
+                    &mut self.postdot_items,
+                    &mut self.added_postdot_items,
+                    &mut self.regex_id_to_cache,
+                    &mut self.excepted_id_to_cache,
+                    &mut self.already_predicted_nonterminals,
+                    &self.regex_start_config,
+                    &self.excepted_start_config,
+                    len,
+                    &mut self.finished,
+                    *byte,
+                )
+                .is_err()
+                // The token is rejected
+                {
+                    accepted = false;
+                    break;
+                }
+            }
+            if accepted {
+                self.allowed_token_ids.insert(token_id as usize);
+            }
+        }
+    }
+
+    fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
+        if logits.len() != self.vocabulary.get_vocab_size() {
+            return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
+        }
+        for (token_id, logit) in logits.iter_mut().enumerate() {
+            if !self.allowed_token_ids.contains(token_id) {
+                *logit = f32::NEG_INFINITY;
+            }
+        }
+        Ok(())
+    }
+
+    fn update_logits(
+        &mut self,
+        token_id: u32,
+        logits: &mut [f32],
+    ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::UpdateLogitsError> {
+        self.try_accept_new_token(token_id).map_err(|e| match e {
+            crate::engine_like::AcceptTokenError::Finished => {
+                crate::engine_like::UpdateLogitsError::Finished
+            }
+            crate::engine_like::AcceptTokenError::UnknownTokenID => {
+                crate::engine_like::UpdateLogitsError::UnknownTokenID
+            }
+            crate::engine_like::AcceptTokenError::Rejected => {
+                crate::engine_like::UpdateLogitsError::Rejected
+            }
+        })?;
+        self.compute_allowed_token_ids();
+        self.mask_logits(logits).map_err(|e| match e {
+            crate::engine_like::MaskLogitsError::InvalidLogitsLength => {
+                crate::engine_like::UpdateLogitsError::InvalidLogitsLength
+            }
+        })?;
+        Ok(crate::engine_like::AcceptTokenResult::Ongoing)
+    }
+
+    fn get_allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
+        &self.allowed_token_ids
+    }
+
+    fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    fn reset(&mut self) {
+        self.earley_sets.clear();
+        self.to_be_completed_items.clear();
+        self.to_be_completed_items_buffer.clear();
+        self.leo_items.clear();
+        self.leo_items_buffer.clear();
+        self.postdot_items.clear();
+        self.added_postdot_items.clear();
+        self.already_predicted_nonterminals.clear();
+        self.finished = false;
+        self.allowed_token_ids.clear();
+        self.allowed_first_bytes.clear();
+        Self::predict_nonterminal(
+            &self.grammar,
+            &mut self.earley_sets,
+            &mut self.already_predicted_nonterminals,
+            &self.regex_start_config,
+            &mut self.regex_id_to_cache,
+            &mut self.excepted_id_to_cache,
+            &self.excepted_start_config,
+            self.grammar.get_start_nonterminal_id(),
+            0,
+        ); // init the first Earley set
+        Self::predict(
+            &self.grammar,
+            &mut self.earley_sets,
+            &self.regex_start_config,
+            &self.excepted_start_config,
+            &mut self.regex_id_to_cache,
+            &mut self.excepted_id_to_cache,
+            &mut self.already_predicted_nonterminals,
+        ); // run a full prediction for the first earley set
+        Self::update_postdot_items(
+            &self.grammar,
+            &mut self.earley_sets,
+            &mut self.postdot_items,
+            &mut AHashSet::default(),
+            // We will never need to revert the engine's state since it is the initialization
+        );
     }
 }

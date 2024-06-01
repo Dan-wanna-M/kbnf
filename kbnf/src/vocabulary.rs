@@ -129,3 +129,10 @@ impl Iterator for TokensIter<'_> {
         })
     }
 }
+
+impl TokensIter<'_>
+{
+    pub fn get_current_token_id(&self) -> Option<NonMaxU32> {
+        self.current_token_id
+    }
+}

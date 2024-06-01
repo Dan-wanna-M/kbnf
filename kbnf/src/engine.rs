@@ -1,4 +1,9 @@
-use crate::{engine_base::EngineBase, non_zero::{NonZeroU16, NonZeroU8}};
+use crate::{
+    engine_base::EngineBase,
+    engine_like::EngineLike,
+    non_zero::{NonZeroU16, NonZeroU8},
+};
+/// An enum that represents the common type combinations of `EngineBase`.
 pub(crate) enum EngineUnion {
     /// Typical simple grammar with lazy/complex dfa
     U8U8U8U8U8U32(EngineBase<u8, NonZeroU8, u8, u8, u8, u32>),
