@@ -1,5 +1,6 @@
 use std::ops::Sub;
 
+use nom::error;
 use num::cast::AsPrimitive;
 use num::{Bounded, CheckedSub};
 pub trait ConstOne {
@@ -11,9 +12,29 @@ pub(crate) struct NonZeroU8(std::num::NonZeroU8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct NonZeroU16(std::num::NonZeroU16);
+#[derive(Debug,thiserror::Error)]
+pub enum NonZeroError {
+    #[error("Non zero type cannot be zero")]
+    ZeroError,
+    #[error("The value is {0} while the max value supported is {1}")]
+    OverflowError(usize,usize),
+}
 
 macro_rules! non_zero_impl {
     ($t:path, $t1:ty,$t2:path ) => {
+        impl AsPrimitive<$t> for usize {
+            fn as_(self) -> $t {
+                <$t>::try_from(self).unwrap()
+            }
+        }
+        impl TryFrom<usize> for $t {
+            type Error = NonZeroError;
+            fn try_from(value: usize) -> Result<Self, Self::Error> {
+                let value = value.try_into().map_err(|_| NonZeroError::OverflowError(value,<$t2>::MAX as usize))?;
+                <$t1>::new(value).map(|x| $t(x)).ok_or(NonZeroError::ZeroError)
+            }
+        }
+        
         impl From<$t> for $t1 {
             fn from(value: $t) -> $t1 {
                 value.0

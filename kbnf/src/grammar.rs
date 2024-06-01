@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::InternalConfig;
 use crate::utils::ByteSet;
 use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
@@ -102,7 +102,7 @@ where
         + Bounded
         + std::convert::TryFrom<usize>,
 {
-    pub fn new(input: &str, start_nonterminal: &str, config: Config) -> Result<Self, GrammarError> {
+    pub fn new(input: &str, start_nonterminal: &str, config: InternalConfig) -> Result<Self, GrammarError> {
         let grammar = ebnf::get_grammar(input).map_err(|e| match e {
             nom::Err::Error(e) => nom::Err::Error(VerboseError {
                 errors: e
