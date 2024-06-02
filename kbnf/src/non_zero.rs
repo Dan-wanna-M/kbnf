@@ -46,6 +46,11 @@ macro_rules! non_zero_impl {
                 value.0
             }
         }
+        impl From<$t> for usize {
+            fn from(value: $t) -> usize {
+                value.0.get() as usize
+            }
+        }
         impl From<$t1> for $t {
             fn from(value: $t1) -> $t {
                 $t(value)
@@ -124,7 +129,7 @@ impl TryFrom<usize> for Zero {
     }
 }
 impl From<Zero> for usize {
-    fn from(value: Zero) -> usize {
+    fn from(_: Zero) -> usize {
         0
     }
 }

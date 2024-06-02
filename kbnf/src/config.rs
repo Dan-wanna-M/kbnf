@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine_base::EngineConfig;
 #[derive(Debug, Clone)]
-pub(crate) struct InternalConfig {
+pub struct InternalConfig {
     pub regex_config: FiniteStateAutomatonConfig,
     pub compression_config: ebnf::grammar::CompressionConfig,
     pub engine_config: EngineConfig,

@@ -5,7 +5,6 @@ use ebnf::InternedStrings;
 use ebnf::{self, regex::FiniteStateAutomaton};
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
-use nom::error::VerboseError;
 use num::traits::{NumAssign, NumOps};
 use num::Bounded;
 use num::{

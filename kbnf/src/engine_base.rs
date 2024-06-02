@@ -1414,4 +1414,8 @@ where
             // We will never need to revert the engine's state since it is the initialization
         );
     }
+
+    fn into_boxed_engine(self) -> Box<dyn EngineLike> {
+        Box::new(self)
+    }
 }
