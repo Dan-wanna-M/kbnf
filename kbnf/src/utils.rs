@@ -4,12 +4,22 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ahash::AHashMap;
+use ebnf::grammar::SimplifiedGrammar;
+use ebnf::node::FinalNode;
+use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::on_stack::{get_nblock, FixedBitSet};
+use jaggedarray::jagged_array::JaggedArrayViewTrait;
+use nom::error::VerboseError;
+use num::cast::AsPrimitive;
+use num::traits::{ConstOne, ConstZero, NumAssign, NumOps};
+use num::{Bounded, Num};
 use regex_automata::dfa::Automaton;
 use regex_automata::hybrid::dfa::Cache;
 use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 
+use crate::config::InternalConfig;
+use crate::grammar::{Grammar, GrammarError};
 use crate::vocabulary::{Token, Vocabulary};
 
 pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
@@ -28,6 +38,148 @@ pub(crate) enum FsaStateStatus {
     InProgress,
 }
 
+pub fn construct_ebnf_grammar(
+    input: &str,
+    config: InternalConfig,
+) -> Result<SimplifiedGrammar, GrammarError> {
+    let grammar = ebnf::get_grammar(input).map_err(|e| match e {
+        nom::Err::Error(e) => nom::Err::Error(VerboseError {
+            errors: e
+                .errors
+                .into_iter()
+                .map(|(e, v)| (e.to_string(), v))
+                .collect::<Vec<_>>(),
+        }),
+        nom::Err::Failure(e) => nom::Err::Failure(VerboseError {
+            errors: e
+                .errors
+                .into_iter()
+                .map(|(e, v)| (e.to_string(), v))
+                .collect::<Vec<_>>(),
+        }),
+        nom::Err::Incomplete(e) => nom::Err::Incomplete(e),
+    })?;
+    let grammar = grammar.validate_grammar(&config.start_nonterminal, config.regex_config)?;
+    let grammar = grammar.simplify_grammar(config.compression_config, config.excepted_config);
+    Ok(grammar)
+}
+
+pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
+    let mut max_repetition = 0;
+    for rule in grammar.expressions.iter() {
+        for production in rule.alternations.iter() {
+            for symbol in production.concatenations.iter() {
+                if let &FinalNode::EXCEPT(_, Some(r)) = symbol {
+                    max_repetition = max_repetition.max(r);
+                }
+            }
+        }
+    }
+    max_repetition
+}
+
+pub fn find_max_state_id_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + std::convert::TryFrom<usize>,
+{
+    let mut max_state_id = 0;
+    let terminals = grammar.get_id_to_terminals();
+    for i in 0..terminals.len()
+    {
+        max_state_id = max_state_id.max(terminals.view::<1,1>([i]).len());
+    }
+    let regexes = grammar.get_id_to_regexes();
+    for i in regexes
+    {
+        max_state_id = max_state_id.max(match i {
+            FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
+            FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
+        });
+    }
+    let excepted = grammar.get_id_to_excepteds();
+    for i in excepted
+    {
+        max_state_id = max_state_id.max(match i {
+            FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
+            FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
+        });
+    }
+    max_state_id
+}
+pub fn find_max_dotted_position_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + std::convert::TryFrom<usize>,
+{
+    let mut max_dotted_position = 0;
+    let rules = grammar.get_rules();
+    for i in 0..rules.len()
+    {
+        let view = rules.view::<1,2>([i]);
+        max_dotted_position = max_dotted_position.max(view.len());
+    }
+    max_dotted_position
+}
+pub fn find_max_production_id_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + std::convert::TryFrom<usize>,
+{
+    let mut max_production_id = 0;
+    let rules = grammar.get_rules();
+    for i in 0..rules.len()
+    {
+        let view = rules.view::<1,2>([i]);
+        for j in 0..view.len()
+        {
+            max_production_id = max_production_id.max(view.view::<1,1>([j]).len());
+        }
+    }
+    max_production_id
+}
 pub(crate) fn check_dfa_state_status(
     dfa_state: StateID,
     dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,

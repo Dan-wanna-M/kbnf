@@ -15,6 +15,8 @@ use regex_automata::dfa::Automaton;
 use regex_automata::hybrid::dfa::Cache;
 use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
+use serde::Deserialize;
+use serde::Serialize;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
@@ -23,8 +25,9 @@ use crate::grammar::RegexID;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::ByteSet;
+use crate::vocabulary::TokenIterItem;
 use crate::{
-    grammar::{Grammar, LNFNode, NonterminalID},
+    grammar::{Grammar, HIRNode, NonterminalID},
     vocabulary::Vocabulary,
 };
 type EarleySets<TN, TD, TP, TSP, TS> = JaggedArray<EarleyItem<TN, TD, TP, TSP, TS>, Vec<usize>, 2>;
@@ -83,14 +86,23 @@ where
     LeoEligible(EarleyItem<TN, TD, TP, TSP, TS>),
     NormalItems(Vec<EarleyItem<TN, TD, TP, TSP, TS>>),
 }
-
-#[derive(Debug, Clone)]
+/// The specific config of the engine
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct EngineConfig {
+    /// Whether the cache is enabled. Caching speeds up the engine if any of the following conditions are met:
+    /// 1. The grammar is 'simple'. What exactly constitutes a simple grammar is not well defined at the moment but
+    /// grammars purely made of left recursive rules, right recursive rules and/or regular rules should be simple.
+    /// 2. The grammar is reused multiple times for inputs of similar lengths.
+    /// It is enabled by default.
     pub cache_enabled: bool,
+    /// Whether the compaction is enabled. Compaction reduces the memory usage of the engine and
+    /// should not affect the performance significantly. In particular, usually caching requires compaction to be effective.
+    /// It is enabled by default.
+    pub compaction_enabled: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum EngineError {
+pub enum EngineBaseError {
     #[error(
         "Terminal length {0} exceeds {1}, the maximum terminal length allowed by current size of StateID(TS).
      Consider reducing terminal length or use larger StateID(TS)."
@@ -137,7 +149,7 @@ where
     excepted_id_to_cache: AHashMap<ExceptedID<TI>, Cache>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
-    deduplication_buffer: AHashSet<EarleyItem<TI, TD,TP,TSP,TS>>,
+    deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
@@ -192,7 +204,7 @@ where
         vocabulary: Arc<Vocabulary>,
         grammar: Arc<Grammar<TI, TE>>,
         config: EngineConfig,
-    ) -> Result<Self, EngineError> {
+    ) -> Result<Self, EngineBaseError> {
         // Verify necessary conditions
         assert!(
             Self::STATE_ID_TYPE_SIZE <= USIZE_WIDTH,
@@ -243,31 +255,31 @@ where
         Ok(engine)
     }
 
-    fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
+    fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
         let terminals = grammar.get_id_to_terminals();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
             let terminal = terminals.view::<1, 1>([i]);
             if terminal.len() > max {
-                return Err(EngineError::TerminalTooLong(terminal.len(), max));
+                return Err(EngineBaseError::TerminalTooLong(terminal.len(), max));
             }
         }
         Ok(())
     }
 
-    fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
+    fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
         let regexes = grammar.get_id_to_regexes();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
             match fsa {
                 FiniteStateAutomaton::Dfa(dfa) => {
                     if dfa.state_len() > max {
-                        return Err(EngineError::RegexTooLarge(dfa.state_len(), max));
+                        return Err(EngineBaseError::RegexTooLarge(dfa.state_len(), max));
                     }
                 }
                 FiniteStateAutomaton::LazyDFA(_) => {
                     if LazyStateID::MAX > max {
-                        return Err(EngineError::RegexTooLarge(LazyStateID::MAX, max));
+                        return Err(EngineBaseError::RegexTooLarge(LazyStateID::MAX, max));
                     }
                 }
             }
@@ -275,7 +287,7 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_excepted(grammar: &Grammar<TI, TE>) -> Result<(), EngineError> {
+    fn validate_ts_size_for_excepted(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
         let rules = grammar.get_rules();
         for i in 0..rules.len() {
             let productions = rules.view::<1, 2>([i]);
@@ -283,7 +295,7 @@ where
                 let column = productions.view::<1, 1>([j]);
                 for k in 0..column.len() {
                     let node = column[[k]];
-                    if let LNFNode::EXCEPT(id, _) = node {
+                    if let HIRNode::EXCEPT(id, _) = node {
                         // repetition is verified in grammar
                         let fsa = grammar.get_excepted(id);
                         let max: usize =
@@ -291,7 +303,7 @@ where
                         match fsa {
                             FiniteStateAutomaton::Dfa(dfa) => {
                                 if dfa.state_len() > max {
-                                    return Err(EngineError::ExceptedTooLarge(
+                                    return Err(EngineBaseError::ExceptedTooLarge(
                                         dfa.state_len(),
                                         max,
                                     ));
@@ -299,7 +311,7 @@ where
                             }
                             FiniteStateAutomaton::LazyDFA(_) => {
                                 if LazyStateID::MAX > max {
-                                    return Err(EngineError::ExceptedTooLarge(
+                                    return Err(EngineBaseError::ExceptedTooLarge(
                                         LazyStateID::MAX,
                                         max,
                                     ));
@@ -333,7 +345,7 @@ where
                 item.dot_position,
                 item.production_index,
             );
-            if let LNFNode::Nonterminal(nonterminal_id) = node {
+            if let HIRNode::Nonterminal(nonterminal_id) = node {
                 earley_set_len += Self::predict_nonterminal(
                     grammar,
                     earley_sets,
@@ -376,7 +388,7 @@ where
                     production_index,
                     start_position: earley_set_index.as_(),
                     state_id: match grammar.get_node(nonterminal_id, TD::ZERO, production_index) {
-                        &LNFNode::RegexString(id) => {
+                        &HIRNode::RegexString(id) => {
                             let fsa = grammar.get_regex(id);
                             match fsa {
                                 FiniteStateAutomaton::Dfa(dfa) => {
@@ -396,7 +408,7 @@ where
                                 }
                             }
                         }
-                        LNFNode::EXCEPT(id, r) => {
+                        HIRNode::EXCEPT(id, r) => {
                             let fsa = grammar.get_excepted(*id);
                             match fsa {
                                 FiniteStateAutomaton::Dfa(dfa) => {
@@ -453,15 +465,15 @@ where
                 item.production_index,
             );
             match node {
-                LNFNode::Terminal(terminal_id) => {
+                HIRNode::Terminal(terminal_id) => {
                     self.allowed_first_bytes
                         .insert(self.grammar.get_terminal(terminal_id)[0].as_());
                 }
-                LNFNode::RegexString(regex_id) => {
+                HIRNode::RegexString(regex_id) => {
                     self.allowed_first_bytes
                         .union_with(self.grammar.get_first_bytes_from_regex(regex_id));
                 }
-                LNFNode::EXCEPT(excepted_id, _) => {
+                HIRNode::EXCEPT(excepted_id, _) => {
                     self.allowed_first_bytes
                         .union_with(self.grammar.get_first_bytes_from_excepted(excepted_id));
                 }
@@ -644,7 +656,7 @@ where
                 item.production_index,
             );
             match node {
-                LNFNode::Terminal(terminal_id) => {
+                HIRNode::Terminal(terminal_id) => {
                     let terminal = grammar.get_terminal(terminal_id);
                     let index = Self::from_state_id_to_index(item.state_id);
                     if terminal[index] == byte {
@@ -663,7 +675,7 @@ where
                     }
                 }
 
-                LNFNode::RegexString(regex_id) => {
+                HIRNode::RegexString(regex_id) => {
                     let regex = grammar.get_regex(regex_id);
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
@@ -718,8 +730,8 @@ where
                         }
                     }
                 }
-                LNFNode::Nonterminal(_) => {}
-                LNFNode::EXCEPT(excepted_id, _) => {
+                HIRNode::Nonterminal(_) => {}
+                HIRNode::EXCEPT(excepted_id, _) => {
                     let fsa = grammar.get_excepted(excepted_id);
                     match fsa {
                         FiniteStateAutomaton::Dfa(dfa) => {
@@ -860,7 +872,7 @@ where
                 item.dot_position,
                 item.production_index,
             );
-            if let LNFNode::Nonterminal(nonterminal) = node {
+            if let HIRNode::Nonterminal(nonterminal) = node {
                 let postdot = Dotted {
                     postdot_nonterminal_id: nonterminal,
                     column: earley_set_index.as_(),
@@ -952,7 +964,7 @@ where
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         is_finished: &mut bool,
     ) {
         match postdot_items.get(&Dotted {
@@ -965,11 +977,14 @@ where
                 }
                 PostDotItems::NormalItems(items) => {
                     for &item in items.iter() {
-                        Self::advance_item(grammar, to_be_completed_items_buffer, 
-                            |item|{
+                        Self::advance_item(
+                            grammar,
+                            to_be_completed_items_buffer,
+                            |item| {
                                 deduplication_buffer.insert(item);
-                            } // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
-                            , item)
+                            }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
+                            item,
+                        )
                     }
                 }
             },
@@ -991,7 +1006,7 @@ where
         leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         finished: &mut bool,
     ) {
         to_be_completed_items_buffer.clear();
@@ -1023,7 +1038,7 @@ where
         }
         for item in deduplication_buffer.drain() {
             earley_sets.push_to_last_row(item);
-        } 
+        }
     }
 
     fn revert_change(
@@ -1061,7 +1076,7 @@ where
         regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
         excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         already_predicted_nonterminals: &mut FixedBitSet,
-        deduplication_buffer: &mut AHashSet<EarleyItem<TI,TD,TP,TSP,TS>>,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         previous_earley_set_length: usize,
@@ -1211,7 +1226,7 @@ where
             'outer: loop {
                 if let Some(token_byte) = token_iter.next() {
                     match token_byte {
-                        Some(token_byte) => {
+                        TokenIterItem::TokenByte(token_byte) => {
                             if Self::accept_byte(
                                 &self.grammar,
                                 &mut self.earley_sets,
@@ -1237,8 +1252,8 @@ where
                                 loop {
                                     let a = token_iter.next();
                                     match a {
-                                        Some(Some(_)) => {} // skip the remaining token bytes
-                                        Some(None) => {
+                                        Some(TokenIterItem::TokenByte(_)) => {} // skip the remaining token bytes
+                                        Some(TokenIterItem::NewToken) => {
                                             // reach the next token
                                             current_token_id = token_iter.get_current_token_id();
                                             break;
@@ -1251,7 +1266,7 @@ where
                                 }
                             }
                         }
-                        None => {
+                        TokenIterItem::NewToken => {
                             // The token is accepted
                             Self::revert_change(
                                 &mut self.earley_sets,

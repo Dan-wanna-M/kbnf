@@ -27,6 +27,18 @@ pub struct Vocabulary {
 }
 
 impl Vocabulary {
+    /// Creates a new instance of `Vocabulary`. ID to token is separated into two fields: `id_to_token` and `id_to_token_string`,
+    /// which allows the user to use custom encoding and to represent tokens that cannot be directly decoded to string.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_to_id` - A HashMap that maps tokens to their corresponding IDs.
+    /// * `id_to_token` - A vector that maps token IDs to their corresponding tokens in bytes.
+    /// * `id_to_token_string` - A vector that maps token IDs to their corresponding token strings.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the length of `id_to_token` is greater than or equal to 2^24.
     pub fn new(
         token_to_id: AHashMap<Token, u32>,
         id_to_token: Vec<Token>,
@@ -66,24 +78,68 @@ impl Vocabulary {
         }
     }
 
+    /// Retrieves the token ID associated with the given token.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The token to retrieve the ID for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u32)` - The token ID if it exists.
+    /// * `None` - If the token does not exist in the vocabulary.
     pub fn get_token_id_from_token(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
 
+    /// Retrieves the token associated with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&Token)` - The token if it exists.
+    /// * `None` - If the token ID is out of range.
     pub fn get_token_from_token_id(&self, token_id: u32) -> Option<&Token> {
         self.id_to_token.get(token_id as usize)
     }
 
+    /// Retrieves the token string associated with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to retrieve the string for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&str)` - The token string if it exists.
+    /// * `None` - If the token ID is out of range.
     pub fn get_token_string_from_token_id(&self, token_id: u32) -> Option<&str> {
         self.id_to_token_string
             .get(token_id as usize)
             .map(|x| x.as_str())
     }
 
+    /// Retrieves the size of the vocabulary.
+    ///
+    /// # Returns
+    ///
+    /// The number of tokens in the vocabulary.
     pub fn get_vocab_size(&self) -> usize {
         self.id_to_token.len()
     }
 
+    /// Retrieves an iterator over the normal tokens that have the given first byte.
+    ///
+    /// # Arguments
+    ///
+    /// * `first_byte` - The first byte of the tokens to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the normal tokens with the given first byte.
     pub(crate) fn get_normal_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {
         TokensIter {
             current_token_id: None,
@@ -95,6 +151,11 @@ impl Vocabulary {
         }
     }
 
+    /// Retrieves an iterator over the tokens that contain separators.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the tokens that contain separators.
     pub(crate) fn get_tokens_containing_separators(&self) -> impl Iterator<Item = (u32, &Token)> {
         self.tokens_containing_separators
             .iter()
@@ -107,8 +168,13 @@ pub(crate) struct TokensIter<'a> {
     iter: std::slice::Iter<'a, u8>,
 }
 
+pub(crate) enum TokenIterItem {
+    TokenByte(NonMaxU8),
+    NewToken,
+}
+
 impl Iterator for TokensIter<'_> {
-    type Item = Option<NonMaxU8>; // UTF-8 forbids the usage of 0xFF
+    type Item = TokenIterItem; // We excludes 0xFF from the token before
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| {
@@ -121,10 +187,10 @@ impl Iterator for TokensIter<'_> {
                 ];
                 self.current_token_id = Some(NonMaxU32::new(u32::from_le_bytes(buffer)).unwrap());
                 self.current_token_id = Some(NonMaxU32::new(u32::from_le_bytes(buffer)).unwrap());
-                None
+                TokenIterItem::NewToken
             } else {
-                // SAFETY: UTF-8 forbids the usage of 0xFF
-                Some(unsafe { NonMaxU8::new_unchecked(*x) })
+                // SAFETY: We excludes 0xFF from the token before
+                TokenIterItem::TokenByte(unsafe { NonMaxU8::new_unchecked(*x) })
             }
         })
     }

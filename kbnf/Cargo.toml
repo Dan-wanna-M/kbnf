@@ -16,3 +16,4 @@ nonmax = "0.5.5"
 fixedbitset = {git="https://github.com/Dan-wanna-M/fixedbitset.git"}
 regex-automata={git="https://github.com/Dan-wanna-M/regex.git"}
 displaydoc = "0.2.4"
+serde = "1.0.203"

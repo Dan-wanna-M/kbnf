@@ -1,5 +1,5 @@
-use crate::config::InternalConfig;
 use crate::utils::ByteSet;
+use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
 use ebnf::{self, regex::FiniteStateAutomaton};
@@ -39,8 +39,9 @@ where
 pub struct RegexID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+/// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub enum LNFNode<T, TE>
+pub enum HIRNode<T, TE>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq,
@@ -50,6 +51,7 @@ where
     Nonterminal(NonterminalID<T>),
     EXCEPT(ExceptedID<T>, Option<TE>),
 }
+/// The grammar struct that stores the grammar in HIR.
 #[derive(Debug, Clone)]
 pub struct Grammar<TI, TE>
 where
@@ -58,7 +60,7 @@ where
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
-    rules: JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3>,
+    rules: JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
     id_to_excepteds: Vec<FiniteStateAutomaton>,
@@ -102,33 +104,14 @@ where
         + Bounded
         + std::convert::TryFrom<usize>,
 {
-    pub fn new(input: &str, start_nonterminal: &str, config: InternalConfig) -> Result<Self, GrammarError> {
-        let grammar = ebnf::get_grammar(input).map_err(|e| match e {
-            nom::Err::Error(e) => nom::Err::Error(VerboseError {
-                errors: e
-                    .errors
-                    .into_iter()
-                    .map(|(e, v)| (e.to_string(), v))
-                    .collect::<Vec<_>>(),
-            }),
-            nom::Err::Failure(e) => nom::Err::Failure(VerboseError {
-                errors: e
-                    .errors
-                    .into_iter()
-                    .map(|(e, v)| (e.to_string(), v))
-                    .collect::<Vec<_>>(),
-            }),
-            nom::Err::Incomplete(e) => nom::Err::Incomplete(e),
-        })?;
-        let grammar = grammar.validate_grammar(start_nonterminal, config.regex_config)?;
-        let grammar = grammar.simplify_grammar(config.compression_config, config.excepted_config);
+    pub fn new(grammar: SimplifiedGrammar) -> Result<Self, GrammarError> {
         let mut id_to_terminals = JaggedArray::<u8, Vec<usize>, 2>::new();
         for (id, terminal) in grammar.interned_strings.terminals.iter() {
             id_to_terminals.new_row::<0>();
             id_to_terminals.extend_last_row_from_slice(terminal.as_bytes());
             assert!(id_to_terminals.len() - 1 == id.to_usize());
         }
-        let mut rules = JaggedArray::<LNFNode<TI, TE>, Vec<usize>, 3>::with_capacity([
+        let mut rules = JaggedArray::<HIRNode<TI, TE>, Vec<usize>, 3>::with_capacity([
             grammar.expressions.len(),
             1,
             1,
@@ -142,7 +125,7 @@ where
                 for alt in alternations.iter() {
                     if let Some(node) = alt.concatenations.get(dot) {
                         rules.push_to_last_row(match node {
-                            FinalNode::Terminal(x) => LNFNode::Terminal(TerminalID(
+                            FinalNode::Terminal(x) => HIRNode::Terminal(TerminalID(
                                 x.to_usize().try_into().map_err(|_| {
                                     GrammarError::IntConversionError(
                                         "terminal".to_string(),
@@ -151,7 +134,7 @@ where
                                     )
                                 })?,
                             )),
-                            FinalNode::RegexString(x) => LNFNode::RegexString(RegexID(
+                            FinalNode::RegexString(x) => HIRNode::RegexString(RegexID(
                                 x.to_usize().try_into().map_err(|_| {
                                     GrammarError::IntConversionError(
                                         "regex".to_string(),
@@ -160,7 +143,7 @@ where
                                     )
                                 })?,
                             )),
-                            FinalNode::Nonterminal(x) => LNFNode::Nonterminal(NonterminalID(
+                            FinalNode::Nonterminal(x) => HIRNode::Nonterminal(NonterminalID(
                                 x.to_usize().try_into().map_err(|_| {
                                     GrammarError::IntConversionError(
                                         "nonterminal".to_string(),
@@ -169,7 +152,7 @@ where
                                     )
                                 })?,
                             )),
-                            FinalNode::EXCEPT(x, r) => LNFNode::EXCEPT(
+                            FinalNode::EXCEPT(x, r) => HIRNode::EXCEPT(
                                 ExceptedID(x.to_usize().try_into().map_err(|_| {
                                     GrammarError::IntConversionError(
                                         "excepted".to_string(),
@@ -274,7 +257,7 @@ where
         nonterminal_id: NonterminalID<TI>,
         dot_position: TD,
         production_id: TP,
-    ) -> &LNFNode<TI, TE>
+    ) -> &HIRNode<TI, TE>
     where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
@@ -333,11 +316,12 @@ where
     pub(crate) fn get_dotted_productions(
         &self,
         nonterminal_id: NonterminalID<TI>,
-    ) -> JaggedArrayView<LNFNode<TI, TE>, usize, 2> {
+    ) -> JaggedArrayView<HIRNode<TI, TE>, usize, 2> {
         self.rules.view::<1, 2>([nonterminal_id.0.as_()])
     }
     #[inline]
-    pub(crate) fn get_rules(&self) -> &JaggedArray<LNFNode<TI, TE>, Vec<usize>, 3> {
+    pub(crate) fn get_rules(&self) -> &JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3> {
         &self.rules
     }
 }
+
