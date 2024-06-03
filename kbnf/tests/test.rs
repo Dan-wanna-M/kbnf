@@ -4,7 +4,7 @@ mod tests {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
-        path::Path
+        path::Path,
     };
 
     use ahash::AHashMap;

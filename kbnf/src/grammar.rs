@@ -1,3 +1,4 @@
+//! The grammar module that contains the grammar struct in HIR form and its related functions and structs.
 use crate::utils::ByteSet;
 use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
@@ -17,24 +18,22 @@ use regex_automata::Anchored;
 use string_interner::Symbol;
 pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+/// The wrapper struct that represents the terminal id in the grammar.
 pub struct TerminalID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+/// The wrapper struct that represents the nonterminal id in the grammar.
 pub struct NonterminalID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+/// The wrapper struct that represents the except! id in the grammar.
 pub struct ExceptedID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Repetition<T>(pub T)
-where
-    T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+/// The wrapper struct that represents the regex id in the grammar.
 pub struct RegexID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
@@ -69,18 +68,25 @@ where
 }
 
 #[derive(Debug, thiserror::Error)]
+/// The error type for errors in Grammar creation.
 pub enum GrammarError {
     #[error("EBNF parsing error: {0}")]
+    /// Error due to parsing the EBNF grammar.
     ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to clone the str to remove lifetime so pyo3 works later
     #[error("EBNF semantics error: {0}")]
+    /// Error due to semantic errors in the EBNF grammar.
     SemanticError(#[from] Box<ebnf::semantic_error::SemanticError>),
     #[error("The number of {0}, which is {1}, exceeds the maximum value {2}.")]
+    /// Error due to the number of a certain type exceeding the maximum value specified in the generic parameter.
     IntConversionError(String, usize, usize),
     #[error("Regex initialization error: {0}")]
+    /// Error when computing the start state for a DFA.
     DfaStartError(#[from] regex_automata::dfa::StartError),
     #[error("Regex initialization error: {0}")]
+    /// Error when computing the start state for a lazy DFA.
     LazyDfaStartError(#[from] regex_automata::hybrid::StartError),
     #[error("Regex initialization error: {0}")]
+    /// Error due to inefficient cache usage in a lazy DFA.
     LazyDfaCacheError(#[from] regex_automata::hybrid::CacheError),
 }
 
@@ -103,6 +109,20 @@ where
         + Bounded
         + std::convert::TryFrom<usize>,
 {
+    /// Create a new grammar from a simplified EBNF grammar.
+    ///
+    /// # Arguments
+    ///
+    /// * `grammar` - The simplified EBNF grammar.
+    ///
+    /// # Returns
+    ///
+    /// The grammar struct.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the conversion from [usize] to the generic parameter fails, or if the regex initialization fails.
+    /// More information about the error can be found in the [GrammarError] enum docs.
     pub fn new(grammar: SimplifiedGrammar) -> Result<Self, GrammarError> {
         let mut id_to_terminals = JaggedArray::<u8, Vec<usize>, 2>::new();
         for (id, terminal) in grammar.interned_strings.terminals.iter() {
@@ -117,15 +137,12 @@ where
         ]);
         for FinalRhs { mut alternations } in grammar.expressions.into_iter() {
             rules.new_row::<0>();
-            println!("{:?}",alternations);
             alternations.sort_unstable_by_key(|x| x.concatenations.len());
             let len = alternations.last().unwrap().concatenations.len(); // Use the maximum length
-            println!("The length of the production is: {}", len);
             for dot in 0..len {
                 rules.new_row::<1>();
                 for alt in alternations.iter().rev() {
                     if let Some(node) = alt.concatenations.get(dot) {
-                        println!("We have dot: {}", dot);
                         rules.push_to_last_row(match node {
                             FinalNode::Terminal(x) => HIRNode::Terminal(TerminalID(
                                 x.to_usize().try_into().map_err(|_| {
@@ -178,7 +195,6 @@ where
                 }
             }
         }
-        println!("The length of the dotted position is: {}", rules.view::<1,2>([0]).len());
         let id_to_regexes = grammar.id_to_regex;
         let id_to_excepteds = grammar.id_to_excepted;
         let config = regex_automata::util::start::Config::new().anchored(Anchored::Yes);
@@ -251,10 +267,12 @@ where
     }
 
     #[inline]
+    /// Get the start nonterminal id.
     pub fn get_start_nonterminal_id(&self) -> NonterminalID<TI> {
         self.start_nonterminal_id
     }
     #[inline]
+    /// Get the node from the grammar.
     pub fn get_node<TP, TD>(
         &self,
         nonterminal_id: NonterminalID<TI>,
@@ -272,38 +290,47 @@ where
         ]]
     }
     #[inline]
+    /// Get the length of the production.
     pub fn get_production_len(&self, nonterminal_id: NonterminalID<TI>) -> usize {
         self.rules.view::<2, 1>([nonterminal_id.0.as_(), 0]).len()
     }
     #[inline]
+    /// Get the interned strings.
     pub fn get_interned_strings(&self) -> &InternedStrings {
         &self.interned_strings
     }
     #[inline]
+    /// Get the regex from the grammar.
     pub fn get_regex(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_regexes[regex_id.0.as_()]
     }
     #[inline]
+    /// Get the excepted from the grammar.
     pub fn get_excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_excepteds[excepted_id.0.as_()]
     }
     #[inline]
+    /// Get the terminal from the grammar.
     pub fn get_terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
         self.id_to_terminals.view([terminal_id.0.as_()]).as_slice()
     }
     #[inline]
+    /// Get the terminals from the grammar.
     pub fn get_id_to_terminals(&self) -> &JaggedArray<u8, Vec<usize>, 2> {
         &self.id_to_terminals
     }
     #[inline]
+    /// Get the regexes from the grammar.
     pub fn get_id_to_regexes(&self) -> &[FiniteStateAutomaton] {
         &self.id_to_regexes
     }
     #[inline]
+    /// Get the excepteds from the grammar.
     pub fn get_id_to_excepteds(&self) -> &[FiniteStateAutomaton] {
         &self.id_to_excepteds
     }
     #[inline]
+    /// Get the terminals size.
     pub fn get_nonterminals_size(&self) -> usize {
         self.interned_strings.nonterminals.len()
     }
@@ -327,4 +354,3 @@ where
         &self.rules
     }
 }
-

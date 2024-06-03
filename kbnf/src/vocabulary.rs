@@ -169,9 +169,7 @@ impl Vocabulary {
     /// * `Some(&str)` - The token string if it exists.
     /// * `None` - If the token ID is out of range.
     pub fn get_token_string_from_token_id(&self, token_id: u32) -> Option<&str> {
-        self.id_to_token_string
-            .get(&token_id)
-            .map(|x| x.as_str())
+        self.id_to_token_string.get(&token_id).map(|x| x.as_str())
     }
 
     /// Retrieves the size of the vocabulary.
