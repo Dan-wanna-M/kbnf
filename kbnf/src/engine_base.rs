@@ -1,3 +1,4 @@
+//! This module contains the implementation of the [Engine](crate::engine::Engine) struct and is intended for advanced usages.
 use ahash::{AHashMap, AHashSet};
 use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::FixedBitSet;
@@ -100,32 +101,37 @@ pub struct EngineConfig {
     /// It is enabled by default.
     pub compaction_enabled: bool,
 }
-
+/// The error type for errors in engine creation.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineBaseError {
     #[error(
         "Terminal length {0} exceeds {1}, the maximum terminal length allowed by current size of StateID(TS).
      Consider reducing terminal length or use larger StateID(TS)."
     )]
+    /// The terminal length exceeds the maximum terminal length allowed by the current size of StateID(TS).
     TerminalTooLong(usize, usize),
     #[error(
         "Regex length {0} exceeds {1}, the maximum regex length allowed by current size of StateID(TS).
      Consider reducing regex states or use larger StateID(TS)."
     )]
+    /// The regex length exceeds the maximum regex length allowed by the current size of StateID(TS).s
     RegexTooLarge(usize, usize),
     #[error(
         "Except! length {0} exceeds {1}, the maximum excepted length allowed by current size of StateID(TS).
      Consider reducing excepted terminals, use larger StateID(TS) or less repetition."
     )]
+    /// The excepted length exceeds the maximum excepted length allowed by the current size of StateID(TS).
     ExceptedTooLarge(usize, usize),
     #[error(
         "Repetition in regex {0} exceeds {1}, the maximum repetition allowed by current size of StateID(TS).
      Consider reducing repetition or use larger StateID(TS)."
     )]
+    /// The repetition in regex exceeds the maximum repetition allowed by the current size of StateID(TS).
     RepetitionInExceptedTooLarge(usize, usize),
 }
 #[allow(clippy::type_complexity)]
 #[derive(Debug, Clone)]
+/// The low-level engine struct that implement a variant of the Earley recognizer.
 pub struct EngineBase<TI, TE, TD, TP, TSP, TS>
 where
     TI: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -200,6 +206,22 @@ where
     const EXCEPTED_ID_TYPE_SIZE: usize = std::mem::size_of::<TE>();
     const STATE_ID_TYPE_BIT: usize = Self::STATE_ID_TYPE_SIZE * 8;
     const EXCEPTED_ID_TYPE_BIT: usize = Self::EXCEPTED_ID_TYPE_SIZE * 8;
+    /// Create a new [EngineBase](crate::engine_base::EngineBase).
+    ///
+    /// # Arguments
+    ///
+    /// * `vocabulary` - The vocabulary of the language model.
+    /// * `grammar` - The grammar of the language model.
+    /// * `config` - The specific config of the engine.
+    ///
+    /// # Returns
+    ///
+    /// A new [EngineBase](crate::engine_base::EngineBase) instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the terminal length, regex length, excepted length
+    /// or repetition in regex exceeds the maximum allowed by the current size of StateID(TS).
     pub fn new(
         vocabulary: Arc<Vocabulary>,
         grammar: Arc<Grammar<TI, TE>>,
