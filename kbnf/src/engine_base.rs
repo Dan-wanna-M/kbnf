@@ -218,8 +218,7 @@ where
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size());
-        let mut earley_sets = JaggedArray::new();
-        earley_sets.new_row::<0>();
+        let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
         let already_predicted_nonterminals =
@@ -493,9 +492,11 @@ where
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
         let view = grammar.get_dotted_productions(nonterminal_id);
+        println!("d: {}", view.len());
         if new_dot_position.as_() < view.len() {
             let view = view.view::<1, 1>([new_dot_position.as_()]);
             if production_id.as_() < view.len() {
+                println!("OK2");
                 return false;
             }
         }
@@ -897,7 +898,19 @@ where
             }
         }
         for v in postdot_items.values_mut() {
+            println!("Index: {:?}", earley_set_index);
             if let &mut PostDotItems::LeoEligible(item) = v {
+                println!(
+                    "d: {:?}, p: {:?}, completed:{}",
+                    item.dot_position.as_(),
+                    item.production_index.as_(),
+                    Self::item_should_be_completed(
+                        grammar,
+                        item.nonterminal_id,
+                        item.dot_position + TD::ONE,
+                        item.production_index,
+                    )
+                );
                 if !Self::item_should_be_completed(
                     grammar,
                     item.nonterminal_id,
@@ -1093,6 +1106,17 @@ where
             );
             return Err(crate::engine_like::AcceptTokenError::Rejected);
         }
+        if Self::is_rejected(earley_sets) {
+            Self::revert_change(
+                earley_sets,
+                postdot_items,
+                added_postdot_items,
+                previous_earley_set_length,
+                finished,
+            );
+            return Err(crate::engine_like::AcceptTokenError::Rejected);
+        }
+        println!("Scanned");
         Self::scan(
             grammar,
             earley_sets,
@@ -1112,16 +1136,7 @@ where
             deduplication_buffer,
             finished,
         ); // complete the next Earley set
-        if Self::is_rejected(earley_sets) {
-            Self::revert_change(
-                earley_sets,
-                postdot_items,
-                added_postdot_items,
-                previous_earley_set_length,
-                finished,
-            );
-            return Err(crate::engine_like::AcceptTokenError::Rejected);
-        }
+        println!("Completed");
         Self::predict(
             grammar,
             earley_sets,
@@ -1131,7 +1146,9 @@ where
             excepted_id_to_cache,
             already_predicted_nonterminals,
         ); // predict the next Earley set
+        println!("Predicted");
         Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
+        println!("Postdot items updated");
         Ok(())
     }
 }
@@ -1386,6 +1403,7 @@ where
         self.finished = false;
         self.allowed_token_ids.clear();
         self.allowed_first_bytes.clear();
+        self.earley_sets.new_row::<0>();
         Self::predict_nonterminal(
             &self.grammar,
             &mut self.earley_sets,

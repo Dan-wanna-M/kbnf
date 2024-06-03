@@ -1,3 +1,4 @@
+//! Utility functions for the library.
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::Path;
@@ -23,21 +24,12 @@ use crate::grammar::{Grammar, GrammarError};
 use crate::vocabulary::{Token, Vocabulary};
 
 pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ReadRWKVVocabError {
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Invalid line:{0}\nEnsure this file {1} is RWKV world model's vocab file!")]
-    LineParseError(String, String),
-}
-
 pub(crate) enum FsaStateStatus {
     Accept,
     Reject,
     InProgress,
 }
-
+/// Helper function to construct a simplified grammar from an EBNF grammar string.
 pub fn construct_ebnf_grammar(
     input: &str,
     config: InternalConfig,
@@ -63,7 +55,8 @@ pub fn construct_ebnf_grammar(
     let grammar = grammar.simplify_grammar(config.compression_config, config.excepted_config);
     Ok(grammar)
 }
-
+/// Helper function to find the maximum repetition from an EBNF grammar.
+/// This is useful for determing [EngineBase] and [Grammar]'s generic parameter(TI).
 pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_repetition = 0;
     for rule in grammar.expressions.iter() {
@@ -78,42 +71,21 @@ pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usi
     max_repetition
 }
 
-pub fn find_max_state_id_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
-where
-    TI: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + NumOps
-        + NumAssign
-        + std::cmp::PartialOrd
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
-        + std::convert::TryFrom<usize>,
-{
+pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_state_id = 0;
-    let terminals = grammar.get_id_to_terminals();
-    for i in 0..terminals.len()
-    {
-        max_state_id = max_state_id.max(terminals.view::<1,1>([i]).len());
+    let terminals = &grammar.interned_strings.terminals;
+    for (_, i) in terminals {
+        max_state_id = max_state_id.max(i.bytes().len());
     }
-    let regexes = grammar.get_id_to_regexes();
-    for i in regexes
-    {
+    let regexes = &grammar.id_to_regex;
+    for i in regexes {
         max_state_id = max_state_id.max(match i {
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
             FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
         });
     }
-    let excepted = grammar.get_id_to_excepteds();
-    for i in excepted
-    {
+    let excepted = &grammar.id_to_excepted;
+    for i in excepted {
         max_state_id = max_state_id.max(match i {
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
             FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
@@ -121,62 +93,19 @@ where
     }
     max_state_id
 }
-pub fn find_max_dotted_position_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
-where
-    TI: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + NumOps
-        + NumAssign
-        + std::cmp::PartialOrd
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
-        + std::convert::TryFrom<usize>,
-{
+pub fn find_max_dotted_position_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_dotted_position = 0;
-    let rules = grammar.get_rules();
-    for i in 0..rules.len()
-    {
-        let view = rules.view::<1,2>([i]);
-        max_dotted_position = max_dotted_position.max(view.len());
+    for i in grammar.expressions.iter() {
+        for j in i.alternations.iter() {
+            max_dotted_position = max_dotted_position.max(j.concatenations.len());
+        }
     }
     max_dotted_position
 }
-pub fn find_max_production_id_from_grammar<TI, TE>(grammar: &Grammar<TI, TE>) -> usize
-where
-    TI: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + NumOps
-        + NumAssign
-        + std::cmp::PartialOrd
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
-        + std::convert::TryFrom<usize>,
-{
+pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_production_id = 0;
-    let rules = grammar.get_rules();
-    for i in 0..rules.len()
-    {
-        let view = rules.view::<1,2>([i]);
-        for j in 0..view.len()
-        {
-            max_production_id = max_production_id.max(view.view::<1,1>([j]).len());
-        }
+    for i in grammar.expressions.iter() {
+        max_production_id = max_production_id.max(i.alternations.len());
     }
     max_production_id
 }
@@ -217,118 +146,4 @@ pub(crate) fn check_ldfa_state_status(
     } else {
         FsaStateStatus::InProgress
     }
-}
-
-/// Read the vocabulary from RWKV-world model series vocabulary file.
-pub fn read_rwkv_world_vocab(
-    path: impl AsRef<Path>,
-) -> Result<Arc<Vocabulary>, ReadRWKVVocabError> {
-    let path = path.as_ref();
-    let file = File::open(path).unwrap();
-    let reader = BufReader::new(file);
-    let mut id_to_token: AHashMap<u32, Token> = AHashMap::default();
-    let mut id_to_token_string: AHashMap<u32, String> = AHashMap::default();
-    let mut token_to_id: AHashMap<Token, u32> = AHashMap::default();
-    for line in reader.lines() {
-        let line = line.map_err(ReadRWKVVocabError::IoError)?;
-        let mut start = line.find(' ').ok_or(ReadRWKVVocabError::LineParseError(
-            line.clone(),
-            format!("{:?}", path),
-        ))?;
-        let mut end = line.rfind(' ').ok_or(ReadRWKVVocabError::LineParseError(
-            line.clone(),
-            format!("{:?}", path),
-        ))?;
-        let token_id = line[..start]
-            .parse::<u32>()
-            .map_err(|_| ReadRWKVVocabError::LineParseError(line.clone(), format!("{:?}", path)))?;
-        start += 1;
-        end -= 1;
-        if line.chars().nth(start).unwrap() == 'b' {
-            start += 2;
-        } else {
-            start += 1;
-        }
-        // println!("token: {}",&line[start..end]);
-        let token = fix_utf8_escape(&line[start..end]);
-        id_to_token.insert(token_id, Token(token.clone().into()));
-        token_to_id.insert(Token(token.into()), token_id);
-        // println!("{:?}", String::from_utf8(token.clone()));
-        id_to_token_string.insert(token_id, line[start..end].to_string());
-    }
-    let mut id_to_token_vec =
-        vec![Token([].into()); (id_to_token.keys().max().unwrap() + 1) as usize];
-    for (k, v) in id_to_token.into_iter() {
-        id_to_token_vec[k as usize] = v;
-    }
-    let mut id_to_token_string_vec =
-        vec!["".to_string(); (id_to_token_string.keys().max().unwrap() + 1) as usize];
-    for (k, v) in id_to_token_string.into_iter() {
-        id_to_token_string_vec[k as usize] = v;
-    }
-    Ok(Arc::new(Vocabulary::new(
-        token_to_id,
-        id_to_token_vec,
-        id_to_token_string_vec,
-    )))
-}
-
-/// translated from <https://github.com/npk48/rwkv_cuda/blob/main/tokenizer.hpp#L166>
-///
-/// sequence need to be unescaped:
-///
-///     "\\symbol", ["\\", "symbol"]
-///
-///     "\\",       ["\\"]
-///
-///     "\\t",      ["\\", "t"]
-///
-///     "\\n",      ["\\", "n"]
-///
-///     "\\r",      ["\\", "r"]
-///
-///     "\\x12",    ["\\", "x", "1", "2"]
-///
-///     "\\u1234",  ["\\", "u", "1", "2", "3", "4"]
-pub fn fix_utf8_escape(token: &str) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::with_capacity(token.as_bytes().len());
-    let mut token = token;
-    let convert_to_utf8 = |c: char, buffer: &mut Vec<u8>| {
-        let mut temp = [0, 0, 0, 0];
-        buffer.extend(c.encode_utf8(&mut temp).as_bytes());
-    };
-    while !token.is_empty() {
-        let c = token.chars().next().unwrap();
-        if c == '\\' {
-            let next_c = token.chars().nth(1).unwrap();
-            if next_c == 't' {
-                result.push(b'\t');
-                token = &token[2..];
-            } else if next_c == 'n' {
-                result.push(b'\n');
-                token = &token[2..];
-            } else if next_c == 'r' {
-                result.push(b'\r');
-                token = &token[2..];
-            } else if next_c == 'x' {
-                let hex_digits: String = token.chars().skip(2).take(2).collect();
-                result.push(u8::from_str_radix(&hex_digits, 16).unwrap());
-                token = &token[4..];
-            } else if next_c == 'u' {
-                let hex_digits: String = token.chars().skip(2).take(4).collect();
-                convert_to_utf8(
-                    char::from_u32(u32::from_str_radix(&hex_digits, 16).unwrap()).unwrap(),
-                    &mut result,
-                );
-                token = &token[6..];
-            } else {
-                result.push(next_c as u8);
-                token = &token[2..];
-            }
-        } else {
-            convert_to_utf8(c, &mut result);
-            token = &token[c.len_utf8()..];
-        }
-    }
-    result
 }

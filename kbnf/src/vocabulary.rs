@@ -7,7 +7,26 @@ use tinyvec::ArrayVec;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+/// The struct represents a token in bytes in a LLM's vocabulary.
 pub struct Token(pub Box<[u8]>);
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct FirstBytes([usize; 257]);
+impl tinyvec::Array for FirstBytes {
+    type Item = usize;
+    const CAPACITY: usize = 257;
+    
+    fn as_slice(&self) -> &[Self::Item] {
+        &self.0
+    }
+    
+    fn as_slice_mut(&mut self) -> &mut [Self::Item] {
+        &mut self.0
+    }
+    
+    fn default() -> Self {
+        Self([0; 257])
+    }
+}
 #[derive(Debug, Clone)]
 /// The struct represents a language model's vocabulary.
 pub struct Vocabulary {
@@ -20,7 +39,7 @@ pub struct Vocabulary {
     /// memory representation: [Unicode-unused-byte][token_id(3bytes little endian)][token(remaining bytes)]
     // TODO: support better debug display
     // TODO: check whether a variable length token_id encoding is better
-    first_byte_to_normal_tokens: JaggedArray<u8, ArrayVec<[usize; 256]>, 2>,
+    first_byte_to_normal_tokens: JaggedArray<u8, ArrayVec<FirstBytes>, 2>,
     /// This field represents a map from the token id to the token that contains byte 0xFF.
     /// The number of such tokens is expected to be small so we probably do not need a jagged array(which does have some overhead).
     tokens_containing_separators: Vec<(u32, Token)>,
@@ -52,10 +71,14 @@ impl Vocabulary {
         let mut first_byte_to_token = JaggedArray::with_capacity([256, 256]);
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
         for (token_id, token) in id_to_token.iter().enumerate() {
+            if token.0.is_empty() {
+                continue;
+            }
             let first_byte = token.0[0];
             temp[first_byte as usize].push((token_id as u32, token));
         }
         let mut tokens_containing_separators = Vec::new();
+        println!("{}", temp.len());
         for tokens in temp.iter() {
             first_byte_to_token.new_row::<0>();
             for &(token_id, token) in tokens.iter() {

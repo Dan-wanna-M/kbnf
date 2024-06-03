@@ -117,12 +117,15 @@ where
         ]);
         for FinalRhs { mut alternations } in grammar.expressions.into_iter() {
             rules.new_row::<0>();
+            println!("{:?}",alternations);
             alternations.sort_unstable_by_key(|x| x.concatenations.len());
             let len = alternations.last().unwrap().concatenations.len(); // Use the maximum length
+            println!("The length of the production is: {}", len);
             for dot in 0..len {
                 rules.new_row::<1>();
-                for alt in alternations.iter() {
+                for alt in alternations.iter().rev() {
                     if let Some(node) = alt.concatenations.get(dot) {
+                        println!("We have dot: {}", dot);
                         rules.push_to_last_row(match node {
                             FinalNode::Terminal(x) => HIRNode::Terminal(TerminalID(
                                 x.to_usize().try_into().map_err(|_| {
@@ -175,6 +178,7 @@ where
                 }
             }
         }
+        println!("The length of the dotted position is: {}", rules.view::<1,2>([0]).len());
         let id_to_regexes = grammar.id_to_regex;
         let id_to_excepteds = grammar.id_to_excepted;
         let config = regex_automata::util::start::Config::new().anchored(Anchored::Yes);
