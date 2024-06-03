@@ -3,46 +3,73 @@ use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
 use std::array;
+use std::fmt::Debug;
 use tinyvec::ArrayVec;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-/// The struct represents a token in bytes in a LLM's vocabulary.
+/// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct FirstBytes([usize; 257]);
+pub(crate) struct FirstBytes([usize; 257]);
 impl tinyvec::Array for FirstBytes {
     type Item = usize;
     const CAPACITY: usize = 257;
-    
+
     fn as_slice(&self) -> &[Self::Item] {
         &self.0
     }
-    
+
     fn as_slice_mut(&mut self) -> &mut [Self::Item] {
         &mut self.0
     }
-    
+
     fn default() -> Self {
         Self([0; 257])
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// The struct represents a language model's vocabulary.
 pub struct Vocabulary {
     token_to_id: AHashMap<Token, u32>,
-    /// This field represents a map from token id to the token in bytes.
-    id_to_token: Vec<Token>,
-    /// This field represents a map from token id to the token in UTF-8 String representation.
-    id_to_token_string: Vec<String>,
+    id_to_token: AHashMap<u32, Token>,
+    id_to_token_string: AHashMap<u32, String>,
     /// This field represents a map from the first byte of a token to the token id and token that DO NOT contain byte 0xFF.
-    /// memory representation: [Unicode-unused-byte][token_id(3bytes little endian)][token(remaining bytes)]
-    // TODO: support better debug display
+    /// memory representation: \[Unicode unused byte\]\[token_id(3 bytes little endian)\]\[token(remaining bytes)\]
     // TODO: check whether a variable length token_id encoding is better
     first_byte_to_normal_tokens: JaggedArray<u8, ArrayVec<FirstBytes>, 2>,
-    /// This field represents a map from the token id to the token that contains byte 0xFF.
+    /// This field represents a map from the token id to the token that contains the Unicode unused byte in `first_byte_to_normal_tokens``.
     /// The number of such tokens is expected to be small so we probably do not need a jagged array(which does have some overhead).
     tokens_containing_separators: Vec<(u32, Token)>,
+}
+
+impl Debug for Vocabulary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vocabulary")
+            .field("token_to_id", &self.token_to_id)
+            .field("id_to_token", &self.id_to_token)
+            .field("id_to_token_string", &self.id_to_token_string)
+            .field("first_byte_to_normal_tokens", {
+                let mut hash_map = AHashMap::new();
+                for byte in 0..u8::MAX as usize + 1 {
+                    let mut iter = self.get_normal_tokens_from_first_byte(byte as u8);
+                    while let Some(item) = iter.next() {
+                        if let TokenIterItem::TokenByte(byte) = item {
+                            hash_map
+                                .entry(iter.get_current_token_id().unwrap())
+                                .or_insert_with(Vec::new)
+                                .push(byte.get());
+                        }
+                    }
+                }
+                &Box::new(hash_map)
+            })
+            .field(
+                "tokens_containing_separators",
+                &self.tokens_containing_separators,
+            )
+            .finish()
+    }
 }
 
 impl Vocabulary {
@@ -53,15 +80,17 @@ impl Vocabulary {
     ///
     /// * `token_to_id` - A HashMap that maps tokens to their corresponding IDs.
     /// * `id_to_token` - A vector that maps token IDs to their corresponding tokens in bytes.
-    /// * `id_to_token_string` - A vector that maps token IDs to their corresponding token strings.
+    /// * `id_to_token_string` - A vector that maps token IDs to their corresponding token strings in UTF-8 String representation.
+    /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
+    /// vice versa. For example, a token may contain `0xFF` byte.
     ///
     /// # Panics
     ///
     /// This function will panic if the length of `id_to_token` is greater than or equal to 2^24.
     pub fn new(
         token_to_id: AHashMap<Token, u32>,
-        id_to_token: Vec<Token>,
-        id_to_token_string: Vec<String>,
+        id_to_token: AHashMap<u32, Token>,
+        id_to_token_string: AHashMap<u32, String>,
     ) -> Self {
         assert!(
             id_to_token.len() < 0x1000000,
@@ -70,12 +99,12 @@ impl Vocabulary {
         );
         let mut first_byte_to_token = JaggedArray::with_capacity([256, 256]);
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
-        for (token_id, token) in id_to_token.iter().enumerate() {
+        for (&token_id, token) in id_to_token.iter() {
             if token.0.is_empty() {
                 continue;
             }
             let first_byte = token.0[0];
-            temp[first_byte as usize].push((token_id as u32, token));
+            temp[first_byte as usize].push((token_id, token));
         }
         let mut tokens_containing_separators = Vec::new();
         println!("{}", temp.len());
@@ -126,7 +155,7 @@ impl Vocabulary {
     /// * `Some(&Token)` - The token if it exists.
     /// * `None` - If the token ID is out of range.
     pub fn get_token_from_token_id(&self, token_id: u32) -> Option<&Token> {
-        self.id_to_token.get(token_id as usize)
+        self.id_to_token.get(&token_id)
     }
 
     /// Retrieves the token string associated with the given token ID.
@@ -141,7 +170,7 @@ impl Vocabulary {
     /// * `None` - If the token ID is out of range.
     pub fn get_token_string_from_token_id(&self, token_id: u32) -> Option<&str> {
         self.id_to_token_string
-            .get(token_id as usize)
+            .get(&token_id)
             .map(|x| x.as_str())
     }
 
@@ -185,12 +214,12 @@ impl Vocabulary {
             .map(|(x, y)| (*x, y))
     }
 }
-
+#[derive(Debug, Clone)]
 pub(crate) struct TokensIter<'a> {
     current_token_id: Option<NonMaxU32>,
     iter: std::slice::Iter<'a, u8>,
 }
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TokenIterItem {
     TokenByte(NonMaxU8),
     NewToken,
@@ -219,8 +248,7 @@ impl Iterator for TokensIter<'_> {
     }
 }
 
-impl TokensIter<'_>
-{
+impl TokensIter<'_> {
     pub fn get_current_token_id(&self) -> Option<NonMaxU32> {
         self.current_token_id
     }

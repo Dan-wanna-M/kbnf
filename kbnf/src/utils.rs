@@ -1,27 +1,17 @@
 //! Utility functions for the library.
-use std::fs::File;
-use std::io::{prelude::*, BufReader};
-use std::path::Path;
-use std::sync::Arc;
 
-use ahash::AHashMap;
 use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::FinalNode;
 use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::on_stack::{get_nblock, FixedBitSet};
-use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nom::error::VerboseError;
-use num::cast::AsPrimitive;
-use num::traits::{ConstOne, ConstZero, NumAssign, NumOps};
-use num::{Bounded, Num};
 use regex_automata::dfa::Automaton;
 use regex_automata::hybrid::dfa::Cache;
 use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 
 use crate::config::InternalConfig;
-use crate::grammar::{Grammar, GrammarError};
-use crate::vocabulary::{Token, Vocabulary};
+use crate::grammar::GrammarError;
 
 pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
 pub(crate) enum FsaStateStatus {
@@ -56,7 +46,7 @@ pub fn construct_ebnf_grammar(
     Ok(grammar)
 }
 /// Helper function to find the maximum repetition from an EBNF grammar.
-/// This is useful for determing [EngineBase] and [Grammar]'s generic parameter(TI).
+/// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TI).
 pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_repetition = 0;
     for rule in grammar.expressions.iter() {
@@ -70,7 +60,8 @@ pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usi
     }
     max_repetition
 }
-
+/// Helper function to find the maximum state ID from an EBNF grammar.
+/// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TS).
 pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_state_id = 0;
     let terminals = &grammar.interned_strings.terminals;
@@ -93,6 +84,8 @@ pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize
     }
     max_state_id
 }
+/// Helper function to find the maximum dotted position from an EBNF grammar.
+/// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TD).
 pub fn find_max_dotted_position_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_dotted_position = 0;
     for i in grammar.expressions.iter() {
@@ -102,6 +95,8 @@ pub fn find_max_dotted_position_from_ebnf_grammar(grammar: &SimplifiedGrammar) -
     }
     max_dotted_position
 }
+/// Helper function to find the maximum production ID from an EBNF grammar.
+/// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TP).
 pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_production_id = 0;
     for i in grammar.expressions.iter() {

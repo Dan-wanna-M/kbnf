@@ -4,8 +4,7 @@ mod tests {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
-        path::Path,
-        sync::Arc,
+        path::Path
     };
 
     use ahash::AHashMap;
@@ -59,20 +58,10 @@ mod tests {
             // println!("{:?}", String::from_utf8(token.clone()));
             id_to_token_string.insert(token_id, line[start..end].to_string());
         }
-        let mut id_to_token_vec =
-            vec![Token([].into()); (id_to_token.keys().max().unwrap() + 1) as usize];
-        for (k, v) in id_to_token.into_iter() {
-            id_to_token_vec[k as usize] = v;
-        }
-        let mut id_to_token_string_vec =
-            vec!["".to_string(); (id_to_token_string.keys().max().unwrap() + 1) as usize];
-        for (k, v) in id_to_token_string.into_iter() {
-            id_to_token_string_vec[k as usize] = v;
-        }
         Ok(Vocabulary::new(
             token_to_id,
-            id_to_token_vec,
-            id_to_token_string_vec,
+            id_to_token,
+            id_to_token_string,
         ))
     }
 
@@ -140,50 +129,64 @@ mod tests {
     fn minimal_case() {
         let input = "start::='aaa';";
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
-        let mut logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        assert!(engine.try_accept_new_token(
-            vocab
-                .get_token_id_from_token(&Token("aaa".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        ).unwrap()==AcceptTokenResult::Finished, "Failed to accept token");
+        assert!(
+            engine
+                .try_accept_new_token(
+                    vocab
+                        .get_token_id_from_token(&Token(
+                            "aaa".as_bytes().to_vec().into_boxed_slice()
+                        ))
+                        .unwrap(),
+                )
+                .unwrap()
+                == AcceptTokenResult::Finished,
+            "Failed to accept token"
+        );
     }
 
     #[test]
     fn left_recursion() {
         let input = "start::='bb'|start'bb';";
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
-        let mut logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        let result = engine.try_accept_new_token(
-            vocab
-                .get_token_id_from_token(&Token("bb".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        ).unwrap();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("bb".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
     }
 
     #[test]
     fn right_recursion() {
         let input = "start::='cc'|'cc'start;";
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
-        let mut logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        let result = engine.try_accept_new_token(
-            vocab
-                .get_token_id_from_token(&Token("cc".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        ).unwrap();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("cc".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
     }
     #[test]
     fn middle_recursion() {
         let input = "start::='cc'|'cc'start;";
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
-        let mut logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        let result = engine.try_accept_new_token(
-            vocab
-                .get_token_id_from_token(&Token("cc".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        ).unwrap();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("cc".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
     }
 }
