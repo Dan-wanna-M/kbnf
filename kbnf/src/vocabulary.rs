@@ -1,3 +1,4 @@
+//! This module contains the `Vocabulary` struct, which represents a language model's vocabulary.
 use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
@@ -7,17 +8,18 @@ use std::fmt::Debug;
 use tinyvec::ArrayVec;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
+const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct FirstBytes([usize; 257]);
+pub(crate) struct FirstBytes([u32; BYTES_NUM]);
 impl tinyvec::Array for FirstBytes {
-    type Item = usize;
-    const CAPACITY: usize = 257;
+    type Item = u32;
+    const CAPACITY: usize = BYTES_NUM;
 
     fn as_slice(&self) -> &[Self::Item] {
-        &self.0
+        &self.0 
     }
 
     fn as_slice_mut(&mut self) -> &mut [Self::Item] {

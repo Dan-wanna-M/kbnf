@@ -1,16 +1,23 @@
+//! The configuration module of the KBNF engine.
 use ebnf::regex::FiniteStateAutomatonConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::engine_base::EngineConfig;
 #[derive(Debug, Clone)]
+/// The internal configuration of the KBNF engine. This is intended for advanced usages.
 pub struct InternalConfig {
+    /// The configuration of the regular expressions.
     pub regex_config: FiniteStateAutomatonConfig,
+    /// The configuration about how to compress terminals in the grammar.
     pub compression_config: ebnf::grammar::CompressionConfig,
+    /// The configuration of the engine itself.
     pub engine_config: EngineConfig,
+    /// The configuration of except!.
     pub excepted_config: FiniteStateAutomatonConfig,
+    /// The start nonterminal of the grammar.
     pub start_nonterminal: String,
 }
-/// The configuration of the `Engine` struct.
+/// The configuration of the `Engine` struct. This should suffice most scenarios.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -88,7 +95,8 @@ impl Default for Config {
 }
 
 impl Config {
-    pub(crate) fn internal_config(self) -> InternalConfig {
+    /// Converts the configuration to the internal configuration.
+    pub fn internal_config(self) -> InternalConfig {
         let regex_config = match self.regex_config.fsa_type {
             FsaType::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
@@ -119,9 +127,7 @@ impl Config {
         };
         let compression_config = ebnf::grammar::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,
-            regex_config: FiniteStateAutomatonConfig::Dfa(
-                regex_automata::dfa::dense::Config::new(),
-            ),
+            regex_config: FiniteStateAutomatonConfig::Dfa(regex_automata::dfa::dense::Config::new()),
         };
         InternalConfig {
             regex_config,

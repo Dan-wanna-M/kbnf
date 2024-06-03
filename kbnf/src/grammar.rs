@@ -44,9 +44,13 @@ where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq,
 {
+    /// The terminal node.
     Terminal(TerminalID<T>),
+    /// The regex node.
     RegexString(RegexID<T>),
+    /// The nonterminal node.
     Nonterminal(NonterminalID<T>),
+    /// The except! node.
     EXCEPT(ExceptedID<T>, Option<TE>),
 }
 /// The grammar struct that stores the grammar in HIR.

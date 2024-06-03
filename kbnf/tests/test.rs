@@ -9,8 +9,7 @@ mod tests {
 
     use ahash::AHashMap;
     use kbnf::{
-        engine_like::{AcceptTokenResult, EngineLike},
-        vocabulary::{Token, Vocabulary},
+        engine::Engine, engine_like::{AcceptTokenResult, EngineLike}, vocabulary::{Token, Vocabulary}
     };
     #[derive(Debug, thiserror::Error)]
     /// Error type when reading RWKV world model's vocabulary file.
@@ -131,6 +130,7 @@ mod tests {
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        assert!(std::mem::size_of::<Engine>()== 816, "Engine size exceeds 816");
         assert!(
             engine
                 .try_accept_new_token(
