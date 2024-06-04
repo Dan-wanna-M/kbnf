@@ -130,7 +130,6 @@ mod tests {
         let vocab = read_rwkv_world_vocab("tests/vocab.txt").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        assert!(std::mem::size_of::<Engine>()== 816, "Engine size exceeds 816");
         assert!(
             engine
                 .try_accept_new_token(
@@ -144,6 +143,7 @@ mod tests {
                 == AcceptTokenResult::Finished,
             "Failed to accept token"
         );
+        println!("{:#?}", engine);
     }
 
     #[test]

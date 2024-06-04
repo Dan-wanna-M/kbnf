@@ -345,17 +345,16 @@ impl EngineLike for Engine {
             }),
         }
     }
-
-    fn as_dyn_ref(&self) -> &dyn EngineLike {
+    fn get_vocab(&self) -> Arc<Vocabulary> {
         match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine,
-            EngineUnion::U8U0U8U16U16U16(engine) => engine,
-            EngineUnion::U16U0U16U32U32U32(engine) => engine,
-            EngineUnion::U8U8U8U8U8U32(engine) => engine,
-            EngineUnion::U8U8U8U16U16U16(engine) => engine,
-            EngineUnion::U16U8U16U32U32U32(engine) => engine,
-            EngineUnion::U8U16U8U8U8U32(engine) => engine,
-            EngineUnion::U16U16U16U32U32U32(engine) => engine,
+            EngineUnion::U8U0U8U8U8U32(engine) => engine.get_vocab(),
+            EngineUnion::U8U0U8U16U16U16(engine) => engine.get_vocab(),
+            EngineUnion::U16U0U16U32U32U32(engine) => engine.get_vocab(),
+            EngineUnion::U8U8U8U8U8U32(engine) => engine.get_vocab(),
+            EngineUnion::U8U8U8U16U16U16(engine) => engine.get_vocab(),
+            EngineUnion::U16U8U16U32U32U32(engine) => engine.get_vocab(),
+            EngineUnion::U8U16U8U8U8U32(engine) => engine.get_vocab(),
+            EngineUnion::U16U16U16U32U32U32(engine) => engine.get_vocab(),
         }
     }
 }

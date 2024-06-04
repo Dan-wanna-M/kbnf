@@ -1,5 +1,5 @@
 //! Utility functions for the library.
-
+use ahash::AHashMap;
 use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::FinalNode;
 use ebnf::regex::FiniteStateAutomaton;
@@ -14,6 +14,7 @@ use crate::config::InternalConfig;
 use crate::grammar::GrammarError;
 
 pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
 pub(crate) enum FsaStateStatus {
     Accept,
     Reject,
@@ -113,7 +114,8 @@ pub(crate) fn check_dfa_state_status(
             || dfa.is_quit_state(dfa_state)
             || dfa.is_match_state(dfa_state))
     {
-        // match state is delayed by one byte, so if the current state is match state, it means the last byte is matched and hence we should terminate
+        // match state is delayed by one byte, so if the current state is match state,
+        // it means the last byte is matched and hence we should terminate
         return FsaStateStatus::Reject;
     }
     let dfa_state = dfa.next_eoi_state(dfa_state);
@@ -132,7 +134,8 @@ pub(crate) fn check_ldfa_state_status(
     if ldfa_state.is_tagged()
         && (ldfa_state.is_dead() || ldfa_state.is_quit() || ldfa_state.is_match())
     {
-        // match state is delayed by one byte, so if the current state is match state, it means the last byte is matched and hence we should terminate
+        // match state is delayed by one byte, so if the current state is match state,
+        // it means the last byte is matched and hence we should terminate
         return FsaStateStatus::Reject;
     }
     let ldfa_state = ldfa.next_eoi_state(cache, ldfa_state).unwrap();
@@ -141,4 +144,21 @@ pub(crate) fn check_ldfa_state_status(
     } else {
         FsaStateStatus::InProgress
     }
+}
+
+pub(crate) fn get_display_form_from_bitset_on_stack<const NBLOCK: usize>(
+    bitset: &FixedBitSet<NBLOCK>,
+) -> Vec<usize> {
+    bitset.ones().collect()
+}
+
+pub(crate) fn get_display_form_from_bitset(bitset: &fixedbitset::FixedBitSet) -> Vec<usize> {
+    bitset.ones().collect()
+}
+
+pub(crate) fn fill_debug_form_of_id_to_x<'a, T: std::fmt::Debug>(
+    id_to_x: impl Iterator<Item = T> + 'a,
+    get_str: impl Fn(usize) -> String,
+) -> AHashMap<String, T> {
+    id_to_x.enumerate().map(|(i, x)| (get_str(i), x)).collect()
 }

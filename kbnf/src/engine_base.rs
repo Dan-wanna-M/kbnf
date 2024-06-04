@@ -52,6 +52,171 @@ where
     pub state_id: TS,
 }
 
+impl<TN, TD, TP, TSP, TS> EarleyItem<TN, TD, TP, TSP, TS>
+where
+    TN: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + num::traits::NumAssignOps
+        + std::convert::TryFrom<usize>,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TN>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>
+        + num::traits::AsPrimitive<TS>,
+{
+    fn to_debug_form<TE>(
+        self,
+        engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
+    ) -> EarleyItemDebugStruct
+    where
+        TE: crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + AsPrimitive<usize>
+            + std::fmt::Debug
+            + num::Bounded
+            + std::convert::TryFrom<usize>
+            + CheckedSub,
+        usize: num::traits::AsPrimitive<TE>,
+    {
+        let dotted_productions = engine.grammar.get_dotted_productions(self.nonterminal_id);
+        let mut dotted_rule = format!(
+            "{} -> ",
+            self.nonterminal_id.to_display_form(&engine.grammar)
+        );
+        for dot in 0..dotted_productions.len() {
+            let production = dotted_productions.view::<1, 1>([dot]);
+            if production.len() <= self.production_index.as_() {
+                break;
+            }
+            if dot == self.dot_position.as_() {
+                dotted_rule.push('.');
+            }
+            dotted_rule.push_str(
+                &production[[self.production_index.as_()]].to_display_form(&engine.grammar),
+            )
+        }
+        if self.dot_position.as_() == dotted_productions.len() {
+            dotted_rule.push('.');
+        }
+        let state = match engine.grammar.get_node(
+            self.nonterminal_id,
+            self.production_index,
+            self.dot_position,
+        ) {
+            HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
+            &HIRNode::RegexString(id) => {
+                match engine.grammar.get_regex(id) {
+                    FiniteStateAutomaton::Dfa(dfa) => {
+                        format!(
+                        "[{}({})]",
+                        self.state_id.as_(),
+                        utils::check_dfa_state_status(
+                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
+                                self.state_id,
+                                dfa.stride2()
+                            ),
+                            dfa
+                        )
+                    )
+                    }
+                    FiniteStateAutomaton::LazyDFA(lazy) => {
+                        format!(
+                        "[{}({})]",
+                        self.state_id.as_(),
+                        utils::check_ldfa_state_status(
+                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(self.state_id),
+                            &mut lazy.create_cache(),
+                            lazy
+                        )
+                    )
+                    }
+                }
+            }
+            &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
+                FiniteStateAutomaton::Dfa(dfa) => match r {
+                    None => format!(
+                        "[{}({})]",
+                        self.state_id.as_(),
+                        utils::check_dfa_state_status(
+                            EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
+                                self.state_id,
+                                dfa.stride2()
+                            ),
+                            dfa
+                        )
+                    ),
+                    Some(_) => {
+                        let (dfa_state_id, r) = EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id_with_r(
+                            self.state_id,
+                            dfa.stride2(),
+                        );
+                        format!(
+                            "[{}({}),R{}]",
+                            self.state_id.as_(),
+                            utils::check_dfa_state_status(dfa_state_id, dfa),
+                            r.as_()
+                        )
+                    }
+                },
+                FiniteStateAutomaton::LazyDFA(lazy) => match r {
+                    None => format!(
+                        "[{}({})]",
+                        self.state_id.as_(),
+                        utils::check_ldfa_state_status(
+                            EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(
+                                self.state_id
+                            ),
+                            &mut lazy.create_cache(),
+                            lazy
+                        )
+                    ),
+                    Some(_) => {
+                        let (ldfa_state_id, r) =
+                        EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id_with_r(self.state_id);
+                        format!(
+                            "[{}({}),R{}]",
+                            self.state_id.as_(),
+                            utils::check_ldfa_state_status(
+                                ldfa_state_id,
+                                &mut lazy.create_cache(),
+                                lazy
+                            ),
+                            r.as_()
+                        )
+                    }
+                },
+            },
+            HIRNode::Nonterminal(_) => String::new(),
+        };
+        EarleyItemDebugStruct {
+            dotted_rule,
+            start_position: self.start_position.as_(),
+            state,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct EarleyItemDebugStruct {
+    dotted_rule: String,
+    start_position: usize,
+    state: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct ToBeCompletedItem<TN, TSP>
 where
@@ -62,6 +227,48 @@ where
     start_position: TSP,
 }
 
+impl<TN, TSP> ToBeCompletedItem<TN, TSP>
+where
+    TN: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + num::traits::NumAssignOps
+        + std::convert::TryFrom<usize>,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TN> + num::traits::AsPrimitive<TSP>,
+{
+    fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> ToBeCompletedItemDebugStruct
+    where
+        TE: crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + AsPrimitive<usize>
+            + std::fmt::Debug
+            + num::Bounded
+            + std::convert::TryFrom<usize>
+            + CheckedSub,
+        usize: num::traits::AsPrimitive<TE>,
+    {
+        ToBeCompletedItemDebugStruct {
+            nonterminal: self.nonterminal_id.to_display_form(grammar),
+            start_position: self.start_position.as_(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ToBeCompletedItemDebugStruct {
+    nonterminal: String,
+    start_position: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Dotted<TN, TSP>
 where
@@ -70,6 +277,49 @@ where
 {
     postdot_nonterminal_id: NonterminalID<TN>,
     column: TSP,
+}
+
+impl<TN, TSP> Dotted<TN, TSP>
+where
+    TN: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + num::traits::NumAssignOps
+        + std::convert::TryFrom<usize>,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TN> + num::traits::AsPrimitive<TSP>,
+{
+    fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> DottedDebugStruct
+    where
+        TE: crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + AsPrimitive<usize>
+            + std::fmt::Debug
+            + num::Bounded
+            + std::convert::TryFrom<usize>
+            + CheckedSub,
+        usize: num::traits::AsPrimitive<TE>,
+    {
+        DottedDebugStruct {
+            postdot_nonterminal: self.postdot_nonterminal_id.to_display_form(grammar),
+            column: self.column.as_(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct DottedDebugStruct {
+    postdot_nonterminal: String,
+    column: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -86,6 +336,63 @@ where
 {
     LeoEligible(EarleyItem<TN, TD, TP, TSP, TS>),
     NormalItems(Vec<EarleyItem<TN, TD, TP, TSP, TS>>),
+}
+
+impl<TN, TD, TP, TSP, TS> PostDotItems<TN, TD, TP, TSP, TS>
+where
+    TN: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + num::traits::NumAssignOps
+        + std::convert::TryFrom<usize>,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TN>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>
+        + num::traits::AsPrimitive<TS>,
+{
+    fn to_debug_form<TE>(
+        &self,
+        engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
+    ) -> PostDotItemsDebugStruct
+    where
+        TE: crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + AsPrimitive<usize>
+            + std::fmt::Debug
+            + num::Bounded
+            + std::convert::TryFrom<usize>
+            + CheckedSub,
+        usize: num::traits::AsPrimitive<TE>,
+    {
+        match self {
+            PostDotItems::LeoEligible(item) => {
+                PostDotItemsDebugStruct::LeoEligible(item.to_debug_form(engine))
+            }
+            PostDotItems::NormalItems(items) => PostDotItemsDebugStruct::NormalItems(
+                items.iter().map(|x| x.to_debug_form(engine)).collect(),
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum PostDotItemsDebugStruct {
+    LeoEligible(EarleyItemDebugStruct),
+    NormalItems(Vec<EarleyItemDebugStruct>),
 }
 /// The specific config of the engine
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -130,7 +437,7 @@ pub enum EngineBaseError {
     RepetitionInExceptedTooLarge(usize, usize),
 }
 #[allow(clippy::type_complexity)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// The low-level engine struct that implement a variant of the Earley recognizer.
 pub struct EngineBase<TI, TE, TD, TP, TSP, TS>
 where
@@ -177,7 +484,7 @@ where
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-    added_postdot_items: AHashSet<Dotted<TI, TSP>>,
+    postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
     leo_items: AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
@@ -187,6 +494,155 @@ where
     regex_start_config: regex_automata::util::start::Config,
     excepted_start_config: regex_automata::util::start::Config,
 }
+
+impl<TI, TE, TD, TP, TSP, TS> Debug for EngineBase<TI, TE, TD, TP, TSP, TS>
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + NumAssign,
+    TE: crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + AsPrimitive<usize>
+        + std::fmt::Debug
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + num::CheckedSub,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    usize: num::traits::AsPrimitive<TI>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>
+        + num::traits::AsPrimitive<TE>
+        + num::traits::AsPrimitive<TS>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineBase")
+            .field("grammar", &self.grammar)
+            .field(
+                "allowed_first_bytes",
+                &utils::get_display_form_from_bitset_on_stack(&self.allowed_first_bytes),
+            )
+            .field("allowed_token_ids", {
+                &self
+                    .allowed_token_ids
+                    .ones()
+                    .map(|x| {
+                        format!(
+                            "{}[{}]",
+                            self.vocabulary
+                                .get_token_string_from_token_id(x as u32)
+                                .unwrap(),
+                            x
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .field(
+                "earley_sets",
+                &self.get_display_form_from_earley_sets(&self.earley_sets),
+            )
+            .field(
+                "cache",
+                &self
+                    .cache
+                    .iter()
+                    .map(|(k, v)| (self.get_display_form_from_earley_sets(k), v))
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "regex_id_to_cache",
+                &utils::fill_debug_form_of_id_to_x(self.regex_id_to_cache.iter(), |id| {
+                    RegexID(id.as_()).to_display_form(&self.grammar)
+                }),
+            )
+            .field("excepted_id_to_cache", {
+                &utils::fill_debug_form_of_id_to_x(self.excepted_id_to_cache.iter(), |id| {
+                    ExceptedID(id.as_()).to_display_form(&self.grammar, None)
+                })
+            })
+            .field("to_be_completed_items", {
+                &self
+                    .to_be_completed_items
+                    .iter()
+                    .map(|x| x.to_debug_form(&self.grammar))
+                    .collect::<Vec<_>>()
+            })
+            .field(
+                "to_be_completed_items_buffer",
+                &self
+                    .to_be_completed_items_buffer
+                    .iter()
+                    .map(|x| x.to_debug_form(&self.grammar))
+                    .collect::<Vec<_>>(),
+            )
+            .field("deduplication_buffer", {
+                &self
+                    .deduplication_buffer
+                    .iter()
+                    .map(|x| x.to_debug_form(self))
+                    .collect::<Vec<_>>()
+            })
+            .field("postdot_items", {
+                &self
+                    .postdot_items
+                    .iter()
+                    .map(|(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)))
+                    .collect::<Vec<_>>()
+            })
+            .field(
+                "postdot_items_since_last_commit",
+                &self
+                    .postdot_items_since_last_commit
+                    .iter()
+                    .map(|x| x.to_debug_form(&self.grammar))
+                    .collect::<Vec<_>>(),
+            )
+            .field("leo_items", {
+                &self
+                    .leo_items
+                    .iter()
+                    .map(|(k, v)| {
+                        (
+                            k.to_debug_form(&self.grammar),
+                            v.to_debug_form(&self.grammar),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .field(
+                "leo_items_buffer",
+                &self
+                    .leo_items_buffer
+                    .iter()
+                    .map(|x| x.to_debug_form(&self.grammar))
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "already_predicted_nonterminals",
+                &utils::get_display_form_from_bitset(&self.already_predicted_nonterminals),
+            )
+            .field("finished", &self.finished)
+            .field("config", &self.config)
+            .field("regex_start_config", &self.regex_start_config)
+            .field("excepted_start_config", &self.excepted_start_config)
+            .finish()
+    }
+}
+
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 impl<TI, TE, TD, TP, TSP, TS> EngineBase<TI, TE, TD, TP, TSP, TS>
@@ -290,11 +746,27 @@ where
             finished: false,
             to_be_completed_items_buffer: AHashSet::default(),
             leo_items_buffer: Vec::new(),
-            added_postdot_items: AHashSet::default(),
+            postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
         };
         engine.reset();
         Ok(engine)
+    }
+
+    fn get_display_form_from_earley_sets(
+        &self,
+        sets: &EarleySets<TI, TD, TP, TSP, TS>,
+    ) -> Vec<Vec<EarleyItemDebugStruct>> {
+        let mut res = Vec::with_capacity(sets.len());
+        for i in 0..sets.len() {
+            let set = sets.view::<1, 1>([i]);
+            let mut set_res = Vec::with_capacity(set.len());
+            for j in 0..set.len() {
+                set_res.push(set[[j]].to_debug_form(self));
+            }
+            res.push(set_res);
+        }
+        res
     }
 
     fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
@@ -1113,7 +1585,7 @@ where
     }
 
     fn commit_change(&mut self) {
-        self.added_postdot_items.clear();
+        self.postdot_items_since_last_commit.clear();
     }
 
     fn is_rejected(earley_sets: &EarleySets<TI, TD, TP, TSP, TS>) -> bool {
@@ -1159,7 +1631,6 @@ where
             );
             return Err(crate::engine_like::AcceptTokenError::Rejected);
         }
-        println!("Scanned");
         Self::scan(
             grammar,
             earley_sets,
@@ -1249,7 +1720,7 @@ where
                 &mut self.leo_items,
                 &mut self.leo_items_buffer,
                 &mut self.postdot_items,
-                &mut self.added_postdot_items,
+                &mut self.postdot_items_since_last_commit,
                 &mut self.regex_id_to_cache,
                 &mut self.excepted_id_to_cache,
                 &mut self.already_predicted_nonterminals,
@@ -1294,7 +1765,7 @@ where
                                 &mut self.leo_items,
                                 &mut self.leo_items_buffer,
                                 &mut self.postdot_items,
-                                &mut self.added_postdot_items,
+                                &mut self.postdot_items_since_last_commit,
                                 &mut self.regex_id_to_cache,
                                 &mut self.excepted_id_to_cache,
                                 &mut self.already_predicted_nonterminals,
@@ -1330,7 +1801,7 @@ where
                             Self::revert_change(
                                 &mut self.earley_sets,
                                 &mut self.postdot_items,
-                                &mut self.added_postdot_items,
+                                &mut self.postdot_items_since_last_commit,
                                 len,
                                 &mut self.finished,
                             );
@@ -1345,7 +1816,7 @@ where
                     Self::revert_change(
                         &mut self.earley_sets,
                         &mut self.postdot_items,
-                        &mut self.added_postdot_items,
+                        &mut self.postdot_items_since_last_commit,
                         len,
                         &mut self.finished,
                     );
@@ -1364,7 +1835,7 @@ where
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
-                    &mut self.added_postdot_items,
+                    &mut self.postdot_items_since_last_commit,
                     &mut self.regex_id_to_cache,
                     &mut self.excepted_id_to_cache,
                     &mut self.already_predicted_nonterminals,
@@ -1440,7 +1911,7 @@ where
         self.leo_items.clear();
         self.leo_items_buffer.clear();
         self.postdot_items.clear();
-        self.added_postdot_items.clear();
+        self.postdot_items_since_last_commit.clear();
         self.already_predicted_nonterminals.clear();
         self.finished = false;
         self.allowed_token_ids.clear();
@@ -1477,8 +1948,7 @@ where
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
         Box::new(self)
     }
-
-    fn as_dyn_ref(&self) -> &dyn EngineLike {
-        self
+    fn get_vocab(&self) -> Arc<Vocabulary> {
+        self.vocabulary.clone()
     }
 }

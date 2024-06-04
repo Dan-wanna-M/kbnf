@@ -7,9 +7,3 @@ pub mod grammar;
 mod non_zero;
 pub mod utils;
 pub mod vocabulary;
-
-/// Placeholder
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-

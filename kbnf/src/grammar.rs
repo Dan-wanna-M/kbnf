@@ -1,8 +1,7 @@
 //! The grammar module that contains the grammar struct in HIR form and its related functions and structs.
 use std::fmt::Debug;
 
-use crate::utils::ByteSet;
-use ahash::AHashMap;
+use crate::utils::{self, ByteSet};
 use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
@@ -26,21 +25,142 @@ pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition
 pub struct TerminalID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+impl<T> TerminalID<T>
+where
+    T: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+{
+    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
+    where
+        TE: AsPrimitive<usize>
+            + crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + Bounded
+            + std::convert::TryFrom<usize>,
+    {
+        format!(
+            "\"{}\"[{}]",
+            grammar.get_terminal_str(*self).unwrap(),
+            self.0.as_()
+        )
+    }
+}
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 /// The wrapper struct that represents the nonterminal id in the grammar.
 pub struct NonterminalID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+impl<T> NonterminalID<T>
+where
+    T: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+{
+    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
+    where
+        TE: AsPrimitive<usize>
+            + crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + Bounded
+            + std::convert::TryFrom<usize>,
+    {
+        format!(
+            "{}[{}]",
+            grammar.get_nonterminal_str(*self).unwrap(),
+            self.0.as_()
+        )
+    }
+}
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 /// The wrapper struct that represents the except! id in the grammar.
 pub struct ExceptedID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+impl<T> ExceptedID<T>
+where
+    T: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+{
+    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>, r: Option<TE>) -> String
+    where
+        TE: AsPrimitive<usize>
+            + crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + Bounded
+            + std::convert::TryFrom<usize>,
+    {
+        format!(
+            "except!({}{})[{}]",
+            grammar.get_excepted_str(*self).unwrap(),
+            self.0.as_(),
+            if let Some(r) = r {
+                r.as_().to_string()
+            } else {
+                "".to_string()
+            }
+        )
+    }
+}
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 /// The wrapper struct that represents the regex id in the grammar.
 pub struct RegexID<T>(pub T)
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+impl<T> RegexID<T>
+where
+    T: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+{
+    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
+    where
+        TE: AsPrimitive<usize>
+            + crate::non_zero::ConstOne
+            + Eq
+            + std::hash::Hash
+            + PartialEq
+            + Bounded
+            + std::convert::TryFrom<usize>,
+    {
+        format!(
+            "#\"{}\"[{}]",
+            grammar.get_regex_str(*self).unwrap(),
+            self.0.as_()
+        )
+    }
+}
 /// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub enum HIRNode<T, TE>
@@ -57,18 +177,44 @@ where
     /// The except! node.
     EXCEPT(ExceptedID<T>, Option<TE>),
 }
-/// The grammar struct that stores the grammar in HIR.
-#[derive(Clone)]
-pub struct Grammar<TI, TE>
+
+impl<TI, TE> HIRNode<TI, TE>
 where
-    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero + Debug,
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
     TE: AsPrimitive<usize>
         + crate::non_zero::ConstOne
         + Eq
         + std::hash::Hash
         + PartialEq
         + Bounded
-        + Debug,
+        + std::convert::TryFrom<usize>,
+{
+    pub fn to_display_form(&self, grammar: &Grammar<TI, TE>) -> String {
+        match self {
+            HIRNode::Terminal(x) => x.to_display_form(grammar),
+            HIRNode::RegexString(x) => {
+                format!("#\"{}\"[{}]", grammar.get_regex_str(*x).unwrap(), x.0.as_())
+            }
+            HIRNode::Nonterminal(x) => x.to_display_form(grammar),
+            HIRNode::EXCEPT(x, r) => x.to_display_form(grammar, *r),
+        }
+    }
+}
+
+/// The grammar struct that stores the grammar in HIR.
+#[derive(Clone)]
+pub struct Grammar<TI, TE>
+where
+    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq + Bounded,
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
@@ -129,58 +275,23 @@ where
         f.debug_struct("Grammar")
             .field(
                 "start_nonterminal",
-                &format!(
-                    "{}[{}]",
-                    self.get_nonterminal_str(self.start_nonterminal_id).unwrap(),
-                    self.start_nonterminal_id.0.as_()
-                ),
+                &self.start_nonterminal_id.to_display_form(self),
             )
             .field("rules", {
                 let mut lines = String::new();
                 for nonterminal_id in 0..self.rules.len() {
                     let mut line = String::new();
                     line.push_str(&format!(
-                        "{}[{}] ::= ",
-                        self.get_nonterminal_str(NonterminalID(nonterminal_id.as_()))
-                            .unwrap(),
-                        nonterminal_id
+                        "{} ::= ",
+                        NonterminalID(nonterminal_id.as_()).to_display_form(self)
                     ));
                     let view = self.rules.view::<1, 2>([nonterminal_id]);
                     let mut productions: Vec<Vec<String>> = vec![Default::default(); view.len()];
                     for dot_position in 0..view.len() {
                         let view = view.view::<1, 1>([dot_position]);
                         for production_id in 0..view.len() {
-                            productions[production_id].push(match view[[production_id]] {
-                                HIRNode::Terminal(x) => {
-                                    format!(
-                                        "\"{}\"[{}]",
-                                        self.get_terminal_str(x).unwrap(),
-                                        x.0.as_()
-                                    )
-                                }
-                                HIRNode::RegexString(x) => {
-                                    format!(
-                                        "#\"{}\"[{}]",
-                                        self.get_regex_str(x).unwrap(),
-                                        x.0.as_()
-                                    )
-                                }
-                                HIRNode::Nonterminal(x) => format!(
-                                    "{}[{}]",
-                                    self.get_nonterminal_str(x).unwrap(),
-                                    x.0.as_()
-                                ),
-                                HIRNode::EXCEPT(x, r) => format!(
-                                    "except!({}{})[{}]",
-                                    self.get_excepted_str(x).unwrap(),
-                                    x.0.as_(),
-                                    if let Some(r) = r {
-                                        format!(",{}", r.as_())
-                                    } else {
-                                        "".to_string()
-                                    }
-                                ),
-                            });
+                            productions[production_id]
+                                .push(view[[production_id]].to_display_form(self));
                         }
                     }
                     line.push_str(
@@ -197,68 +308,42 @@ where
             .field("interned_strings", &self.interned_strings)
             .field(
                 "id_to_regexes",
-                &Self::fill_debug_form_of_id_to_x(self.id_to_regexes.iter(), |x| {
-                    format!(
-                        "#\"{}\"[{}]",
-                        self.get_regex_str(RegexID(x.as_())).unwrap(),
-                        x
-                    )
+                &utils::fill_debug_form_of_id_to_x(self.id_to_regexes.iter(), |x| {
+                    RegexID(x.as_()).to_display_form(self)
                 }),
             )
             .field(
                 "id_to_excepteds",
-                &Self::fill_debug_form_of_id_to_x(self.id_to_excepteds.iter(), |x| {
-                    format!(
-                        "except!({})[{}]",
-                        self.get_excepted_str(ExceptedID(x.as_())).unwrap(),
-                        x
-                    )
+                &utils::fill_debug_form_of_id_to_x(self.id_to_excepteds.iter(), |x| {
+                    ExceptedID(x.as_()).to_display_form(self, None)
                 }),
             )
             .field(
                 "id_to_regex_first_bytes",
-                &Self::fill_debug_form_of_id_to_x(
+                &utils::fill_debug_form_of_id_to_x(
                     self.id_to_regex_first_bytes
                         .iter()
-                        .map(|x| x.ones().collect::<Vec<_>>()),
-                    |x| {
-                        format!(
-                            "#\"{}\"[{}]",
-                            self.get_regex_str(RegexID(x.as_())).unwrap(),
-                            x
-                        )
-                    },
+                        .map(utils::get_display_form_from_bitset_on_stack),
+                    |x| RegexID(x.as_()).to_display_form(self),
                 ),
             )
             .field(
                 "id_to_excepted_first_bytes",
-                &Self::fill_debug_form_of_id_to_x(
+                &utils::fill_debug_form_of_id_to_x(
                     self.id_to_excepted_first_bytes
                         .iter()
                         .map(|x| x.ones().collect::<Vec<_>>()),
-                    |x| {
-                        format!(
-                            "except!({})[{}]",
-                            self.get_excepted_str(ExceptedID(x.as_())).unwrap(),
-                            x
-                        )
-                    },
+                    |x| ExceptedID(x.as_()).to_display_form(self, None),
                 ),
             )
             .field(
                 "id_to_terminals",
-                &Self::fill_debug_form_of_id_to_x(
+                &utils::fill_debug_form_of_id_to_x(
                     {
                         (0..self.id_to_terminals.len())
                             .map(|x| self.id_to_terminals.view([x]).as_slice())
                     },
-                    |x| {
-                        format!(
-                            "\"{}\"[{}]",
-                            self.get_terminal_str(TerminalID(x.as_())).unwrap(),
-                            x
-                        )
-                    },
+                    |x| TerminalID(x.as_()).to_display_form(self),
                 ),
             )
             .finish()
@@ -275,16 +360,14 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded
-        + Debug,
+        + num::Bounded,
     TE: AsPrimitive<usize>
         + crate::non_zero::ConstOne
         + Eq
         + std::hash::Hash
         + PartialEq
         + Bounded
-        + std::convert::TryFrom<usize>
-        + Debug,
+        + std::convert::TryFrom<usize>,
 {
     /// Create a new grammar from a simplified EBNF grammar.
     ///
@@ -441,13 +524,6 @@ where
             id_to_regex_first_bytes.push(set);
         }
         Ok(id_to_regex_first_bytes)
-    }
-
-    fn fill_debug_form_of_id_to_x<'a, T: Debug>(
-        id_to_x: impl Iterator<Item = T> + 'a,
-        get_str: impl Fn(usize) -> String,
-    ) -> AHashMap<String, T> {
-        id_to_x.enumerate().map(|(i, x)| (get_str(i), x)).collect()
     }
 
     #[inline]

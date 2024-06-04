@@ -1,7 +1,11 @@
 //! This module contains the [EngineLike] trait, which defines the behavior of an engine-like object.
 
+use std::sync::Arc;
+
 use displaydoc::Display;
 use fixedbitset::FixedBitSet;
+
+use crate::vocabulary::Vocabulary;
 
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the error when an [EngineLike] tries to accept a token.
@@ -115,6 +119,6 @@ pub trait EngineLike {
     fn reset(&mut self);
     /// Converts the engine to a boxed engine.
     fn into_boxed_engine(self) -> Box<dyn EngineLike>;
-    /// Converts the engine to a reference to a dyn EngineLike.
-    fn as_dyn_ref(&self) -> &dyn EngineLike;
+    /// Gets the vocabulary of the engine as an Arc.
+    fn get_vocab(&self)->Arc<Vocabulary>;
 }
