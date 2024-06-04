@@ -9,7 +9,9 @@ mod tests {
 
     use ahash::AHashMap;
     use kbnf::{
-        engine::Engine, engine_like::{AcceptTokenResult, EngineLike}, vocabulary::{Token, Vocabulary}
+        engine::Engine,
+        engine_like::{AcceptTokenResult, EngineLike},
+        vocabulary::{Token, Vocabulary},
     };
     #[derive(Debug, thiserror::Error)]
     /// Error type when reading RWKV world model's vocabulary file.
@@ -124,6 +126,10 @@ mod tests {
         result
     }
 
+    fn get_token_id_from_str(vocab: &Vocabulary, token: &str) -> Option<u32> {
+        vocab.get_token_id_from_token(&Token(token.as_bytes().to_vec().into_boxed_slice()))
+    }
+
     #[test]
     fn minimal_case() {
         let input = "start::='aaa';";
@@ -132,13 +138,13 @@ mod tests {
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         assert!(
             engine
-                .try_accept_new_token(
-                    vocab
-                        .get_token_id_from_token(&Token(
-                            "aaa".as_bytes().to_vec().into_boxed_slice()
-                        ))
-                        .unwrap(),
-                )
+                .try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
+                == Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "This should not be accepted"
+        );
+        assert!(
+            engine
+                .try_accept_new_token(get_token_id_from_str(&vocab, "aaa").unwrap())
                 .unwrap()
                 == AcceptTokenResult::Finished,
             "Failed to accept token"

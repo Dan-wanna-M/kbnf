@@ -8,18 +8,19 @@ use std::fmt::Debug;
 use tinyvec::ArrayVec;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
-const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one additional index.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 pub struct Token(pub Box<[u8]>);
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct FirstBytes([u32; BYTES_NUM]);
 impl tinyvec::Array for FirstBytes {
     type Item = u32;
     const CAPACITY: usize = BYTES_NUM;
 
     fn as_slice(&self) -> &[Self::Item] {
-        &self.0 
+        &self.0
     }
 
     fn as_slice_mut(&mut self) -> &mut [Self::Item] {
@@ -109,7 +110,6 @@ impl Vocabulary {
             temp[first_byte as usize].push((token_id, token));
         }
         let mut tokens_containing_separators = Vec::new();
-        println!("{}", temp.len());
         for tokens in temp.iter() {
             first_byte_to_token.new_row::<0>();
             for &(token_id, token) in tokens.iter() {

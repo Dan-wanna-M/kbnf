@@ -1588,8 +1588,12 @@ where
         self.postdot_items_since_last_commit.clear();
     }
 
-    fn is_rejected(earley_sets: &EarleySets<TI, TD, TP, TSP, TS>) -> bool {
+    fn is_rejected(
+        earley_sets: &EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &AHashSet<ToBeCompletedItem<TI, TSP>>,
+    ) -> bool {
         earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
+            && to_be_completed_items.is_empty()
     }
 
     fn accept_byte(
@@ -1621,7 +1625,15 @@ where
             );
             return Err(crate::engine_like::AcceptTokenError::Rejected);
         }
-        if Self::is_rejected(earley_sets) {
+        Self::scan(
+            grammar,
+            earley_sets,
+            to_be_completed_items,
+            regex_id_to_cache,
+            excepted_id_to_cache,
+            byte,
+        ); // scan the current Earley set and creates the next Earley set
+        if Self::is_rejected(earley_sets, to_be_completed_items) {
             Self::revert_change(
                 earley_sets,
                 postdot_items,
@@ -1631,14 +1643,6 @@ where
             );
             return Err(crate::engine_like::AcceptTokenError::Rejected);
         }
-        Self::scan(
-            grammar,
-            earley_sets,
-            to_be_completed_items,
-            regex_id_to_cache,
-            excepted_id_to_cache,
-            byte,
-        ); // scan the current Earley set and creates the next Earley set
         Self::complete(
             grammar,
             earley_sets,
