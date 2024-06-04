@@ -1,5 +1,8 @@
 //! The grammar module that contains the grammar struct in HIR form and its related functions and structs.
+use std::fmt::Debug;
+
 use crate::utils::ByteSet;
+use ahash::AHashMap;
 use ebnf::grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
@@ -15,6 +18,7 @@ use num::{
 };
 use regex_automata::dfa::Automaton;
 use regex_automata::Anchored;
+use string_interner::symbol::SymbolU32;
 use string_interner::Symbol;
 pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -54,11 +58,17 @@ where
     EXCEPT(ExceptedID<T>, Option<TE>),
 }
 /// The grammar struct that stores the grammar in HIR.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Grammar<TI, TE>
 where
-    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq + Bounded,
+    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero + Debug,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + Debug,
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
@@ -93,6 +103,167 @@ pub enum GrammarError {
     /// Error due to inefficient cache usage in a lazy DFA.
     LazyDfaCacheError(#[from] regex_automata::hybrid::CacheError),
 }
+impl<TI, TE> Debug for Grammar<TI, TE>
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded
+        + Debug,
+    TE: AsPrimitive<usize>
+        + crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + Bounded
+        + std::convert::TryFrom<usize>
+        + Debug,
+    usize: num::traits::AsPrimitive<TI>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Grammar")
+            .field(
+                "start_nonterminal",
+                &format!(
+                    "{}[{}]",
+                    self.get_nonterminal_str(self.start_nonterminal_id).unwrap(),
+                    self.start_nonterminal_id.0.as_()
+                ),
+            )
+            .field("rules", {
+                let mut lines = String::new();
+                for nonterminal_id in 0..self.rules.len() {
+                    let mut line = String::new();
+                    line.push_str(&format!(
+                        "{}[{}] ::= ",
+                        self.get_nonterminal_str(NonterminalID(nonterminal_id.as_()))
+                            .unwrap(),
+                        nonterminal_id
+                    ));
+                    let view = self.rules.view::<1, 2>([nonterminal_id]);
+                    let mut productions: Vec<Vec<String>> = vec![Default::default(); view.len()];
+                    for dot_position in 0..view.len() {
+                        let view = view.view::<1, 1>([dot_position]);
+                        for production_id in 0..view.len() {
+                            productions[production_id].push(match view[[production_id]] {
+                                HIRNode::Terminal(x) => {
+                                    format!(
+                                        "\"{}\"[{}]",
+                                        self.get_terminal_str(x).unwrap(),
+                                        x.0.as_()
+                                    )
+                                }
+                                HIRNode::RegexString(x) => {
+                                    format!(
+                                        "#\"{}\"[{}]",
+                                        self.get_regex_str(x).unwrap(),
+                                        x.0.as_()
+                                    )
+                                }
+                                HIRNode::Nonterminal(x) => format!(
+                                    "{}[{}]",
+                                    self.get_nonterminal_str(x).unwrap(),
+                                    x.0.as_()
+                                ),
+                                HIRNode::EXCEPT(x, r) => format!(
+                                    "except!({}{})[{}]",
+                                    self.get_excepted_str(x).unwrap(),
+                                    x.0.as_(),
+                                    if let Some(r) = r {
+                                        format!(",{}", r.as_())
+                                    } else {
+                                        "".to_string()
+                                    }
+                                ),
+                            });
+                        }
+                    }
+                    line.push_str(
+                        &productions
+                            .iter()
+                            .map(|x| x.join(""))
+                            .collect::<Vec<_>>()
+                            .join(" | "),
+                    );
+                    lines.push_str(&(line + ";\n"));
+                }
+                &lines.into_boxed_str()
+            })
+            .field("interned_strings", &self.interned_strings)
+            .field(
+                "id_to_regexes",
+                &Self::fill_debug_form_of_id_to_x(self.id_to_regexes.iter(), |x| {
+                    format!(
+                        "#\"{}\"[{}]",
+                        self.get_regex_str(RegexID(x.as_())).unwrap(),
+                        x
+                    )
+                }),
+            )
+            .field(
+                "id_to_excepteds",
+                &Self::fill_debug_form_of_id_to_x(self.id_to_excepteds.iter(), |x| {
+                    format!(
+                        "except!({})[{}]",
+                        self.get_excepted_str(ExceptedID(x.as_())).unwrap(),
+                        x
+                    )
+                }),
+            )
+            .field(
+                "id_to_regex_first_bytes",
+                &Self::fill_debug_form_of_id_to_x(
+                    self.id_to_regex_first_bytes
+                        .iter()
+                        .map(|x| x.ones().collect::<Vec<_>>()),
+                    |x| {
+                        format!(
+                            "#\"{}\"[{}]",
+                            self.get_regex_str(RegexID(x.as_())).unwrap(),
+                            x
+                        )
+                    },
+                ),
+            )
+            .field(
+                "id_to_excepted_first_bytes",
+                &Self::fill_debug_form_of_id_to_x(
+                    self.id_to_excepted_first_bytes
+                        .iter()
+                        .map(|x| x.ones().collect::<Vec<_>>()),
+                    |x| {
+                        format!(
+                            "except!({})[{}]",
+                            self.get_excepted_str(ExceptedID(x.as_())).unwrap(),
+                            x
+                        )
+                    },
+                ),
+            )
+            .field(
+                "id_to_terminals",
+                &Self::fill_debug_form_of_id_to_x(
+                    {
+                        (0..self.id_to_terminals.len())
+                            .map(|x| self.id_to_terminals.view([x]).as_slice())
+                    },
+                    |x| {
+                        format!(
+                            "\"{}\"[{}]",
+                            self.get_terminal_str(TerminalID(x.as_())).unwrap(),
+                            x
+                        )
+                    },
+                ),
+            )
+            .finish()
+    }
+}
 
 impl<TI, TE> Grammar<TI, TE>
 where
@@ -104,14 +275,16 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + Debug,
     TE: AsPrimitive<usize>
         + crate::non_zero::ConstOne
         + Eq
         + std::hash::Hash
         + PartialEq
         + Bounded
-        + std::convert::TryFrom<usize>,
+        + std::convert::TryFrom<usize>
+        + Debug,
 {
     /// Create a new grammar from a simplified EBNF grammar.
     ///
@@ -270,6 +443,13 @@ where
         Ok(id_to_regex_first_bytes)
     }
 
+    fn fill_debug_form_of_id_to_x<'a, T: Debug>(
+        id_to_x: impl Iterator<Item = T> + 'a,
+        get_str: impl Fn(usize) -> String,
+    ) -> AHashMap<String, T> {
+        id_to_x.enumerate().map(|(i, x)| (get_str(i), x)).collect()
+    }
+
     #[inline]
     /// Get the start nonterminal id.
     pub fn get_start_nonterminal_id(&self) -> NonterminalID<TI> {
@@ -303,6 +483,27 @@ where
     pub fn get_interned_strings(&self) -> &InternedStrings {
         &self.interned_strings
     }
+    pub fn get_nonterminal_str(&self, nonterminal_id: NonterminalID<TI>) -> Option<&str> {
+        self.interned_strings
+            .nonterminals
+            .resolve(SymbolU32::try_from_usize(nonterminal_id.0.as_()).unwrap())
+    }
+    pub fn get_terminal_str(&self, terminal_id: TerminalID<TI>) -> Option<&str> {
+        self.interned_strings
+            .terminals
+            .resolve(SymbolU32::try_from_usize(terminal_id.0.as_()).unwrap())
+    }
+    pub fn get_regex_str(&self, regex_id: RegexID<TI>) -> Option<&str> {
+        self.interned_strings
+            .regex_strings
+            .resolve(SymbolU32::try_from_usize(regex_id.0.as_()).unwrap())
+    }
+    pub fn get_excepted_str(&self, excepted_id: ExceptedID<TI>) -> Option<&str> {
+        self.interned_strings
+            .excepteds
+            .resolve(SymbolU32::try_from_usize(excepted_id.0.as_()).unwrap())
+    }
+
     #[inline]
     /// Get the regex from the grammar.
     pub fn get_regex(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {

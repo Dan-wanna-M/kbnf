@@ -5,7 +5,6 @@ use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::NonMaxU32;
-use num::Bounded;
 use num::CheckedSub;
 use num::{
     cast::AsPrimitive,
@@ -18,6 +17,7 @@ use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
@@ -134,8 +134,26 @@ pub enum EngineBaseError {
 /// The low-level engine struct that implement a variant of the Earley recognizer.
 pub struct EngineBase<TI, TE, TD, TP, TSP, TS>
 where
-    TI: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TE: crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq + AsPrimitive<usize> + Bounded,
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + NumAssign,
+    TE: crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + AsPrimitive<usize>
+        + std::fmt::Debug
+        + num::Bounded
+        + std::convert::TryFrom<usize>,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -177,20 +195,23 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
-        + NumAssign
-        + std::cmp::PartialOrd
-        + num::Bounded
-        + std::convert::TryFrom<usize>,
-    TI: Eq + std::hash::Hash + PartialEq,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
         + Eq
         + std::hash::Hash
         + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + num::traits::NumAssignOps
+        + std::convert::TryFrom<usize>,
+    TE: crate::non_zero::ConstOne
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + AsPrimitive<usize>
+        + std::fmt::Debug
         + num::Bounded
         + std::convert::TryFrom<usize>
-        + CheckedSub,
+        + num::CheckedSub,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -1158,7 +1179,6 @@ where
             deduplication_buffer,
             finished,
         ); // complete the next Earley set
-        println!("Completed");
         Self::predict(
             grammar,
             earley_sets,
@@ -1168,9 +1188,7 @@ where
             excepted_id_to_cache,
             already_predicted_nonterminals,
         ); // predict the next Earley set
-        println!("Predicted");
         Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
-        println!("Postdot items updated");
         Ok(())
     }
 }
@@ -1187,7 +1205,8 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + num::Bounded
-        + std::convert::TryFrom<usize>,
+        + std::convert::TryFrom<usize>
+        + Debug,
     TI: Eq + std::hash::Hash + PartialEq,
     TE: AsPrimitive<usize>
         + crate::non_zero::ConstOne
@@ -1196,7 +1215,8 @@ where
         + PartialEq
         + num::Bounded
         + std::convert::TryFrom<usize>
-        + CheckedSub,
+        + CheckedSub
+        + Debug,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -1450,12 +1470,15 @@ where
             &self.grammar,
             &mut self.earley_sets,
             &mut self.postdot_items,
-            &mut AHashSet::default(),
-            // We will never need to revert the engine's state since it is the initialization
+            &mut AHashSet::default(), // We will never need to revert the engine's state since it is the initialization
         );
     }
 
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
         Box::new(self)
+    }
+
+    fn as_dyn_ref(&self) -> &dyn EngineLike {
+        self
     }
 }

@@ -12,6 +12,7 @@ use crate::{
     utils,
     vocabulary::Vocabulary,
 };
+#[derive(Debug, Clone)]
 /// An enum that represents the common type combinations of `EngineBase`.
 pub(crate) enum EngineUnion {
     /// Typical simple grammar with lazy/complex dfa without any repetition
@@ -31,6 +32,7 @@ pub(crate) enum EngineUnion {
     /// Complex grammar with complex dfa and unusually large repetitions
     U16U16U16U32U32U32(EngineBase<u16, NonZeroU16, u16, u32, u32, u32>),
 }
+#[derive(Debug, Clone)]
 /// The main struct that wraps the `EngineBase` so the user do not have to specify the generic type every time for common cases.
 pub struct Engine {
     union: EngineUnion,
@@ -194,9 +196,9 @@ impl Engine {
     }
 
     fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
-        grammar.interned_strings.terminals.len() <= value + 1
-            && grammar.interned_strings.nonterminals.len() <= value + 1
-            && grammar.interned_strings.excepteds.len() <= value + 1
+        grammar.interned_strings.terminals.len() <= value
+            && grammar.interned_strings.nonterminals.len() <= value
+            && grammar.interned_strings.excepteds.len() <= value
     }
 }
 
@@ -341,6 +343,19 @@ impl EngineLike for Engine {
             EngineUnion::U16U16U16U32U32U32(engine) => Box::new(Engine {
                 union: EngineUnion::U16U16U16U32U32U32(engine),
             }),
+        }
+    }
+
+    fn as_dyn_ref(&self) -> &dyn EngineLike {
+        match &self.union {
+            EngineUnion::U8U0U8U8U8U32(engine) => engine,
+            EngineUnion::U8U0U8U16U16U16(engine) => engine,
+            EngineUnion::U16U0U16U32U32U32(engine) => engine,
+            EngineUnion::U8U8U8U8U8U32(engine) => engine,
+            EngineUnion::U8U8U8U16U16U16(engine) => engine,
+            EngineUnion::U16U8U16U32U32U32(engine) => engine,
+            EngineUnion::U8U16U8U8U8U32(engine) => engine,
+            EngineUnion::U16U16U16U32U32U32(engine) => engine,
         }
     }
 }

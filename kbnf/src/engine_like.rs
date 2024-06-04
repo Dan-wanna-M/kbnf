@@ -114,9 +114,7 @@ pub trait EngineLike {
     /// Resets the engine to its initial state.
     fn reset(&mut self);
     /// Converts the engine to a boxed engine.
-    ///
-    /// # Returns
-    ///
-    /// A boxed engine.
     fn into_boxed_engine(self) -> Box<dyn EngineLike>;
+    /// Converts the engine to a reference to a dyn EngineLike.
+    fn as_dyn_ref(&self) -> &dyn EngineLike;
 }
