@@ -176,4 +176,32 @@ mod tests {
         assert_snapshot!(format!("{:#?}", engine));
         assert_eq!(result, AcceptTokenResult::Finished);
     }
+    #[test]
+    fn always_match_regex()
+    {
+        let input = "start::=#\"(.+)\"'\n';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.get_vocab_size()];
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        for i in 0..10 {
+            let result = engine
+                .try_accept_new_token(
+                    vocab
+                        .get_token_id_from_token(&Token("a".as_bytes().to_vec().into_boxed_slice()))
+                        .unwrap(),
+                )
+                .unwrap();
+            println!("{}", i);
+            assert_eq!(result, AcceptTokenResult::Ongoing);
+            // engine.compute_allowed_token_ids();
+        }
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+    }
 }

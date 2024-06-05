@@ -132,10 +132,8 @@ pub(crate) fn check_ldfa_state_status(
     ldfa: &regex_automata::hybrid::dfa::DFA,
 ) -> FsaStateStatus {
     if ldfa_state.is_tagged()
-        && (ldfa_state.is_dead() || ldfa_state.is_quit() || ldfa_state.is_match())
+        && (ldfa_state.is_dead() || ldfa_state.is_quit())
     {
-        // match state is delayed by one byte, so if the current state is match state,
-        // it means the last byte is matched and hence we should terminate
         return FsaStateStatus::Reject;
     }
     let ldfa_state = ldfa.next_eoi_state(cache, ldfa_state).unwrap();

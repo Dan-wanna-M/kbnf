@@ -728,14 +728,24 @@ where
         Self::validate_ts_size_for_excepted(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
-        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size());
+        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size()+1);
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
         let already_predicted_nonterminals =
             FixedBitSet::with_capacity(grammar.get_nonterminals_size());
-        let regex_id_to_cache = AHashMap::default();
-        let excepted_id_to_cache = AHashMap::default();
+        let mut regex_id_to_cache = AHashMap::default();
+        for (i, regex) in grammar.get_id_to_regexes().iter().enumerate() {
+            if let FiniteStateAutomaton::LazyDFA(dfa) = regex {
+                regex_id_to_cache.insert(RegexID(i.as_()), dfa.create_cache());
+            }
+        }
+        let mut excepted_id_to_cache = AHashMap::default();
+        for (i, excepted) in grammar.get_id_to_excepteds().iter().enumerate() {
+            if let FiniteStateAutomaton::LazyDFA(lazy) = excepted {
+                excepted_id_to_cache.insert(ExceptedID(i.as_()), lazy.create_cache());
+            }
+        }
         let postdot_items = AHashMap::default();
         let mut engine = Self {
             vocabulary,
@@ -888,6 +898,68 @@ where
         }
         already_predicted_nonterminals.clear();
     }
+
+    fn initialize_state_id_based_on_node(
+        grammar: &Grammar<TI, TE>,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
+        node: HIRNode<TI, TE>,
+    ) -> TS {
+        match node {
+            HIRNode::RegexString(id) => {
+                let fsa = grammar.get_regex(id);
+                match fsa {
+                    FiniteStateAutomaton::Dfa(dfa) => {
+                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
+                        let start = dfa.start_state(regex_start_config).unwrap();
+                        Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
+                    }
+                    FiniteStateAutomaton::LazyDFA(dfa) => {
+                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
+                        let start = dfa
+                            .start_state(
+                                regex_id_to_cache.get_mut(&id).unwrap(),
+                                regex_start_config,
+                            )
+                            .unwrap();
+                        Self::from_ldfa_state_id_to_state_id(start)
+                    }
+                }
+            }
+            HIRNode::EXCEPT(id, r) => {
+                let fsa = grammar.get_excepted(id);
+                match fsa {
+                    FiniteStateAutomaton::Dfa(dfa) => {
+                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
+                        let start = dfa.start_state(excepted_start_config).unwrap();
+                        match r {
+                            Some(r) => {
+                                Self::from_dfa_state_id_to_state_id_with_r(start, dfa.stride2(), r)
+                            }
+                            None => Self::from_dfa_state_id_to_state_id(start, dfa.stride2()),
+                        }
+                    }
+                    FiniteStateAutomaton::LazyDFA(dfa) => {
+                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
+                        let start = dfa
+                            .start_state(
+                                excepted_id_to_cache.get_mut(&id).unwrap(),
+                                excepted_start_config,
+                            )
+                            .unwrap();
+                        match r {
+                            Some(r) => Self::from_ldfa_state_id_to_state_id_with_r(start, r),
+                            None => Self::from_ldfa_state_id_to_state_id(start),
+                        }
+                    }
+                }
+            }
+            _ => TS::ZERO,
+        }
+    }
+
     /// Predict one nonterminal according to Earley algorithm on the last Earley set.
     /// This function ensures no duplication happens.
     /// Returns earley set length increment due to prediction
@@ -913,64 +985,14 @@ where
                     dot_position: TD::ZERO,
                     production_index,
                     start_position: earley_set_index.as_(),
-                    state_id: match grammar.get_node(nonterminal_id, TD::ZERO, production_index) {
-                        &HIRNode::RegexString(id) => {
-                            let fsa = grammar.get_regex(id);
-                            match fsa {
-                                FiniteStateAutomaton::Dfa(dfa) => {
-                                    // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start = dfa.start_state(regex_start_config).unwrap();
-                                    Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
-                                }
-                                FiniteStateAutomaton::LazyDFA(dfa) => {
-                                    // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start = dfa
-                                        .start_state(
-                                            regex_id_to_cache.get_mut(&id).unwrap(),
-                                            regex_start_config,
-                                        )
-                                        .unwrap();
-                                    Self::from_ldfa_state_id_to_state_id(start)
-                                }
-                            }
-                        }
-                        HIRNode::EXCEPT(id, r) => {
-                            let fsa = grammar.get_excepted(*id);
-                            match fsa {
-                                FiniteStateAutomaton::Dfa(dfa) => {
-                                    // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start = dfa.start_state(excepted_start_config).unwrap();
-                                    match r {
-                                        Some(r) => Self::from_dfa_state_id_to_state_id_with_r(
-                                            start,
-                                            dfa.stride2(),
-                                            *r,
-                                        ),
-                                        None => Self::from_dfa_state_id_to_state_id(
-                                            start,
-                                            dfa.stride2(),
-                                        ),
-                                    }
-                                }
-                                FiniteStateAutomaton::LazyDFA(dfa) => {
-                                    // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                                    let start = dfa
-                                        .start_state(
-                                            excepted_id_to_cache.get_mut(id).unwrap(),
-                                            excepted_start_config,
-                                        )
-                                        .unwrap();
-                                    match r {
-                                        Some(r) => {
-                                            Self::from_ldfa_state_id_to_state_id_with_r(start, *r)
-                                        }
-                                        None => Self::from_ldfa_state_id_to_state_id(start),
-                                    }
-                                }
-                            }
-                        }
-                        _ => TS::ZERO,
-                    },
+                    state_id: Self::initialize_state_id_based_on_node(
+                        grammar,
+                        regex_start_config,
+                        regex_id_to_cache,
+                        excepted_id_to_cache,
+                        excepted_start_config,
+                        *grammar.get_node(nonterminal_id, TD::ZERO, production_index),
+                    ),
                 };
                 earley_sets.push_to_last_row(new_item);
             }
@@ -1032,6 +1054,10 @@ where
     fn advance_item<T>(
         grammar: &Grammar<TI, TE>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         add_to_earley_set: T,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) where
@@ -1054,7 +1080,18 @@ where
                 dot_position: new_dotted_position,
                 production_index: item.production_index,
                 start_position: item.start_position,
-                state_id: item.state_id,
+                state_id: Self::initialize_state_id_based_on_node(
+                    grammar,
+                    regex_start_config,
+                    regex_id_to_cache,
+                    excepted_id_to_cache,
+                    excepted_start_config,
+                    *grammar.get_node(
+                        item.nonterminal_id,
+                        new_dotted_position,
+                        item.production_index,
+                    ),
+                ),
             };
             add_to_earley_set(new_item);
         }
@@ -1064,11 +1101,19 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) {
         Self::advance_item(
             grammar,
             to_be_completed_items,
+            regex_start_config,
+            regex_id_to_cache,
+            excepted_id_to_cache,
+            excepted_start_config,
             |new_item| {
                 earley_sets.push_to_last_row(new_item);
             },
@@ -1168,8 +1213,10 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        regex_start_config: &regex_automata::util::start::Config,
         regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
         excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         byte: u8,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -1196,6 +1243,10 @@ where
                                 grammar,
                                 earley_sets,
                                 to_be_completed_items,
+                                regex_start_config,
+                                regex_id_to_cache,
+                                excepted_id_to_cache,
+                                excepted_start_config,
                                 item,
                             );
                         }
@@ -1215,6 +1266,10 @@ where
                                         grammar,
                                         earley_sets,
                                         to_be_completed_items,
+                                        regex_start_config,
+                                        regex_id_to_cache,
+                                        excepted_id_to_cache,
+                                        excepted_start_config,
                                         item,
                                     );
                                     let state_id = Self::from_dfa_state_id_to_state_id(
@@ -1243,10 +1298,15 @@ where
                                         grammar,
                                         earley_sets,
                                         to_be_completed_items,
+                                        regex_start_config,
+                                        regex_id_to_cache,
+                                        excepted_id_to_cache,
+                                        excepted_start_config,
                                         item,
                                     );
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
                                     Self::add_item_with_new_state(earley_sets, item, state_id);
+                                    println!("Accept");
                                 }
                                 utils::FsaStateStatus::Reject => {}
                                 utils::FsaStateStatus::InProgress => {
@@ -1280,6 +1340,10 @@ where
                                             grammar,
                                             earley_sets,
                                             to_be_completed_items,
+                                            regex_start_config,
+                                            regex_id_to_cache,
+                                            excepted_id_to_cache,
+                                            excepted_start_config,
                                             item,
                                         );
                                         let state_id = Self::from_dfa_state_id_to_state_id(
@@ -1297,6 +1361,10 @@ where
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
+                                                regex_start_config,
+                                                regex_id_to_cache,
+                                                excepted_id_to_cache,
+                                                excepted_start_config,
                                                 item,
                                             );
                                             let state_id =
@@ -1316,6 +1384,10 @@ where
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
+                                                regex_start_config,
+                                                regex_id_to_cache,
+                                                excepted_id_to_cache,
+                                                excepted_start_config,
                                                 item,
                                             );
                                         }
@@ -1341,6 +1413,10 @@ where
                                             grammar,
                                             earley_sets,
                                             to_be_completed_items,
+                                            regex_start_config,
+                                            regex_id_to_cache,
+                                            excepted_id_to_cache,
+                                            excepted_start_config,
                                             item,
                                         );
                                         let state_id =
@@ -1356,6 +1432,10 @@ where
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
+                                                regex_start_config,
+                                                regex_id_to_cache,
+                                                excepted_id_to_cache,
+                                                excepted_start_config,
                                                 item,
                                             );
                                             let state_id =
@@ -1373,6 +1453,10 @@ where
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
+                                                regex_start_config,
+                                                regex_id_to_cache,
+                                                excepted_id_to_cache,
+                                                excepted_start_config,
                                                 item,
                                             );
                                         }
@@ -1489,6 +1573,10 @@ where
     fn earley_complete_one_item(
         grammar: &Grammar<TI, TE>,
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1502,6 +1590,10 @@ where
                 Self::advance_item(
                     grammar,
                     to_be_completed_items_buffer,
+                    regex_start_config,
+                    regex_id_to_cache,
+                    excepted_id_to_cache,
+                    excepted_start_config,
                     |item| {
                         deduplication_buffer.insert(item);
                     }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
@@ -1519,6 +1611,10 @@ where
     fn complete(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        regex_start_config: &regex_automata::util::start::Config,
+        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
+        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
+        excepted_start_config: &regex_automata::util::start::Config,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
@@ -1536,6 +1632,10 @@ where
                     Self::earley_complete_one_item(
                         grammar,
                         topmost_item,
+                        regex_start_config,
+                        regex_id_to_cache,
+                        excepted_id_to_cache,
+                        excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
                         deduplication_buffer,
@@ -1545,6 +1645,10 @@ where
                     Self::earley_complete_one_item(
                         grammar,
                         item,
+                        regex_start_config,
+                        regex_id_to_cache,
+                        excepted_id_to_cache,
+                        excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
                         deduplication_buffer,
@@ -1619,8 +1723,10 @@ where
             grammar,
             earley_sets,
             to_be_completed_items,
+            regex_start_config,
             regex_id_to_cache,
             excepted_id_to_cache,
+            excepted_start_config,
             byte,
         ); // scan the current Earley set and creates the next Earley set
         if Self::is_rejected(earley_sets, to_be_completed_items) {
@@ -1636,6 +1742,10 @@ where
         Self::complete(
             grammar,
             earley_sets,
+            regex_start_config,
+            regex_id_to_cache,
+            excepted_id_to_cache,
+            excepted_start_config,
             to_be_completed_items,
             to_be_completed_items_buffer,
             leo_items,
