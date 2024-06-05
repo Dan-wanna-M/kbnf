@@ -109,98 +109,100 @@ where
                 &production[[self.production_index.as_()]].to_display_form(&engine.grammar),
             )
         }
-        if self.dot_position.as_() == dotted_productions.len() {
+        let state = if self.dot_position.as_() == dotted_productions.len() {
             dotted_rule.push('.');
-        }
-        let state = match engine.grammar.get_node(
-            self.nonterminal_id,
-            self.production_index,
-            self.dot_position,
-        ) {
-            HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
-            &HIRNode::RegexString(id) => {
-                match engine.grammar.get_regex(id) {
-                    FiniteStateAutomaton::Dfa(dfa) => {
-                        format!(
-                        "[{}({})]",
-                        self.state_id.as_(),
-                        utils::check_dfa_state_status(
-                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
-                                self.state_id,
-                                dfa.stride2()
-                            ),
-                            dfa
-                        )
-                    )
-                    }
-                    FiniteStateAutomaton::LazyDFA(lazy) => {
-                        format!(
-                        "[{}({})]",
-                        self.state_id.as_(),
-                        utils::check_ldfa_state_status(
-                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(self.state_id),
-                            &mut lazy.create_cache(),
-                            lazy
-                        )
-                    )
-                    }
-                }
-            }
-            &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
-                FiniteStateAutomaton::Dfa(dfa) => match r {
-                    None => format!(
-                        "[{}({})]",
-                        self.state_id.as_(),
-                        utils::check_dfa_state_status(
-                            EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
-                                self.state_id,
-                                dfa.stride2()
-                            ),
-                            dfa
-                        )
-                    ),
-                    Some(_) => {
-                        let (dfa_state_id, r) = EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id_with_r(
-                            self.state_id,
-                            dfa.stride2(),
-                        );
-                        format!(
-                            "[{}({}),R{}]",
+            format!("[{}]", self.state_id.as_())
+        } else {
+            match engine.grammar.get_node(
+                self.nonterminal_id,
+                self.dot_position,
+                self.production_index,
+            ) {
+                HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
+                &HIRNode::RegexString(id) => {
+                    match engine.grammar.get_regex(id) {
+                        FiniteStateAutomaton::Dfa(dfa) => {
+                            format!(
+                            "[{}({})]",
                             self.state_id.as_(),
-                            utils::check_dfa_state_status(dfa_state_id, dfa),
-                            r.as_()
+                            utils::check_dfa_state_status(
+                                EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
+                                    self.state_id,
+                                    dfa.stride2()
+                                ),
+                                dfa
+                            )
                         )
-                    }
-                },
-                FiniteStateAutomaton::LazyDFA(lazy) => match r {
-                    None => format!(
-                        "[{}({})]",
-                        self.state_id.as_(),
-                        utils::check_ldfa_state_status(
-                            EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(
-                                self.state_id
-                            ),
-                            &mut lazy.create_cache(),
-                            lazy
-                        )
-                    ),
-                    Some(_) => {
-                        let (ldfa_state_id, r) =
-                        EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id_with_r(self.state_id);
-                        format!(
-                            "[{}({}),R{}]",
+                        }
+                        FiniteStateAutomaton::LazyDFA(lazy) => {
+                            format!(
+                            "[{}({})]",
                             self.state_id.as_(),
                             utils::check_ldfa_state_status(
-                                ldfa_state_id,
+                                EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(self.state_id),
                                 &mut lazy.create_cache(),
                                 lazy
-                            ),
-                            r.as_()
+                            )
                         )
+                        }
                     }
+                }
+                &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
+                    FiniteStateAutomaton::Dfa(dfa) => match r {
+                        None => format!(
+                            "[{}({})]",
+                            self.state_id.as_(),
+                            utils::check_dfa_state_status(
+                                EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
+                                    self.state_id,
+                                    dfa.stride2()
+                                ),
+                                dfa
+                            )
+                        ),
+                        Some(_) => {
+                            let (dfa_state_id, r) = EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id_with_r(
+                                self.state_id,
+                                dfa.stride2(),
+                            );
+                            format!(
+                                "[{}({}),R{}]",
+                                self.state_id.as_(),
+                                utils::check_dfa_state_status(dfa_state_id, dfa),
+                                r.as_()
+                            )
+                        }
+                    },
+                    FiniteStateAutomaton::LazyDFA(lazy) => match r {
+                        None => format!(
+                            "[{}({})]",
+                            self.state_id.as_(),
+                            utils::check_ldfa_state_status(
+                                EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(
+                                    self.state_id
+                                ),
+                                &mut lazy.create_cache(),
+                                lazy
+                            )
+                        ),
+                        Some(_) => {
+                            let (ldfa_state_id, r) =
+                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id_with_r(self.state_id);
+                            format!(
+                                "[{}({}),R{}]",
+                                self.state_id.as_(),
+                                utils::check_ldfa_state_status(
+                                    ldfa_state_id,
+                                    &mut lazy.create_cache(),
+                                    lazy
+                                ),
+                                r.as_()
+                            )
+                        }
+                    },
                 },
-            },
-            HIRNode::Nonterminal(_) => String::new(),
+                HIRNode::Nonterminal(_) => String::new(),
+            }
         };
         EarleyItemDebugStruct {
             dotted_rule,
@@ -210,7 +212,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct EarleyItemDebugStruct {
     dotted_rule: String,
     start_position: usize,
@@ -263,7 +265,7 @@ where
         }
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct ToBeCompletedItemDebugStruct {
     nonterminal: String,
     start_position: usize,
@@ -316,7 +318,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct DottedDebugStruct {
     postdot_nonterminal: String,
     column: usize,
@@ -575,44 +577,52 @@ where
                 })
             })
             .field("to_be_completed_items", {
-                &self
+                let mut a = self
                     .to_be_completed_items
                     .iter()
                     .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                a.sort();
+                &Box::new(a)
             })
-            .field(
-                "to_be_completed_items_buffer",
-                &self
+            .field("to_be_completed_items_buffer", {
+                let mut a = self
                     .to_be_completed_items_buffer
                     .iter()
                     .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>(),
-            )
+                    .collect::<Vec<_>>();
+                a.sort_by_key(|x| x.start_position);
+                &Box::new(a)
+            })
             .field("deduplication_buffer", {
-                &self
+                let mut a = self
                     .deduplication_buffer
                     .iter()
                     .map(|x| x.to_debug_form(self))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                a.sort_by_key(|x| x.start_position);
+                &Box::new(a)
             })
             .field("postdot_items", {
-                &self
+                let mut a = self
                     .postdot_items
                     .iter()
                     .map(|(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                a.sort_by_cached_key(|(k, _)| k.clone());
+                &Box::new(a)
             })
-            .field(
-                "postdot_items_since_last_commit",
-                &self
+            .field("postdot_items_since_last_commit", {
+                let mut a = self
                     .postdot_items_since_last_commit
                     .iter()
                     .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>(),
-            )
+                    .collect::<Vec<_>>();
+                a.sort();
+                &Box::new(a)
+            })
             .field("leo_items", {
-                &self
+                let mut a = self
                     .leo_items
                     .iter()
                     .map(|(k, v)| {
@@ -621,7 +631,9 @@ where
                             v.to_debug_form(&self.grammar),
                         )
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                a.sort_by_cached_key(|(k, _)| k.clone());
+                &Box::new(a)
             })
             .field(
                 "leo_items_buffer",
@@ -1007,11 +1019,10 @@ where
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
         let view = grammar.get_dotted_productions(nonterminal_id);
-        println!("d: {}", view.len());
+
         if new_dot_position.as_() < view.len() {
             let view = view.view::<1, 1>([new_dot_position.as_()]);
             if production_id.as_() < view.len() {
-                println!("OK2");
                 return false;
             }
         }
@@ -1413,19 +1424,7 @@ where
             }
         }
         for v in postdot_items.values_mut() {
-            println!("Index: {:?}", earley_set_index);
             if let &mut PostDotItems::LeoEligible(item) = v {
-                println!(
-                    "d: {:?}, p: {:?}, completed:{}",
-                    item.dot_position.as_(),
-                    item.production_index.as_(),
-                    Self::item_should_be_completed(
-                        grammar,
-                        item.nonterminal_id,
-                        item.dot_position + TD::ONE,
-                        item.production_index,
-                    )
-                );
                 if !Self::item_should_be_completed(
                     grammar,
                     item.nonterminal_id,
@@ -1495,34 +1494,25 @@ where
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         is_finished: &mut bool,
     ) {
-        match postdot_items.get(&Dotted {
+        if let Some(PostDotItems::NormalItems(items)) = postdot_items.get(&Dotted {
             postdot_nonterminal_id: to_be_completed_item.nonterminal_id,
             column: to_be_completed_item.start_position,
         }) {
-            Some(v) => match v {
-                &PostDotItems::LeoEligible(_) => {
-                    unreachable!("Leo item should already be handled")
-                }
-                PostDotItems::NormalItems(items) => {
-                    for &item in items.iter() {
-                        Self::advance_item(
-                            grammar,
-                            to_be_completed_items_buffer,
-                            |item| {
-                                deduplication_buffer.insert(item);
-                            }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
-                            item,
-                        )
-                    }
-                }
-            },
-            None => {
-                if grammar.get_start_nonterminal_id() == to_be_completed_item.nonterminal_id
-                    && to_be_completed_item.start_position == TSP::ZERO
-                {
-                    *is_finished = true;
-                }
+            for &item in items.iter() {
+                Self::advance_item(
+                    grammar,
+                    to_be_completed_items_buffer,
+                    |item| {
+                        deduplication_buffer.insert(item);
+                    }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
+                    item,
+                )
             }
+        }
+        if grammar.get_start_nonterminal_id() == to_be_completed_item.nonterminal_id
+            && to_be_completed_item.start_position == TSP::ZERO
+        {
+            *is_finished = true;
         }
     }
 

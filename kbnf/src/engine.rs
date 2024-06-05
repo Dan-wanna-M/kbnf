@@ -65,10 +65,6 @@ impl Engine {
         let td = utils::find_max_dotted_position_from_ebnf_grammar(&grammar);
         let tp = utils::find_max_production_id_from_ebnf_grammar(&grammar);
         let ts = utils::find_max_state_id_from_ebnf_grammar(&grammar);
-        println!(
-            "max_r: {}, td: {}, tp: {}, tsp: {}, ts: {}",
-            max_r, td, tp, tsp, ts
-        );
         let engine = if Self::check_id_length(&grammar, u8::MAX.into())
             && max_r <= Zero::max_value().into()
             && td <= u8::MAX.into()

@@ -1,0 +1,881 @@
+---
+source: tests/test.rs
+expression: "format!(\"{:#?}\", engine)"
+---
+Engine {
+    union: U16U0U16U32U32U32(
+        EngineBase {
+            grammar: Grammar {
+                start_nonterminal: "start[0]",
+                rules: "start[0] ::= start_optional_0_group_0[1];\nstart_optional_0_group_0[1] ::= \"{\"[0]start[0]\"}\"[1] | \"{}\"[2] | ;\n",
+                interned_strings: InternedStrings {
+                    nonterminals: StringInterner {
+                        dedup: {
+                            SymbolU32 {
+                                value: 2,
+                            }: (),
+                            SymbolU32 {
+                                value: 1,
+                            }: (),
+                        },
+                        backend: StringBackend {
+                            ends: [
+                                5,
+                                29,
+                            ],
+                            buffer: "startstart_optional_0_group_0",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    terminals: StringInterner {
+                        dedup: {
+                            SymbolU32 {
+                                value: 1,
+                            }: (),
+                            SymbolU32 {
+                                value: 3,
+                            }: (),
+                            SymbolU32 {
+                                value: 2,
+                            }: (),
+                        },
+                        backend: StringBackend {
+                            ends: [
+                                1,
+                                2,
+                                4,
+                            ],
+                            buffer: "{}{}",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    regex_strings: StringInterner {
+                        dedup: {},
+                        backend: StringBackend {
+                            ends: [],
+                            buffer: "",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    excepteds: StringInterner {
+                        dedup: {},
+                        backend: StringBackend {
+                            ends: [],
+                            buffer: "",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                },
+                id_to_regexes: {},
+                id_to_excepteds: {},
+                id_to_regex_first_bytes: {},
+                id_to_excepted_first_bytes: {},
+                id_to_terminals: {
+                    "\"{}\"[2]": [
+                        123,
+                        125,
+                    ],
+                    "\"{\"[0]": [
+                        123,
+                    ],
+                    "\"}\"[1]": [
+                        125,
+                    ],
+                },
+            },
+            allowed_first_bytes: [
+                125,
+            ],
+            allowed_token_ids: [
+                "}[126]",
+            ],
+            earley_sets: [
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 0,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 1,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 1,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 1,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 2,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 2,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 2,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 2,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 2,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 3,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 3,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 3,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 3,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 3,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 4,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 4,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 4,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 4,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 4,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 5,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 5,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 5,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 5,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 5,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 6,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 6,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 6,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 6,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 6,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 7,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 7,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 7,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 7,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 7,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 8,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 8,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 8,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 8,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 8,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 9,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 9,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 9,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                        start_position: 9,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 9,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                        start_position: 10,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{\"[0]start[0]\"}\"[1]",
+                        start_position: 10,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> .\"{}\"[2]",
+                        start_position: 10,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 8,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 7,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 6,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 5,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 4,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 3,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 2,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0]start[0].\"}\"[1]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                ],
+                [],
+            ],
+            cache: [],
+            regex_id_to_cache: {},
+            excepted_id_to_cache: {},
+            to_be_completed_items: [],
+            to_be_completed_items_buffer: [],
+            deduplication_buffer: [],
+            postdot_items: [
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 1,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 0,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 2,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 1,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 3,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 2,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 4,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 3,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 5,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 4,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 6,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 5,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 7,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 6,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 8,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 7,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 9,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 8,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start[0]",
+                        column: 10,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start_optional_0_group_0[1] -> \"{\"[0].start[0]\"}\"[1]",
+                                start_position: 9,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 0,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 0,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 1,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 1,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 2,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 2,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 3,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 3,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 4,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 4,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 5,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 5,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 6,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 6,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 7,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 7,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 8,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 8,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 9,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 9,
+                            state: "",
+                        },
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "start_optional_0_group_0[1]",
+                        column: 10,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "start[0] -> .start_optional_0_group_0[1]",
+                            start_position: 10,
+                            state: "",
+                        },
+                    ),
+                ),
+            ],
+            postdot_items_since_last_commit: [],
+            leo_items: [
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 0,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 0,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 1,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 1,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 2,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 2,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 3,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 3,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 4,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 4,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 5,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 5,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 6,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 6,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 7,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 7,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 8,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 8,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 9,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 9,
+                    },
+                ),
+                (
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start_optional_0_group_0[1]",
+                        start_position: 10,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "start[0]",
+                        start_position: 10,
+                    },
+                ),
+            ],
+            leo_items_buffer: [
+                ToBeCompletedItemDebugStruct {
+                    nonterminal: "start_optional_0_group_0[1]",
+                    start_position: 0,
+                },
+            ],
+            already_predicted_nonterminals: [],
+            finished: true,
+            config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            regex_start_config: Config {
+                look_behind: None,
+                anchored: Yes,
+            },
+            excepted_start_config: Config {
+                look_behind: None,
+                anchored: No,
+            },
+        },
+    ),
+}
