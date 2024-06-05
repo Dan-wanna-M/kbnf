@@ -10,7 +10,6 @@ mod tests {
     use ahash::AHashMap;
     use insta::assert_snapshot;
     use kbnf::{
-        engine::Engine,
         engine_like::{AcceptTokenResult, EngineLike},
         vocabulary::{Token, Vocabulary},
     };
@@ -61,10 +60,9 @@ mod tests {
             id_to_token_string.insert(token_id, line[start..end].to_string());
         }
         Ok(Vocabulary::new(
-            token_to_id,
             id_to_token,
             id_to_token_string,
-        ))
+        ).unwrap())
     }
 
     /// translated from <https://github.com/npk48/rwkv_cuda/blob/main/tokenizer.hpp#L166>

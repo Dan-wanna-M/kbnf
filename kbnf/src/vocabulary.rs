@@ -4,6 +4,7 @@ use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
 use std::array;
+use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use tinyvec::ArrayVec;
 
@@ -28,7 +29,7 @@ impl tinyvec::Array for FirstBytes {
     }
 
     fn default() -> Self {
-        Self([0; 257])
+        Self([0; BYTES_NUM])
     }
 }
 #[derive(Clone)]
@@ -74,32 +75,45 @@ impl Debug for Vocabulary {
             .finish()
     }
 }
+#[derive(Debug, thiserror::Error)]
+pub enum VocabularyError {
+    #[error("Token ID {0} and token ID {1} corresponds to the same token.")]
+    DuplicateToken(u32, u32),
+    #[error("The vocabulary size is {0}, while the maximum supported is {1}.")]
+    VocabularyTooLarge(u32, u32),
+}
 
 impl Vocabulary {
-    /// Creates a new instance of `Vocabulary`. ID to token is separated into two fields: `id_to_token` and `id_to_token_string`,
-    /// which allows the user to use custom encoding and to represent tokens that cannot be directly decoded to string.
+    /// Creates a new instance of `Vocabulary`.
     ///
     /// # Arguments
     ///
-    /// * `token_to_id` - A HashMap that maps tokens to their corresponding IDs.
-    /// * `id_to_token` - A vector that maps token IDs to their corresponding tokens in bytes.
-    /// * `id_to_token_string` - A vector that maps token IDs to their corresponding token strings in UTF-8 String representation.
+    /// * `id_to_token` - A map from token IDs to tokens.
+    /// * `id_to_token_string` - A map from token IDs to tokens in UTF-8 String representation.
     /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
     /// vice versa. For example, a token may contain `0xFF` byte.
     ///
-    /// # Panics
-    ///
-    /// This function will panic if the length of `id_to_token` is greater than or equal to 2^24.
     pub fn new(
-        token_to_id: AHashMap<Token, u32>,
         id_to_token: AHashMap<u32, Token>,
         id_to_token_string: AHashMap<u32, String>,
-    ) -> Self {
-        assert!(
-            id_to_token.len() < 0x1000000,
-            "max token id is larger than 2^24: {}",
-            id_to_token.len() - 1
-        );
+    ) -> Result<Self, VocabularyError> {
+        if id_to_token.len() >= 0x1000000 {
+            return Err(VocabularyError::VocabularyTooLarge(
+                id_to_token.len() as u32,
+                0x1000000,
+            ));
+        }
+        let mut token_to_id = AHashMap::with_capacity(id_to_token.len());
+        for (&token_id, token) in id_to_token.iter() {
+            match token_to_id.entry(token.clone()) {
+                Entry::Occupied(entry) => {
+                    return Err(VocabularyError::DuplicateToken(token_id, *entry.get()));
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(token_id);
+                }
+            }
+        }
         let mut first_byte_to_token = JaggedArray::with_capacity([256, 256]);
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
         for (&token_id, token) in id_to_token.iter() {
@@ -123,13 +137,13 @@ impl Vocabulary {
                 first_byte_to_token.extend_last_row(buffer.into_iter());
             }
         }
-        Self {
+        Ok(Self {
             token_to_id,
             id_to_token,
             id_to_token_string,
             first_byte_to_normal_tokens: first_byte_to_token,
             tokens_containing_separators,
-        }
+        })
     }
 
     /// Retrieves the token ID associated with the given token.
