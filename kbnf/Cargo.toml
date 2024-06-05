@@ -18,3 +18,5 @@ regex-automata={git="https://github.com/Dan-wanna-M/regex.git"}
 displaydoc = "0.2.4"
 serde = "1.0.203"
 strum = { version = "0.26", features = ["derive"] }
+[dev-dependencies]
+insta = { version = "1.26.0"}

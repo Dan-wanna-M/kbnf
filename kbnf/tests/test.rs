@@ -8,6 +8,7 @@ mod tests {
     };
 
     use ahash::AHashMap;
+    use insta::assert_snapshot;
     use kbnf::{
         engine::Engine,
         engine_like::{AcceptTokenResult, EngineLike},
@@ -142,14 +143,34 @@ mod tests {
                 == Err(kbnf::engine_like::AcceptTokenError::Rejected),
             "This should not be accepted"
         );
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
         assert!(
             engine
-                .try_accept_new_token(get_token_id_from_str(&vocab, "aaa").unwrap())
+                .try_accept_new_token(get_token_id_from_str(&vocab, "a").unwrap())
+                .unwrap()
+                == AcceptTokenResult::Ongoing,
+            "Failed to accept token"
+        );
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        assert!(
+            engine
+                .try_accept_new_token(get_token_id_from_str(&vocab, "a").unwrap())
+                .unwrap()
+                == AcceptTokenResult::Ongoing,
+            "Failed to accept token"
+        );
+        engine.compute_allowed_token_ids();
+        assert!(
+            engine
+                .try_accept_new_token(get_token_id_from_str(&vocab, "a").unwrap())
                 .unwrap()
                 == AcceptTokenResult::Finished,
             "Failed to accept token"
         );
-        println!("{:#?}", engine);
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
     }
 
     #[test]
