@@ -2,8 +2,8 @@
 use std::fmt::Debug;
 
 use crate::utils::{self, ByteSet};
-use ebnf::simplified_grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
+use ebnf::simplified_grammar::SimplifiedGrammar;
 use ebnf::InternedStrings;
 use ebnf::{self, regex::FiniteStateAutomaton};
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
@@ -533,9 +533,9 @@ where
     }
     #[inline]
     /// Get the node from the grammar.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the nonterminal id, dot position, or production id is out of bounds.
     pub fn get_node<TP, TD>(
         &self,
@@ -547,13 +547,17 @@ where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
-        &self.rules[[nonterminal_id.0.as_(), dot_position.as_(), production_id.as_()]]
+        &self.rules[[
+            nonterminal_id.0.as_(),
+            dot_position.as_(),
+            production_id.as_(),
+        ]]
     }
     #[inline]
     /// Get the node from the grammar without bounds checking.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// The caller must ensure that the nonterminal id, dot position, and production id are within bounds.
     pub unsafe fn get_node_unchecked<TP, TD>(
         &self,
@@ -646,11 +650,11 @@ where
         &self.id_to_excepted_first_bytes[excepted_id.0.as_()]
     }
     #[inline]
-    pub(crate) fn get_dotted_productions(
+    pub(crate) unsafe fn get_dotted_productions(
         &self,
         nonterminal_id: NonterminalID<TI>,
     ) -> JaggedArrayView<HIRNode<TI, TE>, usize, 2> {
-        self.rules.view::<1, 2>([nonterminal_id.0.as_()])
+        unsafe { self.rules.view_unchecked::<1, 2>([nonterminal_id.0.as_()]) }
     }
     #[inline]
     pub(crate) fn get_rules(&self) -> &JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3> {

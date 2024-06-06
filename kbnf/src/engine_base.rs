@@ -92,7 +92,8 @@ where
             + CheckedSub,
         usize: num::traits::AsPrimitive<TE>,
     {
-        let dotted_productions = engine.grammar.get_dotted_productions(self.nonterminal_id);
+        let dotted_productions =
+            unsafe { engine.grammar.get_dotted_productions(self.nonterminal_id) };
         let mut dotted_rule = format!(
             "{} -> ",
             self.nonterminal_id.to_display_form(&engine.grammar)
@@ -1046,10 +1047,10 @@ where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
-        let view = grammar.get_dotted_productions(nonterminal_id);
-
+        // SAFETY: nonterminal_id is guaranteed to be valid
+        let view = unsafe { grammar.get_dotted_productions(nonterminal_id) };
         if new_dot_position.as_() < view.len() {
-            let view = view.view::<1, 1>([new_dot_position.as_()]);
+            let view = unsafe { view.view_unchecked::<1, 1>([new_dot_position.as_()]) };
             if production_id.as_() < view.len() {
                 return false;
             }
@@ -1467,13 +1468,13 @@ where
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
-        let earley_set = earley_sets.view::<1, 1>([earley_set_index]).as_slice();
+        let earley_set = unsafe{earley_sets.view_unchecked::<1, 1>([earley_set_index]).as_slice()};
         for item in earley_set.iter() {
-            let node = *grammar.get_node(
+            let node = *unsafe{grammar.get_node_unchecked(
                 item.nonterminal_id,
                 item.dot_position,
                 item.production_index,
-            );
+            )};
             if let HIRNode::Nonterminal(nonterminal) = node {
                 let postdot = Dotted {
                     postdot_nonterminal_id: nonterminal,
