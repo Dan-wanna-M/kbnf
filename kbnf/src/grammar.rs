@@ -2,7 +2,7 @@
 use std::fmt::Debug;
 
 use crate::utils::{self, ByteSet};
-use ebnf::grammar::SimplifiedGrammar;
+use ebnf::simplified_grammar::SimplifiedGrammar;
 use ebnf::node::{FinalNode, FinalRhs};
 use ebnf::InternedStrings;
 use ebnf::{self, regex::FiniteStateAutomaton};
@@ -533,6 +533,10 @@ where
     }
     #[inline]
     /// Get the node from the grammar.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the nonterminal id, dot position, or production id is out of bounds.
     pub fn get_node<TP, TD>(
         &self,
         nonterminal_id: NonterminalID<TI>,
@@ -543,11 +547,29 @@ where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
-        &self.rules[[
+        &self.rules[[nonterminal_id.0.as_(), dot_position.as_(), production_id.as_()]]
+    }
+    #[inline]
+    /// Get the node from the grammar without bounds checking.
+    /// 
+    /// # Safety
+    /// 
+    /// The caller must ensure that the nonterminal id, dot position, and production id are within bounds.
+    pub unsafe fn get_node_unchecked<TP, TD>(
+        &self,
+        nonterminal_id: NonterminalID<TI>,
+        dot_position: TD,
+        production_id: TP,
+    ) -> &HIRNode<TI, TE>
+    where
+        TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+        TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
+    {
+        self.rules.get_unchecked([
             nonterminal_id.0.as_(),
             dot_position.as_(),
             production_id.as_(),
-        ]]
+        ])
     }
     #[inline]
     /// Get the length of the production.

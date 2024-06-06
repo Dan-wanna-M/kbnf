@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ebnf::grammar::SimplifiedGrammar;
+use ebnf::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
 
 use crate::{

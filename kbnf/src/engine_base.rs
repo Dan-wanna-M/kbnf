@@ -872,15 +872,19 @@ where
         already_predicted_nonterminals: &mut FixedBitSet,
     ) {
         let earley_set_index = earley_sets.len() - 1;
-        let mut earley_set_len = earley_sets.view::<1, 1>([earley_set_index]).len();
+        let mut earley_set_len =
+            unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         let mut i = 0;
         while i < earley_set_len {
-            let item = earley_sets[[earley_set_index, i]];
-            let node = *grammar.get_node(
-                item.nonterminal_id,
-                item.dot_position,
-                item.production_index,
-            );
+            let item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
+            // SAFETY: Earley algorithm guarantees item is a valid index
+            let node = unsafe {
+                *grammar.get_node_unchecked(
+                    item.nonterminal_id,
+                    item.dot_position,
+                    item.production_index,
+                )
+            };
             if let HIRNode::Nonterminal(nonterminal_id) = node {
                 earley_set_len += Self::predict_nonterminal(
                     grammar,
@@ -991,7 +995,9 @@ where
                         regex_id_to_cache,
                         excepted_id_to_cache,
                         excepted_start_config,
-                        *grammar.get_node(nonterminal_id, TD::ZERO, production_index),
+                        unsafe {
+                            *grammar.get_node_unchecked(nonterminal_id, TD::ZERO, production_index)
+                        },
                     ),
                 };
                 earley_sets.push_to_last_row(new_item);
@@ -1059,11 +1065,11 @@ where
         excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         add_to_earley_set: T,
-        item: EarleyItem<TI, TD, TP, TSP, TS>,
+        mut item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) where
         T: FnOnce(EarleyItem<TI, TD, TP, TSP, TS>),
     {
-        let new_dotted_position = item.dot_position + 1.as_();
+        let new_dotted_position = item.dot_position + TD::ONE;
         if Self::item_should_be_completed(
             grammar,
             item.nonterminal_id,
@@ -1075,28 +1081,25 @@ where
                 start_position: item.start_position,
             });
         } else {
-            let new_item = EarleyItem {
-                nonterminal_id: item.nonterminal_id,
-                dot_position: new_dotted_position,
-                production_index: item.production_index,
-                start_position: item.start_position,
-                state_id: Self::initialize_state_id_based_on_node(
-                    grammar,
-                    regex_start_config,
-                    regex_id_to_cache,
-                    excepted_id_to_cache,
-                    excepted_start_config,
-                    *grammar.get_node(
+            item.dot_position = new_dotted_position;
+            item.state_id = Self::initialize_state_id_based_on_node(
+                grammar,
+                regex_start_config,
+                regex_id_to_cache,
+                excepted_id_to_cache,
+                excepted_start_config,
+                unsafe {
+                    *grammar.get_node_unchecked(
                         item.nonterminal_id,
                         new_dotted_position,
                         item.production_index,
-                    ),
-                ),
-            };
-            add_to_earley_set(new_item);
+                    )
+                },
+            );
+            add_to_earley_set(item);
         }
     }
-
+    #[inline]
     fn advance_item_normal(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -1204,15 +1207,19 @@ where
         byte: u8,
     ) {
         let earley_set_index = earley_sets.len() - 1;
-        let earley_set_len = earley_sets.view::<1, 1>([earley_set_index]).len();
+        let earley_set_len =
+            unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
         for i in 0..earley_set_len {
-            let mut item = earley_sets[[earley_set_index, i]];
-            let node = *grammar.get_node(
-                item.nonterminal_id,
-                item.dot_position,
-                item.production_index,
-            );
+            // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
+            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
+            let node = unsafe {
+                *grammar.get_node_unchecked(
+                    item.nonterminal_id,
+                    item.dot_position,
+                    item.production_index,
+                )
+            };
             match node {
                 HIRNode::Terminal(terminal_id) => {
                     let terminal = grammar.get_terminal(terminal_id);

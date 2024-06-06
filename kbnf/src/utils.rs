@@ -1,6 +1,6 @@
 //! Utility functions for the library.
 use ahash::AHashMap;
-use ebnf::grammar::SimplifiedGrammar;
+use ebnf::simplified_grammar::SimplifiedGrammar;
 use ebnf::node::FinalNode;
 use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::on_stack::{get_nblock, FixedBitSet};
@@ -43,7 +43,11 @@ pub fn construct_ebnf_grammar(
         nom::Err::Incomplete(e) => nom::Err::Incomplete(e),
     })?;
     let grammar = grammar.validate_grammar(&config.start_nonterminal, config.regex_config)?;
-    let grammar = grammar.simplify_grammar(config.compression_config, config.excepted_config);
+    let grammar = grammar.simplify_grammar(
+        config.compression_config,
+        config.excepted_config,
+        &regex_automata::util::start::Config::new().anchored(regex_automata::Anchored::Yes),
+    );
     Ok(grammar)
 }
 /// Helper function to find the maximum repetition from an EBNF grammar.
@@ -107,15 +111,14 @@ pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> 
 }
 #[inline]
 pub(crate) fn check_dfa_state_status(
-   mut dfa_state: StateID,
+    dfa_state: StateID,
     dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
 ) -> FsaStateStatus {
     if dfa.is_special_state(dfa_state) && !dfa.is_match_state(dfa_state) {
         // If the state is a special state and not a match state, then it is a dead state/quit state.
         return FsaStateStatus::Reject;
     }
-    dfa_state = dfa.next_eoi_state(dfa_state);
-    if dfa.is_match_state(dfa_state) {
+    if dfa.is_match_state(dfa.next_eoi_state(dfa_state)) {
         FsaStateStatus::Accept
     } else {
         FsaStateStatus::InProgress
