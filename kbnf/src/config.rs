@@ -77,11 +77,11 @@ impl Default for Config {
         Self {
             regex_config: RegexConfig {
                 max_memory_usage: None,
-                fsa_type: FsaType::Ldfa,
+                fsa_type: FsaType::Dfa,
             },
             excepted_config: RegexConfig {
                 max_memory_usage: None,
-                fsa_type: FsaType::Ldfa,
+                fsa_type: FsaType::Dfa,
             },
             engine_config: EngineConfig {
                 cache_enabled: true,
@@ -100,7 +100,8 @@ impl Config {
         let regex_config = match self.regex_config.fsa_type {
             FsaType::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
-                    .dfa_size_limit(self.regex_config.max_memory_usage),
+                    .dfa_size_limit(self.regex_config.max_memory_usage)
+                    .start_kind(regex_automata::dfa::StartKind::Anchored),
             ),
             FsaType::Ldfa => {
                 FiniteStateAutomatonConfig::LazyDFA(match self.regex_config.max_memory_usage {

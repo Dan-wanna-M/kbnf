@@ -105,20 +105,16 @@ pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> 
     }
     max_production_id
 }
+#[inline]
 pub(crate) fn check_dfa_state_status(
-    dfa_state: StateID,
+   mut dfa_state: StateID,
     dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
 ) -> FsaStateStatus {
-    if dfa.is_special_state(dfa_state)
-        && (dfa.is_dead_state(dfa_state)
-            || dfa.is_quit_state(dfa_state)
-            || dfa.is_match_state(dfa_state))
-    {
-        // match state is delayed by one byte, so if the current state is match state,
-        // it means the last byte is matched and hence we should terminate
+    if dfa.is_special_state(dfa_state) && !dfa.is_match_state(dfa_state) {
+        // If the state is a special state and not a match state, then it is a dead state/quit state.
         return FsaStateStatus::Reject;
     }
-    let dfa_state = dfa.next_eoi_state(dfa_state);
+    dfa_state = dfa.next_eoi_state(dfa_state);
     if dfa.is_match_state(dfa_state) {
         FsaStateStatus::Accept
     } else {
@@ -131,9 +127,7 @@ pub(crate) fn check_ldfa_state_status(
     cache: &mut Cache,
     ldfa: &regex_automata::hybrid::dfa::DFA,
 ) -> FsaStateStatus {
-    if ldfa_state.is_tagged()
-        && (ldfa_state.is_dead() || ldfa_state.is_quit())
-    {
+    if ldfa_state.is_tagged() && (ldfa_state.is_dead() || ldfa_state.is_quit()) {
         return FsaStateStatus::Reject;
     }
     let ldfa_state = ldfa.next_eoi_state(cache, ldfa_state).unwrap();

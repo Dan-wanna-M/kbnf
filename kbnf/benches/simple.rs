@@ -64,15 +64,15 @@ fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut c = c.benchmark_group("Simple");
-    c.measurement_time(Duration::from_secs(7)).sample_size(200);
+    c.measurement_time(Duration::from_secs(10)).sample_size(100);
     let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
     let mut engine = Engine::new("start::=('{'start'}')?;", vocab.clone()).unwrap();
     c.bench_function("unmarked middle recursion 10 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine),10,124))
     });
-    let mut engine = Engine::new("start::=#\".+\"'\n\n';", vocab).unwrap();
-    c.bench_function("always match regex 10 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine),10,124))
+    let mut engine = Engine::new("start::=#\".+\"'\n';", vocab).unwrap();
+    c.bench_function("always match regex 3 iterations", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine),3,113))
     });
 }
 

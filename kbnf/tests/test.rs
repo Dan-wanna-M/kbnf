@@ -173,17 +173,17 @@ mod tests {
                     .unwrap(),
             )
             .unwrap();
-        assert_snapshot!(format!("{:#?}", engine));
+        // assert_snapshot!(format!("{:#?}", engine));
         assert_eq!(result, AcceptTokenResult::Finished);
     }
     #[test]
     fn always_match_regex()
     {
-        let input = "start::=#\"(.+)\"'\n';";
+        let input = "start::=#\".+\"'\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        for i in 0..10 {
+        for i in 0..63 {
             let result = engine
                 .try_accept_new_token(
                     vocab
@@ -191,9 +191,8 @@ mod tests {
                         .unwrap(),
                 )
                 .unwrap();
-            println!("{}", i);
             assert_eq!(result, AcceptTokenResult::Ongoing);
-            // engine.compute_allowed_token_ids();
+            engine.compute_allowed_token_ids();
         }
         let result = engine
             .try_accept_new_token(

@@ -728,7 +728,7 @@ where
         Self::validate_ts_size_for_excepted(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
-        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size()+1);
+        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size() + 1);
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
@@ -1122,22 +1122,6 @@ where
     }
 
     #[inline]
-    fn add_item_with_new_state(
-        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        item: EarleyItem<TI, TD, TP, TSP, TS>,
-        state_id: TS,
-    ) {
-        let new_item = EarleyItem {
-            nonterminal_id: item.nonterminal_id,
-            dot_position: item.dot_position,
-            production_index: item.production_index,
-            start_position: item.start_position,
-            state_id,
-        };
-        earley_sets.push_to_last_row(new_item);
-    }
-
-    #[inline]
     fn from_state_id_to_index(state_id: TS) -> usize {
         state_id.as_()
     }
@@ -1223,7 +1207,7 @@ where
         let earley_set_len = earley_sets.view::<1, 1>([earley_set_index]).len();
         earley_sets.new_row::<0>();
         for i in 0..earley_set_len {
-            let item = earley_sets[[earley_set_index, i]];
+            let mut item = earley_sets[[earley_set_index, i]];
             let node = *grammar.get_node(
                 item.nonterminal_id,
                 item.dot_position,
@@ -1232,12 +1216,13 @@ where
             match node {
                 HIRNode::Terminal(terminal_id) => {
                     let terminal = grammar.get_terminal(terminal_id);
-                    let index = Self::from_state_id_to_index(item.state_id);
+                    let mut index = Self::from_state_id_to_index(item.state_id);
                     if terminal[index] == byte {
-                        let index = index + 1;
+                        index += 1;
                         if index < terminal.len() {
                             let new_state_index = Self::from_index_to_state_id(index);
-                            Self::add_item_with_new_state(earley_sets, item, new_state_index);
+                            item.state_id = new_state_index;
+                            earley_sets.push_to_last_row(item);
                         } else {
                             Self::advance_item_normal(
                                 grammar,
@@ -1257,9 +1242,9 @@ where
                     let regex = grammar.get_regex(regex_id);
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
-                            let state_id =
+                            let mut state_id =
                                 Self::from_state_id_to_dfa_state_id(item.state_id, dfa.stride2());
-                            let state_id = dfa.next_state(state_id, byte);
+                            state_id = dfa.next_state(state_id, byte);
                             match utils::check_dfa_state_status(state_id, dfa) {
                                 utils::FsaStateStatus::Accept => {
                                     Self::advance_item_normal(
@@ -1276,7 +1261,8 @@ where
                                         state_id,
                                         dfa.stride2(),
                                     );
-                                    Self::add_item_with_new_state(earley_sets, item, state_id);
+                                    item.state_id = state_id;
+                                    earley_sets.push_to_last_row(item);
                                 }
                                 utils::FsaStateStatus::Reject => {}
                                 utils::FsaStateStatus::InProgress => {
@@ -1284,14 +1270,15 @@ where
                                         state_id,
                                         dfa.stride2(),
                                     );
-                                    Self::add_item_with_new_state(earley_sets, item, state_id);
+                                    item.state_id = state_id;
+                                    earley_sets.push_to_last_row(item);
                                 }
                             }
                         }
                         FiniteStateAutomaton::LazyDFA(ldfa) => {
-                            let state_id = Self::from_state_id_to_ldfa_state_id(item.state_id);
+                            let mut state_id = Self::from_state_id_to_ldfa_state_id(item.state_id);
                             let cache = regex_id_to_cache.get_mut(&regex_id).unwrap();
-                            let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
+                            state_id = ldfa.next_state(cache, state_id, byte).unwrap();
                             match utils::check_ldfa_state_status(state_id, cache, ldfa) {
                                 utils::FsaStateStatus::Accept => {
                                     Self::advance_item_normal(
@@ -1305,13 +1292,14 @@ where
                                         item,
                                     );
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
-                                    Self::add_item_with_new_state(earley_sets, item, state_id);
-                                    println!("Accept");
+                                    item.state_id = state_id;
+                                    earley_sets.push_to_last_row(item);
                                 }
                                 utils::FsaStateStatus::Reject => {}
                                 utils::FsaStateStatus::InProgress => {
                                     let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
-                                    Self::add_item_with_new_state(earley_sets, item, state_id);
+                                    item.state_id = state_id;
+                                    earley_sets.push_to_last_row(item);
                                 }
                             }
                         }
@@ -1350,7 +1338,8 @@ where
                                             state_id,
                                             dfa.stride2(),
                                         );
-                                        Self::add_item_with_new_state(earley_sets, item, state_id);
+                                        item.state_id = state_id;
+                                        earley_sets.push_to_last_row(item);
                                         continue;
                                     }
                                     let r = r.checked_sub(&TE::ONE);
@@ -1373,11 +1362,8 @@ where
                                                     dfa.stride2(),
                                                     r,
                                                 );
-                                            Self::add_item_with_new_state(
-                                                earley_sets,
-                                                item,
-                                                state_id,
-                                            );
+                                            item.state_id = state_id;
+                                            earley_sets.push_to_last_row(item);
                                         }
                                         None => {
                                             Self::advance_item_normal(
@@ -1421,7 +1407,8 @@ where
                                         );
                                         let state_id =
                                             Self::from_ldfa_state_id_to_state_id(state_id);
-                                        Self::add_item_with_new_state(earley_sets, item, state_id);
+                                        item.state_id = state_id;
+                                        earley_sets.push_to_last_row(item);
                                         continue;
                                     }
                                     let r = r.checked_sub(&TE::ONE);
@@ -1442,11 +1429,8 @@ where
                                                 Self::from_ldfa_state_id_to_state_id_with_r(
                                                     state_id, r,
                                                 );
-                                            Self::add_item_with_new_state(
-                                                earley_sets,
-                                                item,
-                                                state_id,
-                                            );
+                                            item.state_id = state_id;
+                                            earley_sets.push_to_last_row(item);
                                         }
                                         None => {
                                             Self::advance_item_normal(
@@ -1959,6 +1943,13 @@ where
             }
             if accepted {
                 self.allowed_token_ids.insert(token_id as usize);
+                Self::revert_change(
+                    &mut self.earley_sets,
+                    &mut self.postdot_items,
+                    &mut self.postdot_items_since_last_commit,
+                    len,
+                    &mut self.finished,
+                );
             }
         }
     }

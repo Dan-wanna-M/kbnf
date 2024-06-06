@@ -33,10 +33,10 @@ Engine {
                                 value: 1,
                             }: (),
                             SymbolU32 {
-                                value: 3,
+                                value: 2,
                             }: (),
                             SymbolU32 {
-                                value: 2,
+                                value: 3,
                             }: (),
                         },
                         backend: StringBackend {
@@ -71,14 +71,14 @@ Engine {
                 id_to_regex_first_bytes: {},
                 id_to_excepted_first_bytes: {},
                 id_to_terminals: {
-                    "\"{}\"[2]": [
-                        123,
+                    "\"}\"[1]": [
                         125,
                     ],
                     "\"{\"[0]": [
                         123,
                     ],
-                    "\"}\"[1]": [
+                    "\"{}\"[2]": [
+                        123,
                         125,
                     ],
                 },
