@@ -68,12 +68,21 @@ fn criterion_benchmark(c: &mut Criterion) {
     let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
     let mut engine = Engine::new("start::=('{'start'}')?;", vocab.clone()).unwrap();
     c.bench_function("unmarked middle recursion 10 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine),10,124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124))
     });
-    let mut engine = Engine::new("start::=#\".+\"'\n';", vocab).unwrap();
+    let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine),3,113))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
     });
+    let config = kbnf::config::Config {
+        expected_output_length: 100,
+        ..Default::default()
+    };
+    let mut engine = Engine::from_config("start::=#\".+\"'\n';", vocab, config).unwrap();
+    c.bench_function(
+        "always match regex 3 iterations (8 byte Earley item)",
+        |b| b.iter(|| run_an_engine(black_box(&mut engine), 3, 113)),
+    );
 }
 
 criterion_group!(benches, criterion_benchmark);

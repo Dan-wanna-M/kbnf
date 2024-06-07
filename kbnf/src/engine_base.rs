@@ -1207,7 +1207,7 @@ where
         excepted_start_config: &regex_automata::util::start::Config,
         byte: u8,
     ) {
-        let earley_set_index = earley_sets.len() - 1;
+        let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
@@ -1225,7 +1225,7 @@ where
                 HIRNode::Terminal(terminal_id) => {
                     let terminal = grammar.get_terminal(terminal_id);
                     let mut index = Self::from_state_id_to_index(item.state_id);
-                    if terminal[index] == byte {
+                    if unsafe{*terminal.get_unchecked(index)} == byte {
                         index += 1;
                         if index < terminal.len() {
                             let new_state_index = Self::from_index_to_state_id(index);

@@ -44,7 +44,7 @@ pub enum EngineError {
     #[error("{0}")] // inherits the error message from the wrapped GrammarError
     GrammarError(#[from] crate::grammar::GrammarError),
     #[error("The grammar after simplification is empty.
-     This usually means that the grammar only contains empty terminals and/or self recursions like A::=A;")]
+    This usually means that the grammar only contains empty terminals and/or self recursions like A::=A;")]
     EmptyGrammarError,
     #[error("The grammar and/or config's value range is not supported by the Engine.\n
     This usually means that the grammar has more than 65536 nonterminals,
@@ -55,6 +55,20 @@ pub enum EngineError {
 impl Engine {
     pub fn new(input: &str, vocabulary: Vocabulary) -> Result<Self, EngineError> {
         let config = Config::default();
+        Self::from_config(input, vocabulary, config)
+    }
+
+    fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
+        grammar.interned_strings.terminals.len() <= value
+            && grammar.interned_strings.nonterminals.len() <= value
+            && grammar.interned_strings.excepteds.len() <= value
+    }
+
+    pub fn from_config(
+        input: &str,
+        vocabulary: Vocabulary,
+        config: Config,
+    ) -> Result<Self, EngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
         let grammar = utils::construct_ebnf_grammar(input, internal_config.clone())?;
@@ -189,12 +203,6 @@ impl Engine {
             return Err(EngineError::InvalidInputError);
         };
         Ok(Self { union: engine })
-    }
-
-    fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
-        grammar.interned_strings.terminals.len() <= value
-            && grammar.interned_strings.nonterminals.len() <= value
-            && grammar.interned_strings.excepteds.len() <= value
     }
 }
 
