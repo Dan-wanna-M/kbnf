@@ -505,21 +505,6 @@ where
                         }
                     }
                 }
-                FiniteStateAutomaton::LazyDFA(ldfa) => {
-                    for byte in 0..u8::MAX {
-                        let mut cache = ldfa.create_cache();
-                        let start_state = ldfa.start_state(&mut cache, config)?;
-                        let next_state = ldfa.next_state(&mut cache, start_state, byte)?;
-                        let condition = if !negated {
-                            next_state.is_dead() || next_state.is_quit()
-                        } else {
-                            ldfa.next_eoi_state(&mut cache, next_state)?.is_match()
-                        };
-                        if !condition {
-                            set.insert(byte as usize);
-                        }
-                    }
-                }
             }
             id_to_regex_first_bytes.push(set);
         }

@@ -45,13 +45,7 @@ pub enum FsaType {
     /// It is a deterministic finite automaton that eagerly computes all the state transitions.
     /// It is the fastest type of finite automaton, but it is also the most memory-consuming.
     /// In particular, construction time and space required could be exponential in the worst case.
-    Dfa,
-    /// The Lazy Deterministic Finite Automaton.
-    /// It is a deterministic finite automaton that is lazy in the sense that
-    /// it does not eagerly compute all the state transitions.
-    /// Instead, it computes the transitions on the fly and reuse them as long as they do not exceed the memory limit.
-    /// it is more memory-efficient than the `Dfa` type. In most cases, it is also as fast as the `Dfa` type.
-    Ldfa,
+    Dfa
 }
 /// The configuration of regular expressions.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -102,29 +96,13 @@ impl Config {
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.regex_config.max_memory_usage)
                     .start_kind(regex_automata::dfa::StartKind::Anchored),
-            ),
-            FsaType::Ldfa => {
-                FiniteStateAutomatonConfig::LazyDFA(match self.regex_config.max_memory_usage {
-                    Some(max_memory_usage) => {
-                        regex_automata::hybrid::dfa::Config::new().cache_capacity(max_memory_usage)
-                    }
-                    None => regex_automata::hybrid::dfa::Config::new(),
-                })
-            }
+            )
         };
         let excepted_config = match self.excepted_config.fsa_type {
             FsaType::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.excepted_config.max_memory_usage),
-            ),
-            FsaType::Ldfa => {
-                FiniteStateAutomatonConfig::LazyDFA(match self.excepted_config.max_memory_usage {
-                    Some(max_memory_usage) => {
-                        regex_automata::hybrid::dfa::Config::new().cache_capacity(max_memory_usage)
-                    }
-                    None => regex_automata::hybrid::dfa::Config::new(),
-                })
-            }
+            )
         };
         let compression_config = ebnf::config::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,

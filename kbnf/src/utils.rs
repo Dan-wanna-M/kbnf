@@ -77,14 +77,12 @@ pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize
     for i in regexes {
         max_state_id = max_state_id.max(match i {
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
-            FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
         });
     }
     let excepted = &grammar.id_to_excepted;
     for i in excepted {
         max_state_id = max_state_id.max(match i {
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
-            FiniteStateAutomaton::LazyDFA(_) => u32::MAX as usize,
         });
     }
     max_state_id

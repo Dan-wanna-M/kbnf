@@ -12,8 +12,6 @@ use num::{
     Num,
 };
 use regex_automata::dfa::Automaton;
-use regex_automata::hybrid::dfa::Cache;
-use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 use serde::Deserialize;
 use serde::Serialize;
@@ -21,8 +19,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
-use crate::grammar::ExceptedID;
-use crate::grammar::RegexID;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::ByteSet;
@@ -135,17 +131,6 @@ where
                             )
                         )
                         }
-                        FiniteStateAutomaton::LazyDFA(lazy) => {
-                            format!(
-                            "[{}({})]",
-                            self.state_id.as_(),
-                            utils::check_ldfa_state_status(
-                                EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(self.state_id),
-                                &mut lazy.create_cache(),
-                                lazy
-                            )
-                        )
-                        }
                     }
                 }
                 &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
@@ -173,34 +158,7 @@ where
                                 r.as_()
                             )
                         }
-                    },
-                    FiniteStateAutomaton::LazyDFA(lazy) => match r {
-                        None => format!(
-                            "[{}({})]",
-                            self.state_id.as_(),
-                            utils::check_ldfa_state_status(
-                                EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id(
-                                    self.state_id
-                                ),
-                                &mut lazy.create_cache(),
-                                lazy
-                            )
-                        ),
-                        Some(_) => {
-                            let (ldfa_state_id, r) =
-                            EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_ldfa_state_id_with_r(self.state_id);
-                            format!(
-                                "[{}({}),R{}]",
-                                self.state_id.as_(),
-                                utils::check_ldfa_state_status(
-                                    ldfa_state_id,
-                                    &mut lazy.create_cache(),
-                                    lazy
-                                ),
-                                r.as_()
-                            )
-                        }
-                    },
+                    }
                 },
                 HIRNode::Nonterminal(_) => String::new(),
             }
@@ -479,8 +437,6 @@ where
     allowed_token_ids: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
-    regex_id_to_cache: AHashMap<RegexID<TI>, Cache>,
-    excepted_id_to_cache: AHashMap<ExceptedID<TI>, Cache>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -566,17 +522,6 @@ where
                     .map(|(k, v)| (self.get_display_form_from_earley_sets(k), v))
                     .collect::<Vec<_>>(),
             )
-            .field(
-                "regex_id_to_cache",
-                &utils::fill_debug_form_of_id_to_x(self.regex_id_to_cache.iter(), |id| {
-                    RegexID(id.as_()).to_display_form(&self.grammar)
-                }),
-            )
-            .field("excepted_id_to_cache", {
-                &utils::fill_debug_form_of_id_to_x(self.excepted_id_to_cache.iter(), |id| {
-                    ExceptedID(id.as_()).to_display_form(&self.grammar, None)
-                })
-            })
             .field("to_be_completed_items", {
                 let mut a = self
                     .to_be_completed_items
@@ -735,18 +680,6 @@ where
         let to_be_completed_items = AHashSet::default();
         let already_predicted_nonterminals =
             FixedBitSet::with_capacity(grammar.get_nonterminals_size());
-        let mut regex_id_to_cache = AHashMap::default();
-        for (i, regex) in grammar.get_id_to_regexes().iter().enumerate() {
-            if let FiniteStateAutomaton::LazyDFA(dfa) = regex {
-                regex_id_to_cache.insert(RegexID(i.as_()), dfa.create_cache());
-            }
-        }
-        let mut excepted_id_to_cache = AHashMap::default();
-        for (i, excepted) in grammar.get_id_to_excepteds().iter().enumerate() {
-            if let FiniteStateAutomaton::LazyDFA(lazy) = excepted {
-                excepted_id_to_cache.insert(ExceptedID(i.as_()), lazy.create_cache());
-            }
-        }
         let postdot_items = AHashMap::default();
         let mut engine = Self {
             vocabulary,
@@ -762,8 +695,6 @@ where
                 .anchored(regex_automata::Anchored::Yes),
             excepted_start_config: regex_automata::util::start::Config::new()
                 .anchored(regex_automata::Anchored::No),
-            regex_id_to_cache,
-            excepted_id_to_cache,
             postdot_items,
             leo_items: AHashMap::default(),
             finished: false,
@@ -814,11 +745,6 @@ where
                         return Err(EngineBaseError::RegexTooLarge(dfa.state_len(), max));
                     }
                 }
-                FiniteStateAutomaton::LazyDFA(_) => {
-                    if LazyStateID::MAX > max {
-                        return Err(EngineBaseError::RegexTooLarge(LazyStateID::MAX, max));
-                    }
-                }
             }
         }
         Ok(())
@@ -846,14 +772,6 @@ where
                                     ));
                                 }
                             }
-                            FiniteStateAutomaton::LazyDFA(_) => {
-                                if LazyStateID::MAX > max {
-                                    return Err(EngineBaseError::ExceptedTooLarge(
-                                        LazyStateID::MAX,
-                                        max,
-                                    ));
-                                }
-                            }
                         }
                     }
                 }
@@ -868,8 +786,6 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         already_predicted_nonterminals: &mut FixedBitSet,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -892,8 +808,6 @@ where
                     earley_sets,
                     already_predicted_nonterminals,
                     regex_start_config,
-                    regex_id_to_cache,
-                    excepted_id_to_cache,
                     excepted_start_config,
                     nonterminal_id,
                     earley_set_index,
@@ -907,8 +821,6 @@ where
     fn initialize_state_id_based_on_node(
         grammar: &Grammar<TI, TE>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         node: HIRNode<TI, TE>,
     ) -> TS {
@@ -920,16 +832,6 @@ where
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                         let start = dfa.start_state(regex_start_config).unwrap();
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
-                    }
-                    FiniteStateAutomaton::LazyDFA(dfa) => {
-                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                        let start = dfa
-                            .start_state(
-                                regex_id_to_cache.get_mut(&id).unwrap(),
-                                regex_start_config,
-                            )
-                            .unwrap();
-                        Self::from_ldfa_state_id_to_state_id(start)
                     }
                 }
             }
@@ -946,19 +848,6 @@ where
                             None => Self::from_dfa_state_id_to_state_id(start, dfa.stride2()),
                         }
                     }
-                    FiniteStateAutomaton::LazyDFA(dfa) => {
-                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                        let start = dfa
-                            .start_state(
-                                excepted_id_to_cache.get_mut(&id).unwrap(),
-                                excepted_start_config,
-                            )
-                            .unwrap();
-                        match r {
-                            Some(r) => Self::from_ldfa_state_id_to_state_id_with_r(start, r),
-                            None => Self::from_ldfa_state_id_to_state_id(start),
-                        }
-                    }
                 }
             }
             _ => TS::ZERO,
@@ -973,8 +862,6 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         already_predicted_nonterminals: &mut FixedBitSet,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         nonterminal_id: NonterminalID<TI>,
         earley_set_index: usize,
@@ -993,8 +880,6 @@ where
                     state_id: Self::initialize_state_id_based_on_node(
                         grammar,
                         regex_start_config,
-                        regex_id_to_cache,
-                        excepted_id_to_cache,
                         excepted_start_config,
                         unsafe {
                             *grammar.get_node_unchecked(nonterminal_id, TD::ZERO, production_index)
@@ -1062,8 +947,6 @@ where
         grammar: &Grammar<TI, TE>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         add_to_earley_set: T,
         mut item: EarleyItem<TI, TD, TP, TSP, TS>,
@@ -1086,8 +969,6 @@ where
             item.state_id = Self::initialize_state_id_based_on_node(
                 grammar,
                 regex_start_config,
-                regex_id_to_cache,
-                excepted_id_to_cache,
                 excepted_start_config,
                 unsafe {
                     *grammar.get_node_unchecked(
@@ -1106,8 +987,6 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) {
@@ -1115,8 +994,6 @@ where
             grammar,
             to_be_completed_items,
             regex_start_config,
-            regex_id_to_cache,
-            excepted_id_to_cache,
             excepted_start_config,
             |new_item| {
                 earley_sets.push_to_last_row(new_item);
@@ -1165,45 +1042,12 @@ where
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         (unsafe { std::mem::transmute(state_id) }, r.as_())
     }
-    #[inline]
-    fn from_ldfa_state_id_to_state_id(state_id: LazyStateID) -> TS {
-        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
-        let id: u32 = unsafe { std::mem::transmute(state_id) };
-        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        (id as usize).as_()
-    }
-    #[inline]
-    fn from_state_id_to_ldfa_state_id(state_id: TS) -> LazyStateID {
-        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
-        unsafe { std::mem::transmute((state_id.as_()) as u32) }
-    }
-    #[inline]
-    fn from_ldfa_state_id_to_state_id_with_r(state_id: LazyStateID, r: TE) -> TS {
-        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
-        let id: u32 = unsafe { std::mem::transmute(state_id) };
-        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let a = (id as usize)
-            + (r.as_() << ((std::mem::size_of::<TS>() - std::mem::size_of::<TE>()) * 8));
-        a.as_()
-    }
-    #[inline]
-    fn from_state_id_to_ldfa_state_id_with_r(state_id: TS) -> (LazyStateID, TE) {
-        let id: u32 = state_id.as_() as u32;
-        let r = (id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) as usize;
-        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let state_id =
-            (id as usize - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT))) as u32;
-        // SAFETY: LazyStateID is a u32 due to #[repr(transparent)] attribute
-        (unsafe { std::mem::transmute(state_id) }, r.as_())
-    }
     // TODO: find some methods to reduce the repetitive code for regex and except!. Maybe we need a macro.
     fn scan(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         byte: u8,
     ) {
@@ -1225,7 +1069,7 @@ where
                 HIRNode::Terminal(terminal_id) => {
                     let terminal = grammar.get_terminal(terminal_id);
                     let mut index = Self::from_state_id_to_index(item.state_id);
-                    if unsafe{*terminal.get_unchecked(index)} == byte {
+                    if unsafe { *terminal.get_unchecked(index) } == byte {
                         index += 1;
                         if index < terminal.len() {
                             let new_state_index = Self::from_index_to_state_id(index);
@@ -1237,8 +1081,6 @@ where
                                 earley_sets,
                                 to_be_completed_items,
                                 regex_start_config,
-                                regex_id_to_cache,
-                                excepted_id_to_cache,
                                 excepted_start_config,
                                 item,
                             );
@@ -1260,8 +1102,6 @@ where
                                         earley_sets,
                                         to_be_completed_items,
                                         regex_start_config,
-                                        regex_id_to_cache,
-                                        excepted_id_to_cache,
                                         excepted_start_config,
                                         item,
                                     );
@@ -1278,34 +1118,6 @@ where
                                         state_id,
                                         dfa.stride2(),
                                     );
-                                    item.state_id = state_id;
-                                    earley_sets.push_to_last_row(item);
-                                }
-                            }
-                        }
-                        FiniteStateAutomaton::LazyDFA(ldfa) => {
-                            let mut state_id = Self::from_state_id_to_ldfa_state_id(item.state_id);
-                            let cache = regex_id_to_cache.get_mut(&regex_id).unwrap();
-                            state_id = ldfa.next_state(cache, state_id, byte).unwrap();
-                            match utils::check_ldfa_state_status(state_id, cache, ldfa) {
-                                utils::FsaStateStatus::Accept => {
-                                    Self::advance_item_normal(
-                                        grammar,
-                                        earley_sets,
-                                        to_be_completed_items,
-                                        regex_start_config,
-                                        regex_id_to_cache,
-                                        excepted_id_to_cache,
-                                        excepted_start_config,
-                                        item,
-                                    );
-                                    let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
-                                    item.state_id = state_id;
-                                    earley_sets.push_to_last_row(item);
-                                }
-                                utils::FsaStateStatus::Reject => {}
-                                utils::FsaStateStatus::InProgress => {
-                                    let state_id = Self::from_ldfa_state_id_to_state_id(state_id);
                                     item.state_id = state_id;
                                     earley_sets.push_to_last_row(item);
                                 }
@@ -1337,8 +1149,6 @@ where
                                             earley_sets,
                                             to_be_completed_items,
                                             regex_start_config,
-                                            regex_id_to_cache,
-                                            excepted_id_to_cache,
                                             excepted_start_config,
                                             item,
                                         );
@@ -1359,8 +1169,6 @@ where
                                                 earley_sets,
                                                 to_be_completed_items,
                                                 regex_start_config,
-                                                regex_id_to_cache,
-                                                excepted_id_to_cache,
                                                 excepted_start_config,
                                                 item,
                                             );
@@ -1379,75 +1187,6 @@ where
                                                 earley_sets,
                                                 to_be_completed_items,
                                                 regex_start_config,
-                                                regex_id_to_cache,
-                                                excepted_id_to_cache,
-                                                excepted_start_config,
-                                                item,
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        FiniteStateAutomaton::LazyDFA(ldfa) => {
-                            let (state_id, r) =
-                                Self::from_state_id_to_ldfa_state_id_with_r(item.state_id);
-                            let cache = excepted_id_to_cache.get_mut(&excepted_id).unwrap();
-                            let state_id = ldfa.next_state(cache, state_id, byte).unwrap();
-                            match utils::check_ldfa_state_status(state_id, cache, ldfa) {
-                                utils::FsaStateStatus::Accept => {}
-                                utils::FsaStateStatus::Reject => {
-                                    unreachable!("Except! should not reject")
-                                }
-                                utils::FsaStateStatus::InProgress => {
-                                    if r.as_() == INVALID_REPETITION
-                                    // repeat 1 or infinite times
-                                    {
-                                        Self::advance_item_normal(
-                                            grammar,
-                                            earley_sets,
-                                            to_be_completed_items,
-                                            regex_start_config,
-                                            regex_id_to_cache,
-                                            excepted_id_to_cache,
-                                            excepted_start_config,
-                                            item,
-                                        );
-                                        let state_id =
-                                            Self::from_ldfa_state_id_to_state_id(state_id);
-                                        item.state_id = state_id;
-                                        earley_sets.push_to_last_row(item);
-                                        continue;
-                                    }
-                                    let r = r.checked_sub(&TE::ONE);
-                                    match r {
-                                        Some(r) => {
-                                            // repetition is not exhausted
-                                            Self::advance_item_normal(
-                                                grammar,
-                                                earley_sets,
-                                                to_be_completed_items,
-                                                regex_start_config,
-                                                regex_id_to_cache,
-                                                excepted_id_to_cache,
-                                                excepted_start_config,
-                                                item,
-                                            );
-                                            let state_id =
-                                                Self::from_ldfa_state_id_to_state_id_with_r(
-                                                    state_id, r,
-                                                );
-                                            item.state_id = state_id;
-                                            earley_sets.push_to_last_row(item);
-                                        }
-                                        None => {
-                                            Self::advance_item_normal(
-                                                grammar,
-                                                earley_sets,
-                                                to_be_completed_items,
-                                                regex_start_config,
-                                                regex_id_to_cache,
-                                                excepted_id_to_cache,
                                                 excepted_start_config,
                                                 item,
                                             );
@@ -1468,13 +1207,19 @@ where
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
-        let earley_set = unsafe{earley_sets.view_unchecked::<1, 1>([earley_set_index]).as_slice()};
+        let earley_set = unsafe {
+            earley_sets
+                .view_unchecked::<1, 1>([earley_set_index])
+                .as_slice()
+        };
         for item in earley_set.iter() {
-            let node = *unsafe{grammar.get_node_unchecked(
-                item.nonterminal_id,
-                item.dot_position,
-                item.production_index,
-            )};
+            let node = *unsafe {
+                grammar.get_node_unchecked(
+                    item.nonterminal_id,
+                    item.dot_position,
+                    item.production_index,
+                )
+            };
             if let HIRNode::Nonterminal(nonterminal) = node {
                 let postdot = Dotted {
                     postdot_nonterminal_id: nonterminal,
@@ -1566,8 +1311,6 @@ where
         grammar: &Grammar<TI, TE>,
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -1583,8 +1326,6 @@ where
                     grammar,
                     to_be_completed_items_buffer,
                     regex_start_config,
-                    regex_id_to_cache,
-                    excepted_id_to_cache,
                     excepted_start_config,
                     |item| {
                         deduplication_buffer.insert(item);
@@ -1604,8 +1345,6 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &regex_automata::util::start::Config,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         excepted_start_config: &regex_automata::util::start::Config,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -1625,8 +1364,6 @@ where
                         grammar,
                         topmost_item,
                         regex_start_config,
-                        regex_id_to_cache,
-                        excepted_id_to_cache,
                         excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
@@ -1638,8 +1375,6 @@ where
                         grammar,
                         item,
                         regex_start_config,
-                        regex_id_to_cache,
-                        excepted_id_to_cache,
                         excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
@@ -1691,8 +1426,6 @@ where
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
-        regex_id_to_cache: &mut AHashMap<RegexID<TI>, Cache>,
-        excepted_id_to_cache: &mut AHashMap<ExceptedID<TI>, Cache>,
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         regex_start_config: &regex_automata::util::start::Config,
@@ -1716,8 +1449,6 @@ where
             earley_sets,
             to_be_completed_items,
             regex_start_config,
-            regex_id_to_cache,
-            excepted_id_to_cache,
             excepted_start_config,
             byte,
         ); // scan the current Earley set and creates the next Earley set
@@ -1735,8 +1466,6 @@ where
             grammar,
             earley_sets,
             regex_start_config,
-            regex_id_to_cache,
-            excepted_id_to_cache,
             excepted_start_config,
             to_be_completed_items,
             to_be_completed_items_buffer,
@@ -1751,8 +1480,6 @@ where
             earley_sets,
             regex_start_config,
             excepted_start_config,
-            regex_id_to_cache,
-            excepted_id_to_cache,
             already_predicted_nonterminals,
         ); // predict the next Earley set
         Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
@@ -1817,8 +1544,6 @@ where
                 &mut self.leo_items_buffer,
                 &mut self.postdot_items,
                 &mut self.postdot_items_since_last_commit,
-                &mut self.regex_id_to_cache,
-                &mut self.excepted_id_to_cache,
                 &mut self.already_predicted_nonterminals,
                 &mut self.deduplication_buffer,
                 &self.regex_start_config,
@@ -1862,8 +1587,6 @@ where
                                 &mut self.leo_items_buffer,
                                 &mut self.postdot_items,
                                 &mut self.postdot_items_since_last_commit,
-                                &mut self.regex_id_to_cache,
-                                &mut self.excepted_id_to_cache,
                                 &mut self.already_predicted_nonterminals,
                                 &mut self.deduplication_buffer,
                                 &self.regex_start_config,
@@ -1932,8 +1655,6 @@ where
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
-                    &mut self.regex_id_to_cache,
-                    &mut self.excepted_id_to_cache,
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     &self.regex_start_config,
@@ -2025,8 +1746,6 @@ where
             &mut self.earley_sets,
             &mut self.already_predicted_nonterminals,
             &self.regex_start_config,
-            &mut self.regex_id_to_cache,
-            &mut self.excepted_id_to_cache,
             &self.excepted_start_config,
             self.grammar.get_start_nonterminal_id(),
             0,
@@ -2036,8 +1755,6 @@ where
             &mut self.earley_sets,
             &self.regex_start_config,
             &self.excepted_start_config,
-            &mut self.regex_id_to_cache,
-            &mut self.excepted_id_to_cache,
             &mut self.already_predicted_nonterminals,
         ); // run a full prediction for the first earley set
         Self::update_postdot_items(
