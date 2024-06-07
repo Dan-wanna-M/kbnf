@@ -15,7 +15,6 @@ use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
 use serde::Deserialize;
 use serde::Serialize;
-use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::sync::Arc;
 

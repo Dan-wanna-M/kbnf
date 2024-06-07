@@ -1,13 +1,11 @@
 //! Utility functions for the library.
 use ahash::AHashMap;
-use ebnf::simplified_grammar::SimplifiedGrammar;
 use ebnf::node::FinalNode;
 use ebnf::regex::FiniteStateAutomaton;
+use ebnf::simplified_grammar::SimplifiedGrammar;
 use fixedbitset::on_stack::{get_nblock, FixedBitSet};
 use nom::error::VerboseError;
 use regex_automata::dfa::Automaton;
-use regex_automata::hybrid::dfa::Cache;
-use regex_automata::hybrid::LazyStateID;
 use regex_automata::util::primitives::StateID;
 
 use crate::config::InternalConfig;
@@ -117,22 +115,6 @@ pub(crate) fn check_dfa_state_status(
         return FsaStateStatus::Reject;
     }
     if dfa.is_match_state(dfa.next_eoi_state(dfa_state)) {
-        FsaStateStatus::Accept
-    } else {
-        FsaStateStatus::InProgress
-    }
-}
-
-pub(crate) fn check_ldfa_state_status(
-    ldfa_state: LazyStateID,
-    cache: &mut Cache,
-    ldfa: &regex_automata::hybrid::dfa::DFA,
-) -> FsaStateStatus {
-    if ldfa_state.is_tagged() && (ldfa_state.is_dead() || ldfa_state.is_quit()) {
-        return FsaStateStatus::Reject;
-    }
-    let ldfa_state = ldfa.next_eoi_state(cache, ldfa_state).unwrap();
-    if ldfa_state.is_match() {
         FsaStateStatus::Accept
     } else {
         FsaStateStatus::InProgress

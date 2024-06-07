@@ -38,6 +38,7 @@ where
         + std::convert::TryFrom<usize>
         + num::Bounded,
 {
+    /// Get the display form of the terminal id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
         TE: AsPrimitive<usize>
@@ -73,6 +74,7 @@ where
         + std::convert::TryFrom<usize>
         + num::Bounded,
 {
+    /// Get the display form of the nonterminal id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
         TE: AsPrimitive<usize>
@@ -108,6 +110,7 @@ where
         + std::convert::TryFrom<usize>
         + num::Bounded,
 {
+    /// Get the display form of the except! id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>, r: Option<TE>) -> String
     where
         TE: AsPrimitive<usize>
@@ -148,6 +151,7 @@ where
         + std::convert::TryFrom<usize>
         + num::Bounded,
 {
+    /// Get the display form of the regex id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
         TE: AsPrimitive<usize>
@@ -202,6 +206,7 @@ where
         + Bounded
         + std::convert::TryFrom<usize>,
 {
+    /// Get the display form of the node.
     pub fn to_display_form(&self, grammar: &Grammar<TI, TE>) -> String {
         match self {
             HIRNode::Terminal(x) => x.to_display_form(grammar),
@@ -582,21 +587,25 @@ where
     pub fn get_interned_strings(&self) -> &InternedStrings {
         &self.interned_strings
     }
+    /// Get the nonterminal string from the grammar.
     pub fn get_nonterminal_str(&self, nonterminal_id: NonterminalID<TI>) -> Option<&str> {
         self.interned_strings
             .nonterminals
             .resolve(SymbolU32::try_from_usize(nonterminal_id.0.as_()).unwrap())
     }
+    /// Get the terminal string from the grammar.
     pub fn get_terminal_str(&self, terminal_id: TerminalID<TI>) -> Option<&str> {
         self.interned_strings
             .terminals
             .resolve(SymbolU32::try_from_usize(terminal_id.0.as_()).unwrap())
     }
+    /// Get the regex string from the grammar.
     pub fn get_regex_str(&self, regex_id: RegexID<TI>) -> Option<&str> {
         self.interned_strings
             .regex_strings
             .resolve(SymbolU32::try_from_usize(regex_id.0.as_()).unwrap())
     }
+    /// Get the excepted string from the grammar.
     pub fn get_excepted_str(&self, excepted_id: ExceptedID<TI>) -> Option<&str> {
         self.interned_strings
             .excepteds

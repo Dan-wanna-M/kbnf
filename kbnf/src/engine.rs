@@ -38,24 +38,44 @@ pub struct Engine {
     union: EngineUnion,
 }
 #[derive(Debug, thiserror::Error)]
+/// Represents the error type for the [Engine] creation.
 pub enum EngineError {
     #[error("{0}")] // inherits the error message from the wrapped EngineBaseError
+    /// A wrapper for the [EngineBaseError](crate::engine_base::EngineBaseError) error type.
     EngineBaseError(#[from] crate::engine_base::EngineBaseError),
     #[error("{0}")] // inherits the error message from the wrapped GrammarError
+    /// A wrapper for the [GrammarError](crate::grammar::GrammarError) error type.
     GrammarError(#[from] crate::grammar::GrammarError),
     #[error("The grammar after simplification is empty.
     This usually means that the grammar only contains empty terminals and/or self recursions like A::=A;")]
+    /// The grammar is empty.
     EmptyGrammarError,
     #[error("The grammar and/or config's value range is not supported by the Engine.\n
     This usually means that the grammar has more than 65536 nonterminals,
     at least one nonterminal has more than 65536 alternations or repetitions, and/or the expected output length is more than 2^32.")]
+    /// The grammar and/or config's value range is not supported by the Engine.
     InvalidInputError,
 }
 
 impl Engine {
-    pub fn new(input: &str, vocabulary: Vocabulary) -> Result<Self, EngineError> {
+    /// Create a new [Engine] from an EBNF grammar string and a [Vocabulary].
+    ///
+    /// # Arguments
+    ///
+    /// * `ebnf_grammar_str` - The EBNF grammar string.
+    ///
+    /// * `vocabulary` - The [Vocabulary] object.
+    ///
+    /// # Returns
+    ///
+    /// * [Engine] - The new [Engine] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, EngineError> {
         let config = Config::default();
-        Self::from_config(input, vocabulary, config)
+        Self::from_config(ebnf_grammar_str, vocabulary, config)
     }
 
     fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
@@ -63,15 +83,29 @@ impl Engine {
             && grammar.interned_strings.nonterminals.len() <= value
             && grammar.interned_strings.excepteds.len() <= value
     }
-
+    /// Create a new [Engine] from an EBNF grammar string, a [Vocabulary], and a [Config].
+    ///
+    /// # Arguments
+    ///
+    /// * `ebnf_grammar_str` - The EBNF grammar string.
+    /// * `vocabulary` - The [Vocabulary] object.
+    /// * `config` - The [Config] object.
+    ///
+    /// # Returns
+    ///
+    /// * [Engine] - The new [Engine] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
     pub fn from_config(
-        input: &str,
+        ebnf_grammar_str: &str,
         vocabulary: Vocabulary,
         config: Config,
     ) -> Result<Self, EngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
-        let grammar = utils::construct_ebnf_grammar(input, internal_config.clone())?;
+        let grammar = utils::construct_ebnf_grammar(ebnf_grammar_str, internal_config.clone())?;
         if grammar.is_empty() {
             return Err(EngineError::EmptyGrammarError);
         }

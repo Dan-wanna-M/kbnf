@@ -76,15 +76,18 @@ impl Debug for Vocabulary {
     }
 }
 #[derive(Debug, thiserror::Error)]
+/// The error type for [Vocabulary] creation.
 pub enum VocabularyError {
+    /// The token ID and token ID corresponds to the same token. 
     #[error("Token ID {0} and token ID {1} corresponds to the same token.")]
     DuplicateToken(u32, u32),
+    /// The vocabulary size exceeds the maximum supported size.
     #[error("The vocabulary size is {0}, while the maximum supported is {1}.")]
     VocabularyTooLarge(u32, u32),
 }
 
 impl Vocabulary {
-    /// Creates a new instance of `Vocabulary`.
+    /// Creates a new instance of [Vocabulary].
     ///
     /// # Arguments
     ///
