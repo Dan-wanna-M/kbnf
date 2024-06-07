@@ -96,8 +96,6 @@ Engine {
                 ],
             ],
             cache: [],
-            regex_id_to_cache: {},
-            excepted_id_to_cache: {},
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
             deduplication_buffer: [],

@@ -69,11 +69,7 @@ Engine {
             allowed_first_bytes: [
                 97,
             ],
-            allowed_token_ids: [
-                "a[98]",
-                "aa[1733]",
-                "aaa[6885]",
-            ],
+            allowed_token_ids: [],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
@@ -84,8 +80,6 @@ Engine {
                 ],
             ],
             cache: [],
-            regex_id_to_cache: {},
-            excepted_id_to_cache: {},
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
             deduplication_buffer: [],

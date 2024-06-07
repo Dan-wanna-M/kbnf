@@ -15,10 +15,14 @@ use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
 use serde::Deserialize;
 use serde::Serialize;
+use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
+use crate::grammar::ExceptedID;
+use crate::grammar::RegexID;
+use crate::grammar::TerminalID;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::ByteSet;
@@ -437,6 +441,7 @@ where
     allowed_token_ids: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
+    dotted_node_discriminant_to_indices: [Vec<usize>; 4],
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -702,6 +707,7 @@ where
             leo_items_buffer: Vec::new(),
             postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
+            dotted_node_discriminant_to_indices: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
         };
         engine.reset();
         Ok(engine)
@@ -786,6 +792,7 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
+        dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
         already_predicted_nonterminals: &mut FixedBitSet,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -802,6 +809,7 @@ where
                     item.production_index,
                 )
             };
+            dotted_node_discriminant_to_indices[node.discriminant() as usize].push(i.as_());
             if let HIRNode::Nonterminal(nonterminal_id) = node {
                 earley_set_len += Self::predict_nonterminal(
                     grammar,
@@ -1042,22 +1050,23 @@ where
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         (unsafe { std::mem::transmute(state_id) }, r.as_())
     }
-    // TODO: find some methods to reduce the repetitive code for regex and except!. Maybe we need a macro.
+
     fn scan(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         byte: u8,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
-        let earley_set_len =
-            unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
-        for i in 0..earley_set_len {
-            // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
-            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
+        for &i in dotted_node_discriminant_to_indices
+            [HIRNode::<TI, TE>::Terminal(TerminalID(TI::ZERO)).discriminant() as usize]
+            .iter()
+        {
+            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i.as_()]) };
             let node = unsafe {
                 *grammar.get_node_unchecked(
                     item.nonterminal_id,
@@ -1087,7 +1096,22 @@ where
                         }
                     }
                 }
-
+                _ => unreachable!("Should not happen"),
+            }
+        }
+        for &i in dotted_node_discriminant_to_indices
+            [HIRNode::<TI, TE>::RegexString(RegexID(TI::ZERO)).discriminant() as usize]
+            .iter()
+        {
+            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i.as_()]) };
+            let node = unsafe {
+                *grammar.get_node_unchecked(
+                    item.nonterminal_id,
+                    item.dot_position,
+                    item.production_index,
+                )
+            };
+            match node {
                 HIRNode::RegexString(regex_id) => {
                     let regex = grammar.get_regex(regex_id);
                     match regex {
@@ -1125,7 +1149,22 @@ where
                         }
                     }
                 }
-                HIRNode::Nonterminal(_) => {}
+                _ => unreachable!("Should not happen"),
+            }
+        }
+        for &i in dotted_node_discriminant_to_indices
+            [HIRNode::<TI, TE>::EXCEPT(ExceptedID(TI::ZERO), None).discriminant() as usize]
+            .iter()
+        {
+            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i.as_()]) };
+            let node = unsafe {
+                *grammar.get_node_unchecked(
+                    item.nonterminal_id,
+                    item.dot_position,
+                    item.production_index,
+                )
+            };
+            match node {
                 HIRNode::EXCEPT(excepted_id, _) => {
                     let fsa = grammar.get_excepted(excepted_id);
                     match fsa {
@@ -1197,7 +1236,11 @@ where
                         }
                     }
                 }
+                _ => unreachable!("Should not happen"),
             }
+        }
+        for i in dotted_node_discriminant_to_indices.iter_mut() {
+            i.clear();
         }
     }
     fn update_postdot_items(
@@ -1394,6 +1437,7 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
         earley_set_length: usize,
         finished: &mut bool,
     ) {
@@ -1403,6 +1447,9 @@ where
             postdot_items.remove(postdot);
         }
         added_postdot_items.clear();
+        for i in dotted_node_discriminant_to_indices.iter_mut() {
+            i.clear();
+        }
     }
 
     fn commit_change(&mut self) {
@@ -1428,6 +1475,7 @@ where
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
+        dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         previous_earley_set_length: usize,
@@ -1439,6 +1487,7 @@ where
                 earley_sets,
                 postdot_items,
                 added_postdot_items,
+                dotted_node_discriminant_to_indices,
                 previous_earley_set_length,
                 finished,
             );
@@ -1448,6 +1497,7 @@ where
             grammar,
             earley_sets,
             to_be_completed_items,
+            dotted_node_discriminant_to_indices,
             regex_start_config,
             excepted_start_config,
             byte,
@@ -1457,6 +1507,7 @@ where
                 earley_sets,
                 postdot_items,
                 added_postdot_items,
+                dotted_node_discriminant_to_indices,
                 previous_earley_set_length,
                 finished,
             );
@@ -1480,6 +1531,7 @@ where
             earley_sets,
             regex_start_config,
             excepted_start_config,
+            dotted_node_discriminant_to_indices,
             already_predicted_nonterminals,
         ); // predict the next Earley set
         Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
@@ -1546,6 +1598,7 @@ where
                 &mut self.postdot_items_since_last_commit,
                 &mut self.already_predicted_nonterminals,
                 &mut self.deduplication_buffer,
+                &mut self.dotted_node_discriminant_to_indices,
                 &self.regex_start_config,
                 &self.excepted_start_config,
                 len,
@@ -1566,6 +1619,7 @@ where
         if self.is_finished() {
             return;
         }
+        let dotted_node_discriminant_to_indices = self.dotted_node_discriminant_to_indices.clone();
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
@@ -1589,6 +1643,7 @@ where
                                 &mut self.postdot_items_since_last_commit,
                                 &mut self.already_predicted_nonterminals,
                                 &mut self.deduplication_buffer,
+                                &mut self.dotted_node_discriminant_to_indices,
                                 &self.regex_start_config,
                                 &self.excepted_start_config,
                                 len,
@@ -1621,6 +1676,7 @@ where
                                 &mut self.earley_sets,
                                 &mut self.postdot_items,
                                 &mut self.postdot_items_since_last_commit,
+                                &mut self.dotted_node_discriminant_to_indices,
                                 len,
                                 &mut self.finished,
                             );
@@ -1636,6 +1692,7 @@ where
                         &mut self.earley_sets,
                         &mut self.postdot_items,
                         &mut self.postdot_items_since_last_commit,
+                        &mut self.dotted_node_discriminant_to_indices,
                         len,
                         &mut self.finished,
                     );
@@ -1657,6 +1714,7 @@ where
                     &mut self.postdot_items_since_last_commit,
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
+                    &mut self.dotted_node_discriminant_to_indices,
                     &self.regex_start_config,
                     &self.excepted_start_config,
                     len,
@@ -1676,11 +1734,13 @@ where
                     &mut self.earley_sets,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
+                    &mut self.dotted_node_discriminant_to_indices,
                     len,
                     &mut self.finished,
                 );
             }
         }
+        self.dotted_node_discriminant_to_indices = dotted_node_discriminant_to_indices;
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
@@ -1741,6 +1801,9 @@ where
         self.allowed_token_ids.clear();
         self.allowed_first_bytes.clear();
         self.earley_sets.new_row::<0>();
+        for i in self.dotted_node_discriminant_to_indices.iter_mut() {
+            i.clear();
+        }
         Self::predict_nonterminal(
             &self.grammar,
             &mut self.earley_sets,
@@ -1755,6 +1818,7 @@ where
             &mut self.earley_sets,
             &self.regex_start_config,
             &self.excepted_start_config,
+            &mut self.dotted_node_discriminant_to_indices,
             &mut self.already_predicted_nonterminals,
         ); // run a full prediction for the first earley set
         Self::update_postdot_items(

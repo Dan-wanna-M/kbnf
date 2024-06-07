@@ -21,6 +21,7 @@ use string_interner::symbol::SymbolU32;
 use string_interner::Symbol;
 pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(transparent)]
 /// The wrapper struct that represents the terminal id in the grammar.
 pub struct TerminalID<T>(pub T)
 where
@@ -55,6 +56,7 @@ where
     }
 }
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(transparent)]
 /// The wrapper struct that represents the nonterminal id in the grammar.
 pub struct NonterminalID<T>(pub T)
 where
@@ -89,6 +91,7 @@ where
     }
 }
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(transparent)]
 /// The wrapper struct that represents the except! id in the grammar.
 pub struct ExceptedID<T>(pub T)
 where
@@ -128,6 +131,7 @@ where
     }
 }
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(transparent)]
 /// The wrapper struct that represents the regex id in the grammar.
 pub struct RegexID<T>(pub T)
 where
@@ -163,19 +167,20 @@ where
 }
 /// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u8)]
 pub enum HIRNode<T, TE>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq,
 {
     /// The terminal node.
-    Terminal(TerminalID<T>),
+    Terminal(TerminalID<T>)=0,
     /// The regex node.
-    RegexString(RegexID<T>),
+    RegexString(RegexID<T>)=1,
     /// The nonterminal node.
-    Nonterminal(NonterminalID<T>),
+    Nonterminal(NonterminalID<T>)=2,
     /// The except! node.
-    EXCEPT(ExceptedID<T>, Option<TE>),
+    EXCEPT(ExceptedID<T>, Option<TE>)=3,
 }
 
 impl<TI, TE> HIRNode<TI, TE>
@@ -206,6 +211,13 @@ where
             HIRNode::Nonterminal(x) => x.to_display_form(grammar),
             HIRNode::EXCEPT(x, r) => x.to_display_form(grammar, *r),
         }
+    }
+    #[inline]
+    pub(crate) fn discriminant(&self) -> u8 {
+        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
+        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
+        // field, so we can read the discriminant without offsetting the pointer.
+        unsafe { *<*const _>::from(self).cast::<u8>() }
     }
 }
 
