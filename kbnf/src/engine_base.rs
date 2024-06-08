@@ -5,7 +5,6 @@ use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::NonMaxU32;
-use num::CheckedSub;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
@@ -80,15 +79,13 @@ where
         engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
     ) -> EarleyItemDebugStruct
     where
-        TE: crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + AsPrimitive<usize>
-            + std::fmt::Debug
-            + num::Bounded
+        TE: AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + Num
             + std::convert::TryFrom<usize>
-            + CheckedSub,
+            + num::Bounded
+            + NumAssign,
         usize: num::traits::AsPrimitive<TE>,
     {
         let dotted_productions =
@@ -137,8 +134,8 @@ where
                     }
                 }
                 &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
-                    FiniteStateAutomaton::Dfa(dfa) => match r {
-                        None => format!(
+                    FiniteStateAutomaton::Dfa(dfa) => match r.as_() {
+                        INVALID_REPETITION => format!(
                             "[{}({})]",
                             self.state_id.as_(),
                             utils::check_dfa_state_status(
@@ -149,7 +146,7 @@ where
                                 dfa
                             )
                         ),
-                        Some(_) => {
+                        _ => {
                             let (dfa_state_id, r) = EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id_with_r(
                                 self.state_id,
                                 dfa.stride2(),
@@ -210,15 +207,12 @@ where
 {
     fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> ToBeCompletedItemDebugStruct
     where
-        TE: crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + AsPrimitive<usize>
-            + std::fmt::Debug
-            + num::Bounded
+        TE: AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + Num
             + std::convert::TryFrom<usize>
-            + CheckedSub,
+            + num::Bounded,
         usize: num::traits::AsPrimitive<TE>,
     {
         ToBeCompletedItemDebugStruct {
@@ -262,15 +256,12 @@ where
 {
     fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> DottedDebugStruct
     where
-        TE: crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + AsPrimitive<usize>
-            + std::fmt::Debug
-            + num::Bounded
+        TE: AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + Num
             + std::convert::TryFrom<usize>
-            + CheckedSub,
+            + num::Bounded,
         usize: num::traits::AsPrimitive<TE>,
     {
         DottedDebugStruct {
@@ -331,15 +322,13 @@ where
         engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
     ) -> PostDotItemsDebugStruct
     where
-        TE: crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + AsPrimitive<usize>
-            + std::fmt::Debug
-            + num::Bounded
+        TE: AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + Num
             + std::convert::TryFrom<usize>
-            + CheckedSub,
+            + num::Bounded
+            + NumAssign,
         usize: num::traits::AsPrimitive<TE>,
     {
         match self {
@@ -417,14 +406,12 @@ where
         + num::Bounded
         + std::convert::TryFrom<usize>
         + NumAssign,
-    TE: crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + AsPrimitive<usize>
-        + std::fmt::Debug
-        + num::Bounded
-        + std::convert::TryFrom<usize>,
+    TE: AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Num
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -441,6 +428,7 @@ where
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
     dotted_node_discriminant_to_indices: [Vec<usize>; 4],
+    dotted_node_discriminant_to_indices_since_last_commit: [Vec<usize>; 4],
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -472,15 +460,14 @@ where
         + num::Bounded
         + std::convert::TryFrom<usize>
         + NumAssign,
-    TE: crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + AsPrimitive<usize>
-        + std::fmt::Debug
-        + num::Bounded
+    TE: AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Num
         + std::convert::TryFrom<usize>
-        + num::CheckedSub,
+        + num::Bounded
+        + NumAssign
+        + Debug,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -571,6 +558,10 @@ where
                 a.sort();
                 &Box::new(a)
             })
+            .field(
+                "dotted_node_discriminant_to_indices",
+                &self.dotted_node_discriminant_to_indices,
+            )
             .field("leo_items", {
                 let mut a = self
                     .leo_items
@@ -621,15 +612,13 @@ where
         + num::Bounded
         + num::traits::NumAssignOps
         + std::convert::TryFrom<usize>,
-    TE: crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + AsPrimitive<usize>
-        + std::fmt::Debug
-        + num::Bounded
+    TE: AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Num
         + std::convert::TryFrom<usize>
-        + num::CheckedSub,
+        + num::Bounded
+        + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -707,6 +696,12 @@ where
             postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
             dotted_node_discriminant_to_indices: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            dotted_node_discriminant_to_indices_since_last_commit: [
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ],
         };
         engine.reset();
         Ok(engine)
@@ -848,11 +843,13 @@ where
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                         let start = dfa.start_state(excepted_start_config).unwrap();
-                        match r {
-                            Some(r) => {
+                        match r.as_() {
+                            INVALID_REPETITION => {
+                                Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
+                            }
+                            _ => {
                                 Self::from_dfa_state_id_to_state_id_with_r(start, dfa.stride2(), r)
                             }
-                            None => Self::from_dfa_state_id_to_state_id(start, dfa.stride2()),
                         }
                     }
                 }
@@ -1152,7 +1149,7 @@ where
             }
         }
         for &i in dotted_node_discriminant_to_indices
-            [HIRNode::<TI, TE>::EXCEPT(ExceptedID(TI::ZERO), None).discriminant() as usize]
+            [HIRNode::<TI, TE>::EXCEPT(ExceptedID(TI::ZERO), TE::ZERO).discriminant() as usize]
             .iter()
         {
             let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i.as_()]) };
@@ -1168,7 +1165,7 @@ where
                     let fsa = grammar.get_excepted(excepted_id);
                     match fsa {
                         FiniteStateAutomaton::Dfa(dfa) => {
-                            let (state_id, r) = Self::from_state_id_to_dfa_state_id_with_r(
+                            let (state_id, mut r) = Self::from_state_id_to_dfa_state_id_with_r(
                                 item.state_id,
                                 dfa.stride2(),
                             );
@@ -1198,9 +1195,19 @@ where
                                         earley_sets.push_to_last_row(item);
                                         continue;
                                     }
-                                    let r = r.checked_sub(&TE::ONE);
-                                    match r {
-                                        Some(r) => {
+                                    r -= TE::ONE;
+                                    match r.as_() {
+                                        INVALID_REPETITION => {
+                                            Self::advance_item_normal(
+                                                grammar,
+                                                earley_sets,
+                                                to_be_completed_items,
+                                                regex_start_config,
+                                                excepted_start_config,
+                                                item,
+                                            );
+                                        }
+                                        _ => {
                                             // repetition is not exhausted
                                             Self::advance_item_normal(
                                                 grammar,
@@ -1219,16 +1226,6 @@ where
                                             item.state_id = state_id;
                                             earley_sets.push_to_last_row(item);
                                         }
-                                        None => {
-                                            Self::advance_item_normal(
-                                                grammar,
-                                                earley_sets,
-                                                to_be_completed_items,
-                                                regex_start_config,
-                                                excepted_start_config,
-                                                item,
-                                            );
-                                        }
                                     }
                                 }
                             }
@@ -1238,9 +1235,7 @@ where
                 _ => unreachable!("Should not happen"),
             }
         }
-        for i in dotted_node_discriminant_to_indices.iter_mut() {
-            i.clear();
-        }
+        Self::clear_dotted_node_discriminant_to_indices(dotted_node_discriminant_to_indices);
     }
     fn update_postdot_items(
         grammar: &Grammar<TI, TE>,
@@ -1437,6 +1432,7 @@ where
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
+        dotted_node_discriminant_to_indices_since_last_commit: &[Vec<usize>; 4],
         earley_set_length: usize,
         finished: &mut bool,
     ) {
@@ -1446,21 +1442,37 @@ where
             postdot_items.remove(postdot);
         }
         added_postdot_items.clear();
-        for i in dotted_node_discriminant_to_indices.iter_mut() {
+        for i in 0..4 {
+            dotted_node_discriminant_to_indices[i].clear();
+            dotted_node_discriminant_to_indices[i]
+                .extend_from_slice(&dotted_node_discriminant_to_indices_since_last_commit[i]);
+        }
+    }
+    #[inline]
+    fn commit_change(&mut self) {
+        self.postdot_items_since_last_commit.clear();
+        for i in self
+            .dotted_node_discriminant_to_indices_since_last_commit
+            .iter_mut()
+        {
             i.clear();
         }
     }
-
-    fn commit_change(&mut self) {
-        self.postdot_items_since_last_commit.clear();
-    }
-
+    #[inline]
     fn is_rejected(
         earley_sets: &EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &AHashSet<ToBeCompletedItem<TI, TSP>>,
     ) -> bool {
         earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
             && to_be_completed_items.is_empty()
+    }
+    #[inline]
+    fn clear_dotted_node_discriminant_to_indices(
+        dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
+    ) {
+        for i in dotted_node_discriminant_to_indices.iter_mut() {
+            i.clear();
+        }
     }
 
     fn accept_byte(
@@ -1475,6 +1487,7 @@ where
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         dotted_node_discriminant_to_indices: &mut [Vec<usize>; 4],
+        dotted_node_discriminant_to_indices_since_last_commit: &mut [Vec<usize>; 4],
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         previous_earley_set_length: usize,
@@ -1487,6 +1500,7 @@ where
                 postdot_items,
                 added_postdot_items,
                 dotted_node_discriminant_to_indices,
+                dotted_node_discriminant_to_indices_since_last_commit,
                 previous_earley_set_length,
                 finished,
             );
@@ -1507,6 +1521,7 @@ where
                 postdot_items,
                 added_postdot_items,
                 dotted_node_discriminant_to_indices,
+                dotted_node_discriminant_to_indices_since_last_commit,
                 previous_earley_set_length,
                 finished,
             );
@@ -1554,14 +1569,12 @@ where
         + Debug,
     TI: Eq + std::hash::Hash + PartialEq,
     TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + num::Bounded
+        + ConstOne
+        + ConstZero
+        + Num
         + std::convert::TryFrom<usize>
-        + CheckedSub
-        + Debug,
+        + num::Bounded
+        + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -1585,6 +1598,10 @@ where
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
         let len = self.earley_sets.len();
+        for i in 0..4 {
+            self.dotted_node_discriminant_to_indices_since_last_commit[i]
+                .extend_from_slice(&self.dotted_node_discriminant_to_indices[i]);
+        }
         for byte in token.0.iter() {
             Self::accept_byte(
                 &self.grammar,
@@ -1598,6 +1615,7 @@ where
                 &mut self.already_predicted_nonterminals,
                 &mut self.deduplication_buffer,
                 &mut self.dotted_node_discriminant_to_indices,
+                &mut self.dotted_node_discriminant_to_indices_since_last_commit,
                 &self.regex_start_config,
                 &self.excepted_start_config,
                 len,
@@ -1618,9 +1636,13 @@ where
         if self.is_finished() {
             return;
         }
-        let dotted_node_discriminant_to_indices = self.dotted_node_discriminant_to_indices.clone();
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
+        for i in 0..4 {
+            self.dotted_node_discriminant_to_indices_since_last_commit[i].clear();
+            self.dotted_node_discriminant_to_indices_since_last_commit[i]
+                .extend_from_slice(&self.dotted_node_discriminant_to_indices[i]);
+        }
         for byte in self.allowed_first_bytes.ones() {
             let mut current_token_id: Option<NonMaxU32> = None;
             let mut token_iter = self
@@ -1643,6 +1665,7 @@ where
                                 &mut self.already_predicted_nonterminals,
                                 &mut self.deduplication_buffer,
                                 &mut self.dotted_node_discriminant_to_indices,
+                                &mut self.dotted_node_discriminant_to_indices_since_last_commit,
                                 &self.regex_start_config,
                                 &self.excepted_start_config,
                                 len,
@@ -1676,6 +1699,7 @@ where
                                 &mut self.postdot_items,
                                 &mut self.postdot_items_since_last_commit,
                                 &mut self.dotted_node_discriminant_to_indices,
+                                &self.dotted_node_discriminant_to_indices_since_last_commit,
                                 len,
                                 &mut self.finished,
                             );
@@ -1692,6 +1716,7 @@ where
                         &mut self.postdot_items,
                         &mut self.postdot_items_since_last_commit,
                         &mut self.dotted_node_discriminant_to_indices,
+                        &self.dotted_node_discriminant_to_indices_since_last_commit,
                         len,
                         &mut self.finished,
                     );
@@ -1714,6 +1739,7 @@ where
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     &mut self.dotted_node_discriminant_to_indices,
+                    &mut self.dotted_node_discriminant_to_indices_since_last_commit,
                     &self.regex_start_config,
                     &self.excepted_start_config,
                     len,
@@ -1734,12 +1760,13 @@ where
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
                     &mut self.dotted_node_discriminant_to_indices,
+                    &self.dotted_node_discriminant_to_indices_since_last_commit,
                     len,
                     &mut self.finished,
                 );
             }
         }
-        self.dotted_node_discriminant_to_indices = dotted_node_discriminant_to_indices;
+        self.commit_change();
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
@@ -1800,9 +1827,9 @@ where
         self.allowed_token_ids.clear();
         self.allowed_first_bytes.clear();
         self.earley_sets.new_row::<0>();
-        for i in self.dotted_node_discriminant_to_indices.iter_mut() {
-            i.clear();
-        }
+        Self::clear_dotted_node_discriminant_to_indices(
+            &mut self.dotted_node_discriminant_to_indices,
+        );
         Self::predict_nonterminal(
             &self.grammar,
             &mut self.earley_sets,

@@ -32,22 +32,21 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
-        + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + std::cmp::PartialOrd,
 {
     /// Get the display form of the terminal id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
         TE: AsPrimitive<usize>
-            + crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + Bounded
-            + std::convert::TryFrom<usize>,
+            + Num
+            + ConstOne
+            + ConstZero
+            + std::convert::TryFrom<usize>
+            + num::Bounded,
+        usize: AsPrimitive<TE>,
     {
         format!(
             "\"{}\"[{}]",
@@ -68,7 +67,6 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
@@ -77,13 +75,13 @@ where
     /// Get the display form of the nonterminal id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
-        TE: AsPrimitive<usize>
-            + crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + Bounded
-            + std::convert::TryFrom<usize>,
+        TE: Num
+            + AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + std::convert::TryFrom<usize>
+            + num::Bounded,
+        usize: AsPrimitive<TE>,
     {
         format!(
             "{}[{}]",
@@ -104,28 +102,27 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
 {
     /// Get the display form of the except! id.
-    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>, r: Option<TE>) -> String
+    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>, r: TE) -> String
     where
-        TE: AsPrimitive<usize>
-            + crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + Bounded
-            + std::convert::TryFrom<usize>,
+        TE: Num
+            + AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + std::convert::TryFrom<usize>
+            + num::Bounded,
+        usize: AsPrimitive<TE>,
     {
         format!(
             "except!({}{})[{}]",
             grammar.get_excepted_str(*self).unwrap(),
             self.0.as_(),
-            if let Some(r) = r {
+            if r.as_() != INVALID_REPETITION {
                 r.as_().to_string()
             } else {
                 "".to_string()
@@ -145,7 +142,6 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
@@ -154,13 +150,13 @@ where
     /// Get the display form of the regex id.
     pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
     where
-        TE: AsPrimitive<usize>
-            + crate::non_zero::ConstOne
-            + Eq
-            + std::hash::Hash
-            + PartialEq
-            + Bounded
-            + std::convert::TryFrom<usize>,
+        TE: Num
+            + AsPrimitive<usize>
+            + ConstOne
+            + ConstZero
+            + std::convert::TryFrom<usize>
+            + num::Bounded,
+        usize: AsPrimitive<TE>,
     {
         format!(
             "#\"{}\"[{}]",
@@ -175,16 +171,16 @@ where
 pub enum HIRNode<T, TE>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq,
+    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
 {
     /// The terminal node.
-    Terminal(TerminalID<T>)=0,
+    Terminal(TerminalID<T>) = 0,
     /// The regex node.
-    RegexString(RegexID<T>)=1,
+    RegexString(RegexID<T>) = 1,
     /// The nonterminal node.
-    Nonterminal(NonterminalID<T>)=2,
+    Nonterminal(NonterminalID<T>) = 2,
     /// The except! node.
-    EXCEPT(ExceptedID<T>, Option<TE>)=3,
+    EXCEPT(ExceptedID<T>, TE) = 3,
 }
 
 impl<TI, TE> HIRNode<TI, TE>
@@ -193,18 +189,12 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
-        + std::convert::TryFrom<usize>,
+    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + Bounded + std::convert::TryFrom<usize>,
+    usize: num::traits::AsPrimitive<TE>,
 {
     /// Get the display form of the node.
     pub fn to_display_form(&self, grammar: &Grammar<TI, TE>) -> String {
@@ -231,7 +221,7 @@ where
 pub struct Grammar<TI, TE>
 where
     TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: AsPrimitive<usize> + crate::non_zero::ConstOne + Eq + std::hash::Hash + PartialEq + Bounded,
+    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + Bounded,
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
@@ -272,21 +262,19 @@ where
         + AsPrimitive<usize>
         + ConstOne
         + ConstZero
-        + NumOps
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded
         + Debug,
     TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
+        + ConstOne
+        + ConstZero
+        + Num
         + std::convert::TryFrom<usize>
+        + num::Bounded
         + Debug,
-    usize: num::traits::AsPrimitive<TI>,
+    usize: num::traits::AsPrimitive<TI> + num::traits::AsPrimitive<TE>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Grammar")
@@ -332,7 +320,7 @@ where
             .field(
                 "id_to_excepteds",
                 &utils::fill_debug_form_of_id_to_x(self.id_to_excepteds.iter(), |x| {
-                    ExceptedID(x.as_()).to_display_form(self, None)
+                    ExceptedID(x.as_()).to_display_form(self, TE::ZERO)
                 }),
             )
             .field(
@@ -350,7 +338,7 @@ where
                     self.id_to_excepted_first_bytes
                         .iter()
                         .map(|x| x.ones().collect::<Vec<_>>()),
-                    |x| ExceptedID(x.as_()).to_display_form(self, None),
+                    |x| ExceptedID(x.as_()).to_display_form(self, INVALID_REPETITION.as_()),
                 ),
             )
             .field(
@@ -378,13 +366,13 @@ where
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: AsPrimitive<usize>
-        + crate::non_zero::ConstOne
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + Bounded
-        + std::convert::TryFrom<usize>,
+    TE: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + std::convert::TryFrom<usize>
+        + num::Bounded,
+    usize: num::traits::AsPrimitive<TE>,
 {
     /// Create a new grammar from a simplified EBNF grammar.
     ///
@@ -457,14 +445,14 @@ where
                                     )
                                 })?),
                                 match r {
-                                    Some(r) => Some(r.to_usize().try_into().map_err(|_| {
+                                    Some(r) => r.to_usize().try_into().map_err(|_| {
                                         GrammarError::IntConversionError(
                                             "repetition".to_string(),
                                             r.to_usize(),
                                             TE::max_value().as_(),
                                         )
-                                    })?),
-                                    None => None,
+                                    })?,
+                                    None => INVALID_REPETITION.as_(),
                                 },
                             ),
                         });

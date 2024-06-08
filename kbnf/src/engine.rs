@@ -4,13 +4,8 @@ use ebnf::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
 
 use crate::{
-    config::Config,
-    engine_base::EngineBase,
-    engine_like::EngineLike,
-    grammar::Grammar,
-    non_zero::{NonZeroU16, NonZeroU8, Zero},
-    utils,
-    vocabulary::Vocabulary,
+    config::Config, engine_base::EngineBase, engine_like::EngineLike, grammar::Grammar, utils,
+    vocabulary::Vocabulary, zero::Zero,
 };
 #[derive(Debug, Clone)]
 /// An enum that represents the common type combinations of `EngineBase`.
@@ -22,15 +17,15 @@ pub(crate) enum EngineUnion {
     /// Complex grammar with lazy/complex dfa without any repetition
     U16U0U16U32U32U32(EngineBase<u16, Zero, u16, u32, u32, u32>),
     /// Typical simple grammar with lazy/complex dfa
-    U8U8U8U8U8U32(EngineBase<u8, NonZeroU8, u8, u8, u8, u32>),
+    U8U8U8U8U8U32(EngineBase<u8, u8, u8, u8, u8, u32>),
     /// Typical simple grammar with simple dfa
-    U8U8U8U16U16U16(EngineBase<u8, NonZeroU8, u8, u16, u16, u16>),
+    U8U8U8U16U16U16(EngineBase<u8, u8, u8, u16, u16, u16>),
     /// Complex grammar with lazy/complex dfa
-    U16U8U16U32U32U32(EngineBase<u16, NonZeroU8, u16, u32, u32, u32>),
+    U16U8U16U32U32U32(EngineBase<u16, u8, u16, u32, u32, u32>),
     /// Typical simple grammar with simple dfa and unusually large repetitions
-    U8U16U8U8U8U32(EngineBase<u8, NonZeroU16, u8, u8, u8, u32>),
+    U8U16U8U8U8U32(EngineBase<u8, u16, u8, u8, u8, u32>),
     /// Complex grammar with complex dfa and unusually large repetitions
-    U16U16U16U32U32U32(EngineBase<u16, NonZeroU16, u16, u32, u32, u32>),
+    U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
 #[derive(Debug, Clone)]
 /// The main struct that wraps the `EngineBase` so the user do not have to specify the generic type every time for common cases.
@@ -144,13 +139,13 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= NonZeroU16::max_value().into()
+            && max_r <= u16::max_value().into()
             && td <= u8::MAX.into()
             && tp <= u8::MAX.into()
             && tsp <= u8::MAX.into()
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u8, NonZeroU16> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8, u16> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U8U16U8U8U8U32(EngineBase::new(
@@ -174,13 +169,13 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= NonZeroU8::max_value().into()
+            && max_r <= u8::max_value().into()
             && td <= u8::MAX.into()
             && tp <= u8::MAX.into()
             && tsp <= u8::MAX.into()
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u8, NonZeroU8> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8, u8> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U8U8U8U8U8U32(EngineBase::new(
@@ -189,13 +184,13 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= NonZeroU8::max_value().into()
+            && max_r <= u8::max_value().into()
             && td <= u8::MAX.into()
             && tp <= u16::MAX.into()
             && tsp <= u16::MAX.into()
             && ts <= u16::MAX as usize
         {
-            let grammar: Grammar<u8, NonZeroU8> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8, u8> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U8U8U8U16U16U16(EngineBase::new(
@@ -204,13 +199,13 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= NonZeroU8::max_value().into()
+            && max_r <= u8::max_value().into()
             && td <= u16::MAX.into()
             && tp <= u32::MAX as usize
             && tsp <= u32::MAX as usize
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u16, NonZeroU8> = Grammar::new(grammar)?;
+            let grammar: Grammar<u16, u8> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U16U8U16U32U32U32(EngineBase::new(
@@ -219,13 +214,13 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= NonZeroU16::max_value().into()
+            && max_r <= u16::max_value().into()
             && td <= u16::MAX.into()
             && tp <= u32::MAX as usize
             && tsp <= u32::MAX as usize
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u16, NonZeroU16> = Grammar::new(grammar)?;
+            let grammar: Grammar<u16, u16> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U16U16U16U32U32U32(EngineBase::new(
