@@ -990,6 +990,27 @@ where
     }
 
     #[inline]
+    unsafe fn advance_item_normal_unchecked(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        regex_start_config: &regex_automata::util::start::Config,
+        excepted_start_config: &regex_automata::util::start::Config,
+        item: EarleyItem<TI, TD, TP, TSP, TS>,
+    ) {
+        Self::advance_item(
+            grammar,
+            to_be_completed_items,
+            regex_start_config,
+            excepted_start_config,
+            |new_item| {
+                earley_sets.push_to_last_row_unchecked(new_item);
+            },
+            item,
+        );
+    }
+
+    #[inline]
     fn from_state_id_to_index(state_id: TS) -> usize {
         state_id.as_()
     }
@@ -1042,6 +1063,7 @@ where
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
+        earley_sets.buffer_reserve(earley_sets.buffer_len()+earley_set_len*2);
         for i in 0..earley_set_len {
             // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
             let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
@@ -1064,14 +1086,14 @@ where
                             item.state_id = new_state_index;
                             earley_sets.push_to_last_row(item);
                         } else {
-                            Self::advance_item_normal(
+                            unsafe{Self::advance_item_normal_unchecked(
                                 grammar,
                                 earley_sets,
                                 to_be_completed_items,
                                 regex_start_config,
                                 excepted_start_config,
                                 item,
-                            );
+                            )};
                         }
                     }
                 }
@@ -1086,20 +1108,20 @@ where
                                 state_id,
                                 dfa,
                                 accept=>{
-                                    Self::advance_item_normal(
+                                    unsafe{Self::advance_item_normal_unchecked(
                                         grammar,
                                         earley_sets,
                                         to_be_completed_items,
                                         regex_start_config,
                                         excepted_start_config,
                                         item,
-                                    );
+                                    )};
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
                                     );
                                     item.state_id = state_id;
-                                    earley_sets.push_to_last_row(item);
+                                    unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                 },
                                 reject=>{},
                                 in_progress=>
@@ -1109,7 +1131,7 @@ where
                                         dfa.stride2(),
                                     );
                                     item.state_id = state_id;
-                                    earley_sets.push_to_last_row(item);
+                                    unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                 }
                             );
                         }
@@ -1133,44 +1155,44 @@ where
                                     if r.as_() == INVALID_REPETITION
                                     // repeat 1 or infinite times
                                     {
-                                        Self::advance_item_normal(
+                                        unsafe{Self::advance_item_normal_unchecked(
                                             grammar,
                                             earley_sets,
                                             to_be_completed_items,
                                             regex_start_config,
                                             excepted_start_config,
                                             item,
-                                        );
+                                        )};
                                         let state_id = Self::from_dfa_state_id_to_state_id(
                                             state_id,
                                             dfa.stride2(),
                                         );
                                         item.state_id = state_id;
-                                        earley_sets.push_to_last_row(item);
+                                        unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                         continue;
                                     }
                                     r -= TE::ONE;
                                     match r.as_() {
                                         INVALID_REPETITION => {
-                                            Self::advance_item_normal(
+                                            unsafe{Self::advance_item_normal_unchecked(
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
                                                 regex_start_config,
                                                 excepted_start_config,
                                                 item,
-                                            );
+                                            )};
                                         }
                                         _ => {
                                             // repetition is not exhausted
-                                            Self::advance_item_normal(
+                                            unsafe{Self::advance_item_normal_unchecked(
                                                 grammar,
                                                 earley_sets,
                                                 to_be_completed_items,
                                                 regex_start_config,
                                                 excepted_start_config,
                                                 item,
-                                            );
+                                            )};
                                             let state_id =
                                                 Self::from_dfa_state_id_to_state_id_with_r(
                                                     state_id,
@@ -1178,7 +1200,7 @@ where
                                                     r,
                                                 );
                                             item.state_id = state_id;
-                                            earley_sets.push_to_last_row(item);
+                                            unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                         }
                                     }
                                 }
