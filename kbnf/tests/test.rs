@@ -183,8 +183,8 @@ mod tests {
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        for j in 0..1 {
-            for i in 0..2 {
+        for j in 0..100 {
+            for i in 0..5 {
                 let result = engine
                     .try_accept_new_token(
                         vocab

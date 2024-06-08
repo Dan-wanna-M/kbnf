@@ -17,6 +17,7 @@ use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use crate::utils::dispatch_by_dfa_state_status;
 use crate::engine_like::EngineLike;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
@@ -1053,11 +1054,12 @@ where
             };
             match node {
                 HIRNode::Terminal(terminal_id) => {
-                    let terminal = grammar.get_terminal(terminal_id);
+                    let terminal = unsafe { grammar.get_terminal_unchecked(terminal_id) };
                     let mut index = Self::from_state_id_to_index(item.state_id);
                     if unsafe { *terminal.get_unchecked(index) } == byte {
                         index += 1;
-                        if index < terminal.len() {
+                        if index != terminal.len() {
+                            // interestingly faster than <
                             let new_state_index = Self::from_index_to_state_id(index);
                             item.state_id = new_state_index;
                             earley_sets.push_to_last_row(item);
@@ -1074,14 +1076,16 @@ where
                     }
                 }
                 HIRNode::RegexString(regex_id) => {
-                    let regex = grammar.get_regex(regex_id);
+                    let regex = unsafe { grammar.get_regex_unchecked(regex_id) };
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             let mut state_id =
                                 Self::from_state_id_to_dfa_state_id(item.state_id, dfa.stride2());
                             state_id = dfa.next_state(state_id, byte);
-                            match utils::check_dfa_state_status(state_id, dfa) {
-                                utils::FsaStateStatus::Accept => {
+                            dispatch_by_dfa_state_status!(
+                                state_id,
+                                dfa,
+                                accept=>{
                                     Self::advance_item_normal(
                                         grammar,
                                         earley_sets,
@@ -1096,9 +1100,10 @@ where
                                     );
                                     item.state_id = state_id;
                                     earley_sets.push_to_last_row(item);
-                                }
-                                utils::FsaStateStatus::Reject => {}
-                                utils::FsaStateStatus::InProgress => {
+                                },
+                                reject=>{},
+                                in_progress=>
+                                {
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
@@ -1106,7 +1111,7 @@ where
                                     item.state_id = state_id;
                                     earley_sets.push_to_last_row(item);
                                 }
-                            }
+                            );
                         }
                     }
                 }
@@ -1119,12 +1124,12 @@ where
                                 dfa.stride2(),
                             );
                             let state_id = dfa.next_state(state_id, byte);
-                            match utils::check_dfa_state_status(state_id, dfa) {
-                                utils::FsaStateStatus::Accept => {}
-                                utils::FsaStateStatus::Reject => {
-                                    unreachable!("Except! should not reject")
-                                }
-                                utils::FsaStateStatus::InProgress => {
+                            dispatch_by_dfa_state_status!(
+                                state_id,
+                                dfa,
+                                accept=>{},
+                                reject=>{ unreachable!("Except! should not reject") },
+                                in_progress=>{
                                     if r.as_() == INVALID_REPETITION
                                     // repeat 1 or infinite times
                                     {
@@ -1177,7 +1182,7 @@ where
                                         }
                                     }
                                 }
-                            }
+                            );
                         }
                     }
                 }

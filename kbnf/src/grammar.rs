@@ -598,6 +598,15 @@ where
         &self.id_to_regexes[regex_id.0.as_()]
     }
     #[inline]
+    /// Get the regex from the grammar without bounds checking.
+    /// 
+    /// # Safety
+    /// 
+    /// The caller must ensure that the regex id is within bounds.
+    pub unsafe fn get_regex_unchecked(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
+        self.id_to_regexes.get_unchecked(regex_id.0.as_())
+    }
+    #[inline]
     /// Get the excepted from the grammar.
     pub fn get_excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_excepteds[excepted_id.0.as_()]
@@ -606,6 +615,15 @@ where
     /// Get the terminal from the grammar.
     pub fn get_terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
         self.id_to_terminals.view([terminal_id.0.as_()]).as_slice()
+    }
+    #[inline]
+    /// Get the terminal from the grammar without bounds checking.
+    /// 
+    /// # Safety
+    /// 
+    /// The caller must ensure that the terminal id is within bounds.
+    pub unsafe fn get_terminal_unchecked(&self, terminal_id: TerminalID<TI>) -> &[u8] {
+        self.id_to_terminals.view_unchecked([terminal_id.0.as_()]).as_slice()
     }
     #[inline]
     /// Get the terminals from the grammar.

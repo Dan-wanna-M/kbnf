@@ -67,8 +67,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.measurement_time(Duration::from_secs(10)).sample_size(100);
     let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
     let mut engine = Engine::new("start::=('{'start'}')?;", vocab.clone()).unwrap();
-    c.bench_function("unmarked middle recursion 10 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124))
+    c.bench_function("unmarked middle recursion 100 iterations", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
     });
     let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {

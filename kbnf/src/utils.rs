@@ -120,6 +120,20 @@ pub(crate) fn check_dfa_state_status(
         FsaStateStatus::InProgress
     }
 }
+macro_rules! dispatch_by_dfa_state_status {
+    ($dfa_state:ident, $dfa:ident , accept=>$accept:block , reject=>$reject:block ,in_progress=>$in_progress:block) => {
+        if $dfa.is_special_state($dfa_state) && !$dfa.is_match_state($dfa_state)
+            // If the state is a special state and not a match state, then it is a dead state/quit state.
+            $reject
+        if $dfa.is_match_state($dfa.next_eoi_state($dfa_state))
+            $accept
+        else
+            $in_progress
+        
+    };
+}
+pub(crate) use dispatch_by_dfa_state_status;
+
 
 pub(crate) fn get_display_form_from_bitset_on_stack<const NBLOCK: usize>(
     bitset: &FixedBitSet<NBLOCK>,
