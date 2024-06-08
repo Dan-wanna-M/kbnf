@@ -18,9 +18,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
-use crate::grammar::ExceptedID;
-use crate::grammar::RegexID;
-use crate::grammar::TerminalID;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::ByteSet;
