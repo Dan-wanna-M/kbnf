@@ -117,14 +117,6 @@ Engine {
                 ),
             ],
             postdot_items_since_last_commit: [],
-            dotted_node_discriminant_to_indices: [
-                [
-                    0,
-                ],
-                [],
-                [],
-                [],
-            ],
             leo_items: [],
             leo_items_buffer: [],
             already_predicted_nonterminals: [],

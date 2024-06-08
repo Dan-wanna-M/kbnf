@@ -167,20 +167,19 @@ where
 }
 /// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u8)]
 pub enum HIRNode<T, TE>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
 {
     /// The terminal node.
-    Terminal(TerminalID<T>) = 0,
+    Terminal(TerminalID<T>),
     /// The regex node.
-    RegexString(RegexID<T>) = 1,
+    RegexString(RegexID<T>),
     /// The nonterminal node.
-    Nonterminal(NonterminalID<T>) = 2,
+    Nonterminal(NonterminalID<T>),
     /// The except! node.
-    EXCEPT(ExceptedID<T>, TE) = 3,
+    EXCEPT(ExceptedID<T>, TE),
 }
 
 impl<TI, TE> HIRNode<TI, TE>
@@ -206,13 +205,6 @@ where
             HIRNode::Nonterminal(x) => x.to_display_form(grammar),
             HIRNode::EXCEPT(x, r) => x.to_display_form(grammar, *r),
         }
-    }
-    #[inline]
-    pub(crate) fn discriminant(&self) -> u8 {
-        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
-        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
-        // field, so we can read the discriminant without offsetting the pointer.
-        unsafe { *<*const _>::from(self).cast::<u8>() }
     }
 }
 
