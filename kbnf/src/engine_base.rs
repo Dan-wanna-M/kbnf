@@ -17,10 +17,10 @@ use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::utils::dispatch_by_dfa_state_status;
 use crate::engine_like::EngineLike;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
+use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
 use crate::vocabulary::TokenIterItem;
 use crate::{
@@ -857,6 +857,7 @@ where
         if !already_predicted_nonterminals.contains(nid) {
             already_predicted_nonterminals.insert(nid);
             let production_len = grammar.get_production_len(nonterminal_id);
+            earley_sets.buffer_reserve(earley_sets.buffer_len() + production_len);
             for j in 0..production_len {
                 let production_index = j.as_();
                 let new_item = EarleyItem {
@@ -873,7 +874,7 @@ where
                         },
                     ),
                 };
-                earley_sets.push_to_last_row(new_item);
+                unsafe { earley_sets.push_to_last_row_unchecked(new_item) };
             }
             production_len
         } else {
@@ -1043,6 +1044,7 @@ where
     fn from_state_id_to_dfa_state_id_with_r(state_id: TS, stride2: usize) -> (StateID, TE) {
         let id: u32 = state_id.as_() as u32;
         let r = (id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) as usize;
+        // println!("r: {}", Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT);
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
         let state_id = ((id as usize
             - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
@@ -1063,7 +1065,7 @@ where
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
-        earley_sets.buffer_reserve(earley_sets.buffer_len()+earley_set_len*2);
+        earley_sets.buffer_reserve(earley_sets.buffer_len() + earley_set_len * 2);
         for i in 0..earley_set_len {
             // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
             let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
@@ -1086,14 +1088,16 @@ where
                             item.state_id = new_state_index;
                             earley_sets.push_to_last_row(item);
                         } else {
-                            unsafe{Self::advance_item_normal_unchecked(
-                                grammar,
-                                earley_sets,
-                                to_be_completed_items,
-                                regex_start_config,
-                                excepted_start_config,
-                                item,
-                            )};
+                            unsafe {
+                                Self::advance_item_normal_unchecked(
+                                    grammar,
+                                    earley_sets,
+                                    to_be_completed_items,
+                                    regex_start_config,
+                                    excepted_start_config,
+                                    item,
+                                )
+                            };
                         }
                     }
                 }
@@ -1152,7 +1156,7 @@ where
                                 accept=>{},
                                 reject=>{ unreachable!("Except! should not reject") },
                                 in_progress=>{
-                                    if r.as_() == INVALID_REPETITION
+                                    if r == INVALID_REPETITION.as_()
                                     // repeat 1 or infinite times
                                     {
                                         unsafe{Self::advance_item_normal_unchecked(
@@ -1169,38 +1173,39 @@ where
                                         );
                                         item.state_id = state_id;
                                         unsafe{earley_sets.push_to_last_row_unchecked(item)};
-                                        continue;
                                     }
-                                    r -= TE::ONE;
-                                    match r.as_() {
-                                        INVALID_REPETITION => {
-                                            unsafe{Self::advance_item_normal_unchecked(
-                                                grammar,
-                                                earley_sets,
-                                                to_be_completed_items,
-                                                regex_start_config,
-                                                excepted_start_config,
-                                                item,
-                                            )};
-                                        }
-                                        _ => {
-                                            // repetition is not exhausted
-                                            unsafe{Self::advance_item_normal_unchecked(
-                                                grammar,
-                                                earley_sets,
-                                                to_be_completed_items,
-                                                regex_start_config,
-                                                excepted_start_config,
-                                                item,
-                                            )};
-                                            let state_id =
-                                                Self::from_dfa_state_id_to_state_id_with_r(
-                                                    state_id,
-                                                    dfa.stride2(),
-                                                    r,
-                                                );
-                                            item.state_id = state_id;
-                                            unsafe{earley_sets.push_to_last_row_unchecked(item)};
+                                    else{
+                                        r -= TE::ONE;
+                                        match r.as_() {
+                                            INVALID_REPETITION => {
+                                                unsafe{Self::advance_item_normal_unchecked(
+                                                    grammar,
+                                                    earley_sets,
+                                                    to_be_completed_items,
+                                                    regex_start_config,
+                                                    excepted_start_config,
+                                                    item,
+                                                )};
+                                            }
+                                            _ => {
+                                                // repetition is not exhausted
+                                                unsafe{Self::advance_item_normal_unchecked(
+                                                    grammar,
+                                                    earley_sets,
+                                                    to_be_completed_items,
+                                                    regex_start_config,
+                                                    excepted_start_config,
+                                                    item,
+                                                )};
+                                                let state_id =
+                                                    Self::from_dfa_state_id_to_state_id_with_r(
+                                                        state_id,
+                                                        dfa.stride2(),
+                                                        r,
+                                                    );
+                                                item.state_id = state_id;
+                                                unsafe{earley_sets.push_to_last_row_unchecked(item)};
+                                            }
                                         }
                                     }
                                 }
