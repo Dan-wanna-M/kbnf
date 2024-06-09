@@ -189,7 +189,7 @@ mod tests {
                     .try_accept_new_token(
                         vocab
                             .get_token_id_from_token(&Token(
-                                "a".as_bytes().to_vec().into_boxed_slice(),
+                                "imper".as_bytes().to_vec().into_boxed_slice(),
                             ))
                             .unwrap(),
                     )
@@ -222,6 +222,56 @@ mod tests {
                     .try_accept_new_token(
                         vocab
                             .get_token_id_from_token(&Token(
+                                "imper".as_bytes().to_vec().into_boxed_slice(),
+                            ))
+                            .unwrap(),
+                    )
+                    .unwrap();
+                assert_eq!(result, AcceptTokenResult::Ongoing);
+                engine.compute_allowed_token_ids();
+            }
+        }
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        engine.compute_allowed_token_ids();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+        engine.compute_allowed_token_ids();
+        engine.reset();
+    }
+
+    #[test]
+    fn excepted_basic2() {
+        let input = "start::=except!('\n\n',5)'\n\n';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.get_vocab_size()];
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        for j in 0..1 {
+            for i in 0..5 {
+                let result = engine
+                    .try_accept_new_token(
+                        vocab
+                            .get_token_id_from_token(&Token(
                                 "a".as_bytes().to_vec().into_boxed_slice(),
                             ))
                             .unwrap(),
@@ -230,35 +280,49 @@ mod tests {
                 assert_eq!(result, AcceptTokenResult::Ongoing);
                 engine.compute_allowed_token_ids();
             }
-            let result = engine
-                .try_accept_new_token(
-                    vocab
-                        .get_token_id_from_token(&Token(
-                            "\n".as_bytes().to_vec().into_boxed_slice(),
-                        ))
-                        .unwrap(),
-                )
-                .unwrap();
-            assert_eq!(result, AcceptTokenResult::Ongoing);
-            let result = engine
-                .try_accept_new_token(
-                    vocab
-                        .get_token_id_from_token(&Token("a".as_bytes().to_vec().into_boxed_slice()))
-                        .unwrap(),
-                )
-                .unwrap();
-            assert_eq!(result, AcceptTokenResult::Ongoing);
-            engine.compute_allowed_token_ids();
-            let result = engine
-                .try_accept_new_token(
-                    vocab
-                        .get_token_id_from_token(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
-                        .unwrap(),
-                )
-                .unwrap();
-            assert_eq!(result, AcceptTokenResult::Finished);
-            engine.compute_allowed_token_ids();
-            engine.reset();
         }
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        let result = engine.try_accept_new_token(
+            vocab
+                .get_token_id_from_token(&Token("a".as_bytes().to_vec().into_boxed_slice()))
+                .unwrap(),
+        );
+        assert_eq!(result, Err(kbnf::engine_like::AcceptTokenError::Rejected));
+        engine.compute_allowed_token_ids();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+        engine.compute_allowed_token_ids();
+        engine.reset();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        engine.compute_allowed_token_ids();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+        engine.compute_allowed_token_ids();
     }
 }

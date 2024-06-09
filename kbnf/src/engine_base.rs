@@ -5,6 +5,7 @@ use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::NonMaxU32;
+use num::pow::Pow;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
@@ -1042,11 +1043,13 @@ where
     }
     #[inline]
     fn from_state_id_to_dfa_state_id_with_r(state_id: TS, stride2: usize) -> (StateID, TE) {
-        let id: u32 = state_id.as_() as u32;
-        let r = (id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) as usize;
-        // println!("r: {}", Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT);
+        let id: usize = state_id.as_();
+        if Self::EXCEPTED_ID_TYPE_BIT == 0 { // avoid overflow
+            return (Self::from_state_id_to_dfa_state_id(state_id, stride2), TE::ZERO);
+        }
+        let r = id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT);
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let state_id = ((id as usize
+        let state_id = ((id
             - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
             << stride2) as u32;
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute

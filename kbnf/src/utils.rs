@@ -110,8 +110,7 @@ pub(crate) fn check_dfa_state_status(
     dfa_state: StateID,
     dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
 ) -> FsaStateStatus {
-    if dfa.is_special_state(dfa_state) && !dfa.is_match_state(dfa_state) {
-        // If the state is a special state and not a match state, then it is a dead state/quit state.
+    if dfa.is_special_state(dfa_state) && (dfa.is_dead_state(dfa_state)||dfa.is_quit_state(dfa_state)) {
         return FsaStateStatus::Reject;
     }
     if dfa.is_match_state(dfa.next_eoi_state(dfa_state)) {
@@ -122,8 +121,7 @@ pub(crate) fn check_dfa_state_status(
 }
 macro_rules! dispatch_by_dfa_state_status {
     ($dfa_state:ident, $dfa:ident , accept=>$accept:block , reject=>$reject:block ,in_progress=>$in_progress:block) => {
-        if $dfa.is_special_state($dfa_state) && !$dfa.is_match_state($dfa_state)
-            // If the state is a special state and not a match state, then it is a dead state/quit state.
+        if $dfa.is_special_state($dfa_state) && ($dfa.is_dead_state($dfa_state)||$dfa.is_quit_state($dfa_state))
             $reject
         if $dfa.is_match_state($dfa.next_eoi_state($dfa_state))
             $accept
