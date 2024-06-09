@@ -5,7 +5,6 @@ use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::NonMaxU32;
-use num::pow::Pow;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
@@ -431,6 +430,7 @@ where
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
+    // We probably need a Vec<T> memory pool to reduce the memory allocation overhead.
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
@@ -484,19 +484,7 @@ where
                 &utils::get_display_form_from_bitset_on_stack(&self.allowed_first_bytes),
             )
             .field("allowed_token_ids", {
-                &self
-                    .allowed_token_ids
-                    .ones()
-                    .map(|x| {
-                        format!(
-                            "{}[{}]",
-                            self.vocabulary
-                                .get_token_string_from_token_id(x as u32)
-                                .unwrap(),
-                            x
-                        )
-                    })
-                    .collect::<Vec<_>>()
+                &self.get_display_form_from_token_ids(&self.allowed_token_ids)
             })
             .field(
                 "earley_sets",
@@ -504,70 +492,50 @@ where
             )
             .field(
                 "cache",
-                &self
-                    .cache
-                    .iter()
-                    .map(|(k, v)| (self.get_display_form_from_earley_sets(k), v))
-                    .collect::<Vec<_>>(),
+                &utils::get_deterministic_display_form_from_hash_map(&self.cache, |(k, v)| {
+                    (
+                        self.get_display_form_from_earley_sets(k),
+                        self.get_display_form_from_token_ids(v),
+                    )
+                }),
             )
             .field("to_be_completed_items", {
-                let mut a = self
-                    .to_be_completed_items
-                    .iter()
-                    .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>();
-                a.sort();
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_set(
+                    &self.to_be_completed_items,
+                    |x| x.to_debug_form(&self.grammar),
+                )
             })
             .field("to_be_completed_items_buffer", {
-                let mut a = self
-                    .to_be_completed_items_buffer
-                    .iter()
-                    .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>();
-                a.sort_by_key(|x| x.start_position);
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_set(
+                    &self.to_be_completed_items_buffer,
+                    |x| x.to_debug_form(&self.grammar),
+                )
             })
             .field("deduplication_buffer", {
-                let mut a = self
-                    .deduplication_buffer
-                    .iter()
-                    .map(|x| x.to_debug_form(self))
-                    .collect::<Vec<_>>();
-                a.sort_by_key(|x| x.start_position);
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_set(
+                    &self.deduplication_buffer,
+                    |x| x.to_debug_form(self),
+                )
             })
             .field("postdot_items", {
-                let mut a = self
-                    .postdot_items
-                    .iter()
-                    .map(|(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)))
-                    .collect::<Vec<_>>();
-                a.sort_by_cached_key(|(k, _)| k.clone());
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &self.postdot_items,
+                    |(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)),
+                )
             })
             .field("postdot_items_since_last_commit", {
-                let mut a = self
-                    .postdot_items_since_last_commit
-                    .iter()
-                    .map(|x| x.to_debug_form(&self.grammar))
-                    .collect::<Vec<_>>();
-                a.sort();
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_set(
+                    &self.postdot_items_since_last_commit,
+                    |x| x.to_debug_form(&self.grammar),
+                )
             })
             .field("leo_items", {
-                let mut a = self
-                    .leo_items
-                    .iter()
-                    .map(|(k, v)| {
-                        (
-                            k.to_debug_form(&self.grammar),
-                            v.to_debug_form(&self.grammar),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                a.sort_by_cached_key(|(k, _)| k.clone());
-                &Box::new(a)
+                &utils::get_deterministic_display_form_from_hash_map(&self.leo_items, |(k, v)| {
+                    (
+                        k.to_debug_form(&self.grammar),
+                        v.to_debug_form(&self.grammar),
+                    )
+                })
             })
             .field(
                 "leo_items_buffer",
@@ -707,6 +675,23 @@ where
             res.push(set_res);
         }
         res
+    }
+    pub(crate) fn get_display_form_from_token_ids(
+        &self,
+        bitset: &fixedbitset::FixedBitSet,
+    ) -> Vec<String> {
+        bitset
+            .ones()
+            .map(|x| {
+                format!(
+                    "{}[{}]",
+                    self.vocabulary
+                        .get_token_string_from_token_id(x as u32)
+                        .unwrap(),
+                    x
+                )
+            })
+            .collect()
     }
 
     fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
@@ -970,26 +955,6 @@ where
             add_to_earley_set(item);
         }
     }
-    #[inline]
-    fn advance_item_normal(
-        grammar: &Grammar<TI, TE>,
-        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
-        item: EarleyItem<TI, TD, TP, TSP, TS>,
-    ) {
-        Self::advance_item(
-            grammar,
-            to_be_completed_items,
-            regex_start_config,
-            excepted_start_config,
-            |new_item| {
-                earley_sets.push_to_last_row(new_item);
-            },
-            item,
-        );
-    }
 
     #[inline]
     unsafe fn advance_item_normal_unchecked(
@@ -1044,13 +1009,16 @@ where
     #[inline]
     fn from_state_id_to_dfa_state_id_with_r(state_id: TS, stride2: usize) -> (StateID, TE) {
         let id: usize = state_id.as_();
-        if Self::EXCEPTED_ID_TYPE_BIT == 0 { // avoid overflow
-            return (Self::from_state_id_to_dfa_state_id(state_id, stride2), TE::ZERO);
+        if Self::EXCEPTED_ID_TYPE_BIT == 0 {
+            // avoid overflow
+            return (
+                Self::from_state_id_to_dfa_state_id(state_id, stride2),
+                TE::ZERO,
+            );
         }
         let r = id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT);
         // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let state_id = ((id
-            - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
+        let state_id = ((id - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
             << stride2) as u32;
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         (unsafe { std::mem::transmute(state_id) }, r.as_())
@@ -1584,6 +1552,12 @@ where
         if self.is_finished() {
             return;
         }
+        if self.config.cache_enabled {
+            if let Some(ids) = self.cache.get(&self.earley_sets) {
+                self.allowed_token_ids.union_with(ids);
+                return;
+            }
+        }
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
@@ -1700,6 +1674,8 @@ where
             }
         }
         self.commit_change();
+        self.cache
+            .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {

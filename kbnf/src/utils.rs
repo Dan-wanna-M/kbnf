@@ -1,5 +1,5 @@
 //! Utility functions for the library.
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use ebnf::node::FinalNode;
 use ebnf::regex::FiniteStateAutomaton;
 use ebnf::simplified_grammar::SimplifiedGrammar;
@@ -110,7 +110,9 @@ pub(crate) fn check_dfa_state_status(
     dfa_state: StateID,
     dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
 ) -> FsaStateStatus {
-    if dfa.is_special_state(dfa_state) && (dfa.is_dead_state(dfa_state)||dfa.is_quit_state(dfa_state)) {
+    if dfa.is_special_state(dfa_state)
+        && (dfa.is_dead_state(dfa_state) || dfa.is_quit_state(dfa_state))
+    {
         return FsaStateStatus::Reject;
     }
     if dfa.is_match_state(dfa.next_eoi_state(dfa_state)) {
@@ -127,11 +129,10 @@ macro_rules! dispatch_by_dfa_state_status {
             $accept
         else
             $in_progress
-        
+
     };
 }
 pub(crate) use dispatch_by_dfa_state_status;
-
 
 pub(crate) fn get_display_form_from_bitset_on_stack<const NBLOCK: usize>(
     bitset: &FixedBitSet<NBLOCK>,
@@ -141,6 +142,24 @@ pub(crate) fn get_display_form_from_bitset_on_stack<const NBLOCK: usize>(
 
 pub(crate) fn get_display_form_from_bitset(bitset: &fixedbitset::FixedBitSet) -> Vec<usize> {
     bitset.ones().collect()
+}
+
+pub(crate) fn get_deterministic_display_form_from_hash_set<T, U: Ord>(
+    set: &AHashSet<T>,
+    process: impl FnMut(&T) -> U,
+) -> Vec<U> {
+    let mut a: Vec<_> = set.iter().map(process).collect();
+    a.sort();
+    a
+}
+
+pub(crate) fn get_deterministic_display_form_from_hash_map<K, V, U: Ord + Clone, Y>(
+    map: &AHashMap<K, V>,
+    process: impl FnMut((&K, &V)) -> (U, Y),
+) -> Vec<(U, Y)> {
+    let mut a: Vec<_> = map.iter().map(process).collect();
+    a.sort_by_cached_key(|(k, v)| k.clone());
+    a
 }
 
 pub(crate) fn fill_debug_form_of_id_to_x<'a, T: std::fmt::Debug>(

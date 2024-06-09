@@ -1,5 +1,6 @@
 ---
 source: tests/test.rs
+assertion_line: 90
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
@@ -69,7 +70,10 @@ Engine {
             allowed_first_bytes: [
                 97,
             ],
-            allowed_token_ids: [],
+            allowed_token_ids: [
+                "a[98]",
+                "aa[1733]",
+            ],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
@@ -85,16 +89,30 @@ Engine {
                         state: "[1]",
                     },
                 ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
-                        start_position: 0,
-                        state: "[2]",
-                    },
-                ],
-                [],
             ],
             cache: [
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
+                        "aa[1733]",
+                    ],
+                ),
                 (
                     [
                         [
@@ -111,56 +129,6 @@ Engine {
                         "aaa[6885]",
                     ],
                 ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[2]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                    ],
-                ),
             ],
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
@@ -170,7 +138,7 @@ Engine {
             leo_items: [],
             leo_items_buffer: [],
             already_predicted_nonterminals: [],
-            finished: true,
+            finished: false,
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,

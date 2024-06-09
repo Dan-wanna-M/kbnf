@@ -89,7 +89,46 @@ Engine {
                     },
                 ],
             ],
-            cache: [],
+            cache: [
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
+                        "aa[1733]",
+                        "aaa[6885]",
+                    ],
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
+                        "aa[1733]",
+                    ],
+                ),
+            ],
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
             deduplication_buffer: [],
