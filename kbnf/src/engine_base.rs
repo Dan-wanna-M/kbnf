@@ -15,6 +15,7 @@ use regex_automata::util::primitives::StateID;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
+use std::hint::unreachable_unchecked;
 use std::sync::Arc;
 
 use crate::engine_like::EngineLike;
@@ -430,7 +431,7 @@ where
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
-    // We probably need a Vec<T> memory pool to reduce the memory allocation overhead.
+    // Memory pool actually makes the performance worse. Maybe it will be better if there is a lot of postdot items for a single Dotted.
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
@@ -1311,21 +1312,29 @@ where
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         is_finished: &mut bool,
     ) {
-        if let Some(PostDotItems::NormalItems(items)) = postdot_items.get(&Dotted {
+        if let Some(postdot) = postdot_items.get(&Dotted {
             postdot_nonterminal_id: to_be_completed_item.nonterminal_id,
             column: to_be_completed_item.start_position,
         }) {
-            for &item in items.iter() {
-                Self::advance_item(
-                    grammar,
-                    to_be_completed_items_buffer,
-                    regex_start_config,
-                    excepted_start_config,
-                    |item| {
-                        deduplication_buffer.insert(item);
-                    }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
-                    item,
-                )
+            match postdot {
+                PostDotItems::NormalItems(items) => {
+                    for &item in items.iter() {
+                        Self::advance_item(
+                            grammar,
+                            to_be_completed_items_buffer,
+                            regex_start_config,
+                            excepted_start_config,
+                            |item| {
+                                deduplication_buffer.insert(item);
+                            }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
+                            item,
+                        )
+                    }
+                }
+                PostDotItems::LeoEligible(_) => {
+                    debug_assert!(false, "Leo item should already be handled");
+                    unsafe { unreachable_unchecked() };
+                }
             }
         }
         if grammar.get_start_nonterminal_id() == to_be_completed_item.nonterminal_id

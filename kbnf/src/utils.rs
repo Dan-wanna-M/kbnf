@@ -158,7 +158,7 @@ pub(crate) fn get_deterministic_display_form_from_hash_map<K, V, U: Ord + Clone,
     process: impl FnMut((&K, &V)) -> (U, Y),
 ) -> Vec<(U, Y)> {
     let mut a: Vec<_> = map.iter().map(process).collect();
-    a.sort_by_cached_key(|(k, v)| k.clone());
+    a.sort_by_cached_key(|(k, _)| k.clone());
     a
 }
 
