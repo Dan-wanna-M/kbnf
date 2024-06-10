@@ -67,12 +67,12 @@ Engine {
                 id_to_regex_first_bytes: {},
                 id_to_excepted_first_bytes: {},
                 id_to_terminals: {
+                    "\"\n\"[0]": [
+                        10,
+                    ],
                     "\"cc\"[1]": [
                         99,
                         99,
-                    ],
-                    "\"\n\"[0]": [
-                        10,
                     ],
                 },
             },

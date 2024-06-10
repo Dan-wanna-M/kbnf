@@ -844,7 +844,7 @@ where
         if !already_predicted_nonterminals.contains(nid) {
             already_predicted_nonterminals.insert(nid);
             let production_len = grammar.get_production_len(nonterminal_id);
-            earley_sets.buffer_reserve(earley_sets.buffer_len() + production_len);
+            earley_sets.buffer_reserve(production_len);
             for j in 0..production_len {
                 let production_index = j.as_();
                 let new_item = EarleyItem {
@@ -1037,7 +1037,7 @@ where
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
-        earley_sets.buffer_reserve(earley_sets.buffer_len() + earley_set_len * 2);
+        earley_sets.buffer_reserve(earley_set_len * 2);
         for i in 0..earley_set_len {
             // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
             let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
@@ -1255,8 +1255,7 @@ where
         mut topmost_item: ToBeCompletedItem<TI, TSP>,
     ) -> Option<ToBeCompletedItem<TI, TSP>> {
         leo_items_buffer.clear();
-        let mut is_leo = true;
-        while is_leo {
+        loop {
             let dotted = Dotted {
                 postdot_nonterminal_id: topmost_item.nonterminal_id,
                 column: topmost_item.start_position,
@@ -1276,12 +1275,12 @@ where
                         };
                     }
                     PostDotItems::NormalItems(_) => {
-                        is_leo = false;
+                        break;
                     }
                 },
                 None => {
                     // We reach the beginning of the Earley sets
-                    is_leo = false;
+                    break;
                 }
             };
         }
