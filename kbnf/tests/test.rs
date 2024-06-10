@@ -126,18 +126,32 @@ mod tests {
 
     #[test]
     fn right_recursion() {
-        let input = "start::='cc'|'cc'start;";
+        let input = "start::=C'\n';C::='cc'|'cc' C;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        for _ in 0..10 {
+            let result = engine
+                .try_accept_new_token(
+                    vocab
+                        .get_token_id_from_token(&Token(
+                            "cc".as_bytes().to_vec().into_boxed_slice(),
+                        ))
+                        .unwrap(),
+                )
+                .unwrap();
+            assert_eq!(result, AcceptTokenResult::Ongoing);
+            engine.compute_allowed_token_ids();
+        }
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("cc".as_bytes().to_vec().into_boxed_slice()))
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
         assert_eq!(result, AcceptTokenResult::Finished);
+        assert_snapshot!(format!("{:#?}", engine));
     }
     #[test]
     fn middle_recursion() {

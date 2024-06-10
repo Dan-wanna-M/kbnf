@@ -434,7 +434,7 @@ where
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
-    leo_items: AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+    leo_items: AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
     already_predicted_nonterminals: FixedBitSet,
     finished: bool,
@@ -1249,26 +1249,26 @@ where
     #[allow(clippy::type_complexity)]
     fn try_leo_complete_item(
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
-        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         mut topmost_item: ToBeCompletedItem<TI, TSP>,
     ) -> Option<ToBeCompletedItem<TI, TSP>> {
-        if let Some(&leo_item) = leo_items.get(&topmost_item) {
-            return Some(leo_item);
-        }
         leo_items_buffer.clear();
         let mut is_leo = true;
         while is_leo {
-            match postdot_items.get(&Dotted {
+            let dotted = Dotted {
                 postdot_nonterminal_id: topmost_item.nonterminal_id,
                 column: topmost_item.start_position,
-            }) {
+            };
+            if let Some(leo_item) = leo_items.get(&dotted) {
+                leo_items_buffer.push(topmost_item);
+                topmost_item = *leo_item;
+                break;
+            }
+            match postdot_items.get(&dotted) {
                 Some(v) => match v {
                     &PostDotItems::LeoEligible(leo_item) => {
-                        leo_items_buffer.push(ToBeCompletedItem {
-                            nonterminal_id: topmost_item.nonterminal_id,
-                            start_position: topmost_item.start_position,
-                        });
+                        leo_items_buffer.push(topmost_item);
                         topmost_item = ToBeCompletedItem {
                             nonterminal_id: leo_item.nonterminal_id,
                             start_position: leo_item.start_position,
@@ -1289,7 +1289,13 @@ where
         } else {
             leo_items.reserve(leo_items_buffer.len());
             for &leo_item in leo_items_buffer.iter() {
-                leo_items.insert(leo_item, topmost_item);
+                leo_items.insert(
+                    Dotted {
+                        postdot_nonterminal_id: leo_item.nonterminal_id,
+                        column: leo_item.start_position,
+                    },
+                    topmost_item,
+                );
             }
             Some(topmost_item)
         }
@@ -1336,7 +1342,7 @@ where
         excepted_start_config: &regex_automata::util::start::Config,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1410,7 +1416,7 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        leo_items: &mut AHashMap<ToBeCompletedItem<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,

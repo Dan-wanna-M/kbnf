@@ -104,22 +104,6 @@ Engine {
                                 state: "[0]",
                             },
                         ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
-                        "aaa[6885]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
                         [
                             EarleyItemDebugStruct {
                                 dotted_rule: "start[0] -> .\"aaa\"[0]",
@@ -159,6 +143,22 @@ Engine {
                     ],
                     [
                         "a[98]",
+                    ],
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
+                        "aa[1733]",
+                        "aaa[6885]",
                     ],
                 ),
             ],

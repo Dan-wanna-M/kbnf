@@ -70,7 +70,7 @@ impl Engine {
     /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
     pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, EngineError> {
         let config = Config::default();
-        Self::from_config(ebnf_grammar_str, vocabulary, config)
+        Self::with_config(ebnf_grammar_str, vocabulary, config)
     }
 
     fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
@@ -93,7 +93,7 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    pub fn from_config(
+    pub fn with_config(
         ebnf_grammar_str: &str,
         vocabulary: Vocabulary,
         config: Config,
