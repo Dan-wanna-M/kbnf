@@ -82,13 +82,6 @@ Engine {
                 ],
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"bb\"[0]",
-                        start_position: 0,
-                        state: "[1]",
-                    },
-                ],
-                [
-                    EarleyItemDebugStruct {
                         dotted_rule: "start[0] -> start[0].\"bb\"[0]",
                         start_position: 0,
                         state: "[0]",

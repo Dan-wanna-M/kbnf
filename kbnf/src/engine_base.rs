@@ -4,6 +4,7 @@ use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
+use jaggedarray::JaggedArrayMutViewTrait;
 use nonmax::NonMaxU32;
 use num::{
     cast::AsPrimitive,
@@ -12,6 +13,7 @@ use num::{
 };
 use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
+use regex_automata::util::start;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -435,6 +437,7 @@ where
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
+    column_to_postdot_nonterminals: AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
     leo_items: AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
     already_predicted_nonterminals: FixedBitSet,
@@ -657,6 +660,7 @@ where
             leo_items_buffer: Vec::new(),
             postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
+            column_to_postdot_nonterminals: AHashMap::default(),
         };
         engine.reset();
         Ok(engine)
@@ -1194,6 +1198,8 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        mut add_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
+        mut insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
     ) {
         let earley_set_index = earley_sets.len() - 1;
         let earley_set = unsafe {
@@ -1220,14 +1226,17 @@ where
                         match mut_ref {
                             &mut PostDotItems::LeoEligible(old_item) => {
                                 *mut_ref = PostDotItems::NormalItems(vec![old_item, *item]);
+                                add_column_to_postdot_nonterminal(postdot);
                             }
                             PostDotItems::NormalItems(items) => {
                                 items.push(*item);
+                                add_column_to_postdot_nonterminal(postdot);
                             }
                         }
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
                         entry.insert(PostDotItems::LeoEligible(*item));
+                        insert_column_to_postdot_nonterminal(postdot);
                         added_postdot_items.insert(postdot);
                     }
                 }
@@ -1254,7 +1263,6 @@ where
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         mut topmost_item: ToBeCompletedItem<TI, TSP>,
     ) -> Option<ToBeCompletedItem<TI, TSP>> {
-        leo_items_buffer.clear();
         loop {
             let dotted = Dotted {
                 postdot_nonterminal_id: topmost_item.nonterminal_id,
@@ -1288,14 +1296,12 @@ where
             None
         } else {
             leo_items.reserve(leo_items_buffer.len());
-            for &leo_item in leo_items_buffer.iter() {
-                leo_items.insert(
-                    Dotted {
-                        postdot_nonterminal_id: leo_item.nonterminal_id,
-                        column: leo_item.start_position,
-                    },
-                    topmost_item,
-                );
+            for leo_item in leo_items_buffer.drain(..) {
+                let dotted = Dotted {
+                    postdot_nonterminal_id: leo_item.nonterminal_id,
+                    column: leo_item.start_position,
+                };
+                leo_items.insert(dotted, topmost_item);
             }
             Some(topmost_item)
         }
@@ -1396,6 +1402,8 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        mut column_to_postdot_nonterminal_operation: impl FnMut(TSP),
         earley_set_length: usize,
         finished: &mut bool,
     ) {
@@ -1403,6 +1411,8 @@ where
         *finished = false;
         for postdot in added_postdot_items.iter() {
             postdot_items.remove(postdot);
+            leo_items.remove(postdot);
+            column_to_postdot_nonterminal_operation(postdot.column);
         }
         added_postdot_items.clear();
     }
@@ -1418,6 +1428,51 @@ where
         earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
             && to_be_completed_items.is_empty()
     }
+    /// Compact the Earley sets by removing the Earley sets that are not reachable from the last Earley set
+    fn compact(
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        column_to_postdot_nonterminals: &mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
+    ) {
+        let earley_set_index = earley_sets.len() - 1;
+        let mut view = earley_sets.view_mut::<1, 1>([earley_set_index]);
+        let earley_set = view.as_slice_mut();
+        let mut max_start_position = 0;
+        for item in earley_set.iter_mut() {
+            let mut start_position = item.start_position.as_();
+            if let Some(leo_item) = leo_items.get(&Dotted {
+                postdot_nonterminal_id: item.nonterminal_id,
+                column: item.start_position,
+            }) {
+                // the chain of leo items allows us to fold the start position
+                item.start_position = leo_item.start_position;
+                start_position = leo_item.start_position.as_();
+            }
+            if start_position > max_start_position {
+                max_start_position = start_position;
+            }
+        }
+        if max_start_position + 1 == earley_set_index {
+            return;
+        }
+        earley_sets.remove_rows(max_start_position + 1..earley_set_index);
+        for index in max_start_position + 1..earley_set_index {
+            if let Some(nonterminals) = column_to_postdot_nonterminals.get(&index.as_()) {
+                for &nonterminal in nonterminals.iter() {
+                    let dotted = Dotted {
+                        postdot_nonterminal_id: nonterminal,
+                        column: index.as_(),
+                    };
+                    postdot_items.remove(&dotted);
+                    leo_items.remove(&dotted);
+                }
+            }
+        }
+        for index in max_start_position + 1..earley_set_index {
+            column_to_postdot_nonterminals.remove(&index.as_());
+        }
+    }
 
     fn accept_byte(
         grammar: &Grammar<TI, TE>,
@@ -1428,12 +1483,20 @@ where
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        remove_column_to_postdot_nonterminal_operation: impl FnMut(TSP),
+        add_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
+        insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         previous_earley_set_length: usize,
         finished: &mut bool,
+        compact: impl FnOnce(
+            &mut EarleySets<TI, TD, TP, TSP, TS>,
+            &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+            &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        ),
         byte: u8,
     ) -> Result<(), crate::engine_like::AcceptTokenError> {
         if *finished {
@@ -1441,6 +1504,8 @@ where
                 earley_sets,
                 postdot_items,
                 added_postdot_items,
+                leo_items,
+                remove_column_to_postdot_nonterminal_operation,
                 previous_earley_set_length,
                 finished,
             );
@@ -1459,6 +1524,8 @@ where
                 earley_sets,
                 postdot_items,
                 added_postdot_items,
+                leo_items,
+                remove_column_to_postdot_nonterminal_operation,
                 previous_earley_set_length,
                 finished,
             );
@@ -1477,6 +1544,7 @@ where
             deduplication_buffer,
             finished,
         ); // complete the next Earley set
+        compact(earley_sets, leo_items, postdot_items);
         Self::predict(
             grammar,
             earley_sets,
@@ -1484,7 +1552,14 @@ where
             excepted_start_config,
             already_predicted_nonterminals,
         ); // predict the next Earley set
-        Self::update_postdot_items(grammar, earley_sets, postdot_items, added_postdot_items); // update postdot items for the next Earley set
+        Self::update_postdot_items(
+            grammar,
+            earley_sets,
+            postdot_items,
+            added_postdot_items,
+            add_column_to_postdot_nonterminal,
+            insert_column_to_postdot_nonterminal,
+        ); // update postdot items for the next Earley set
         Ok(())
     }
 }
@@ -1534,24 +1609,83 @@ where
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
         let len = self.earley_sets.len();
-        for byte in token.0.iter() {
-            Self::accept_byte(
-                &self.grammar,
-                &mut self.earley_sets,
-                &mut self.to_be_completed_items,
-                &mut self.to_be_completed_items_buffer,
-                &mut self.leo_items,
-                &mut self.leo_items_buffer,
-                &mut self.postdot_items,
-                &mut self.postdot_items_since_last_commit,
-                &mut self.already_predicted_nonterminals,
-                &mut self.deduplication_buffer,
-                &self.regex_start_config,
-                &self.excepted_start_config,
-                len,
-                &mut self.finished,
-                *byte,
-            )?;
+        let column_to_postdot_nonterminals_ptr = &mut self.column_to_postdot_nonterminals
+            as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
+        if self.config.compaction_enabled {
+            for byte in token.0.iter() {
+                Self::accept_byte(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.to_be_completed_items,
+                    &mut self.to_be_completed_items_buffer,
+                    &mut self.leo_items,
+                    &mut self.leo_items_buffer,
+                    &mut self.postdot_items,
+                    &mut self.postdot_items_since_last_commit,
+                    |column| {
+                        self.column_to_postdot_nonterminals.remove(&column);
+                    },
+                    |dotted| {
+                        // SAFETY: this closure will only be called in `update_postdot_items`
+                        // and never run simultaneously with the other closures there
+                        // and the column is guaranteed to be in the set
+                        unsafe { &mut *column_to_postdot_nonterminals_ptr }
+                            .get_mut(&dotted.column)
+                            .unwrap()
+                            .insert(dotted.postdot_nonterminal_id);
+                    },
+                    |dotted| {
+                        // SAFETY: this closure will only be called in `update_postdot_items`
+                        // and never run simultaneously with the other closures there
+                        unsafe { &mut *column_to_postdot_nonterminals_ptr }.insert(
+                            dotted.column,
+                            {
+                                let mut set = AHashSet::new();
+                                set.insert(dotted.postdot_nonterminal_id);
+                                set
+                            },
+                        );
+                    },
+                    &mut self.already_predicted_nonterminals,
+                    &mut self.deduplication_buffer,
+                    &self.regex_start_config,
+                    &self.excepted_start_config,
+                    len,
+                    &mut self.finished,
+                    |earley_sets, leo_items, postdot_items| {
+                        // SAFETY: this closure will only be called in `accept_byte`
+                        // and never run simultaneously with the closures above
+                        Self::compact(earley_sets, leo_items, postdot_items, unsafe {
+                            &mut *column_to_postdot_nonterminals_ptr
+                        })
+                    },
+                    *byte,
+                )?;
+            }
+        } else {
+            for byte in token.0.iter() {
+                Self::accept_byte(
+                    &self.grammar,
+                    &mut self.earley_sets,
+                    &mut self.to_be_completed_items,
+                    &mut self.to_be_completed_items_buffer,
+                    &mut self.leo_items,
+                    &mut self.leo_items_buffer,
+                    &mut self.postdot_items,
+                    &mut self.postdot_items_since_last_commit,
+                    |_| {},
+                    |_| {},
+                    |_| {},
+                    &mut self.already_predicted_nonterminals,
+                    &mut self.deduplication_buffer,
+                    &self.regex_start_config,
+                    &self.excepted_start_config,
+                    len,
+                    &mut self.finished,
+                    |_, _, _| {},
+                    *byte,
+                )?;
+            }
         }
         self.commit_change();
         if self.is_finished() {
@@ -1593,12 +1727,16 @@ where
                                 &mut self.leo_items_buffer,
                                 &mut self.postdot_items,
                                 &mut self.postdot_items_since_last_commit,
+                                |_| {},
+                                |_| {},
+                                |_| {},
                                 &mut self.already_predicted_nonterminals,
                                 &mut self.deduplication_buffer,
                                 &self.regex_start_config,
                                 &self.excepted_start_config,
                                 len,
                                 &mut self.finished,
+                                |_, _, _| {},
                                 token_byte.into(),
                             )
                             .is_err()
@@ -1627,6 +1765,8 @@ where
                                 &mut self.earley_sets,
                                 &mut self.postdot_items,
                                 &mut self.postdot_items_since_last_commit,
+                                &mut self.leo_items,
+                                |_| {},
                                 len,
                                 &mut self.finished,
                             );
@@ -1642,6 +1782,8 @@ where
                         &mut self.earley_sets,
                         &mut self.postdot_items,
                         &mut self.postdot_items_since_last_commit,
+                        &mut self.leo_items,
+                        |_| {},
                         len,
                         &mut self.finished,
                     );
@@ -1661,12 +1803,16 @@ where
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
+                    |_| {},
+                    |_| {},
+                    |_| {},
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     &self.regex_start_config,
                     &self.excepted_start_config,
                     len,
                     &mut self.finished,
+                    |_, _, _| {},
                     *byte,
                 )
                 .is_err()
@@ -1682,14 +1828,18 @@ where
                     &mut self.earley_sets,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
+                    &mut self.leo_items,
+                    |_| {},
                     len,
                     &mut self.finished,
                 );
             }
         }
         self.commit_change();
-        self.cache
-            .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
+        if self.config.cache_enabled {
+            self.cache
+                .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
+        }
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
@@ -1745,6 +1895,8 @@ where
         self.leo_items_buffer.clear();
         self.postdot_items.clear();
         self.postdot_items_since_last_commit.clear();
+        self.deduplication_buffer.clear();
+        self.column_to_postdot_nonterminals.clear();
         self.already_predicted_nonterminals.clear();
         self.finished = false;
         self.allowed_token_ids.clear();
@@ -1771,6 +1923,8 @@ where
             &mut self.earley_sets,
             &mut self.postdot_items,
             &mut AHashSet::default(), // We will never need to revert the engine's state since it is the initialization
+            |_| {},                   // column zero should never be removed
+            |_| {},                   // column zero should never be added
         );
     }
 

@@ -10,8 +10,7 @@ mod tests {
     use ahash::AHashMap;
     use insta::assert_snapshot;
     use kbnf::{
-        engine_like::{AcceptTokenResult, EngineLike},
-        vocabulary::{Token, Vocabulary},
+        engine_base::EngineConfig, engine_like::{AcceptTokenResult, EngineLike}, vocabulary::{Token, Vocabulary}
     };
     #[derive(Debug, thiserror::Error)]
     /// Error type when reading RWKV world model's vocabulary file.
@@ -78,7 +77,6 @@ mod tests {
         );
         engine.compute_allowed_token_ids();
         assert_snapshot!(format!("{:#?}", engine));
-        println!("{:#?}", engine);
         assert!(
             engine
                 .try_accept_new_token(get_token_id_from_str(&vocab, "a").unwrap())
@@ -126,23 +124,31 @@ mod tests {
 
     #[test]
     fn right_recursion() {
-        let input = "start::=C'\n';C::='cc'|'cc' C;";
+        let input = "start::=C'\n';C::='c'|'c' C;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.get_vocab_size()];
-        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        for _ in 0..10 {
+        let config = kbnf::config::Config {
+            engine_config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            ..Default::default()
+        };
+        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(),config).unwrap();
+        for i in 0..10 {
             let result = engine
                 .try_accept_new_token(
                     vocab
                         .get_token_id_from_token(&Token(
-                            "cc".as_bytes().to_vec().into_boxed_slice(),
+                            "c".as_bytes().to_vec().into_boxed_slice(),
                         ))
                         .unwrap(),
                 )
                 .unwrap();
             assert_eq!(result, AcceptTokenResult::Ongoing);
-            engine.compute_allowed_token_ids();
+            // engine.compute_allowed_token_ids();
         }
+        assert_snapshot!(format!("{:#?}", engine));
         let result = engine
             .try_accept_new_token(
                 vocab

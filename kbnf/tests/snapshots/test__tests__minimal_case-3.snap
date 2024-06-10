@@ -78,73 +78,9 @@ Engine {
                         state: "[0]",
                     },
                 ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
-                        start_position: 0,
-                        state: "[1]",
-                    },
-                ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
-                        start_position: 0,
-                        state: "[2]",
-                    },
-                ],
                 [],
             ],
             cache: [
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[2]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                    ],
-                ),
                 (
                     [
                         [
@@ -159,6 +95,49 @@ Engine {
                         "a[98]",
                         "aa[1733]",
                         "aaa[6885]",
+                    ],
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
+                        "aa[1733]",
+                    ],
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                start_position: 0,
+                                state: "[2]",
+                            },
+                        ],
+                    ],
+                    [
+                        "a[98]",
                     ],
                 ),
             ],

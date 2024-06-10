@@ -71,15 +71,19 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("unmarked middle recursion 100 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
     });
-    let config = kbnf::config::Config {
+    let no_cache_config = kbnf::config::Config {
         engine_config: EngineConfig {
             cache_enabled: false,
             compaction_enabled: false,
         },
         ..Default::default()
     };
-    let mut engine =
-        Engine::with_config("start::=C'\n';C::='{'|'{' C;", vocab.clone(), config).unwrap();
+    let mut engine = Engine::with_config(
+        "start::=C'\n';C::='{'|'{' C;",
+        vocab.clone(),
+        no_cache_config.clone(),
+    )
+    .unwrap();
     c.bench_function("right recursion 100 iterations(no cache)", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
     });
@@ -95,19 +99,28 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("right recursion 5 iterations(no cache)", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 5, 124))
     });
+    let mut engine = Engine::with_config(
+        "start::=C'\n';C::=C'{'|'{';",
+        vocab.clone(),
+        no_cache_config.clone(),
+    )
+    .unwrap();
+    c.bench_function("left recursion 100 iterations(no cache)", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
+    });
     let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
     });
-    let config = kbnf::config::Config {
-        expected_output_length: 100,
-        ..Default::default()
-    };
-    let mut engine = Engine::with_config("start::=#\".+\"'\n';", vocab.clone(), config).unwrap();
-    c.bench_function(
-        "always match regex 3 iterations (8 byte Earley item)",
-        |b| b.iter(|| run_an_engine(black_box(&mut engine), 3, 113)),
-    );
+    let mut engine = Engine::with_config(
+        "start::=#\".+\"'\n';",
+        vocab.clone(),
+        no_cache_config.clone(),
+    )
+    .unwrap();
+    c.bench_function("always match regex 3 iterations(no cache)", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
+    });
     let mut engine = Engine::new("start::=except!('\n\n')'\n\n';", vocab.clone()).unwrap();
     c.bench_function("simple except! 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
@@ -116,10 +129,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("simple except! with repetition 5 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
     });
-    let mut engine = Engine::new("start::=except!('\n\n',50)'\n\n';", vocab.clone()).unwrap();
-    c.bench_function("simple except! with repetition 50 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
-    });
+
 }
 
 criterion_group!(benches, criterion_benchmark);
