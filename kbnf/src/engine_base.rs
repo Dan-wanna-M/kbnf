@@ -876,7 +876,7 @@ where
         self.allowed_first_bytes.clear();
         let earley_set_index = self.earley_sets.len() - 1;
         let earley_set = self.earley_sets.view::<1, 1>([earley_set_index]).as_slice();
-        for item in earley_set.iter() {
+        for item in earley_set.iter().copied() {
             let node = *self.grammar.get_node(
                 item.nonterminal_id,
                 item.dot_position,
@@ -1206,7 +1206,7 @@ where
                 .view_unchecked::<1, 1>([earley_set_index])
                 .as_slice()
         };
-        for item in earley_set.iter() {
+        for item in earley_set.iter().copied() {
             let node = *unsafe {
                 grammar.get_node_unchecked(
                     item.nonterminal_id,
@@ -1225,15 +1225,15 @@ where
                         add_column_to_postdot_nonterminal(postdot);
                         match mut_ref {
                             &mut PostDotItems::LeoEligible(old_item) => {
-                                *mut_ref = PostDotItems::NormalItems(vec![old_item, *item]);
+                                *mut_ref = PostDotItems::NormalItems(vec![old_item, item]);
                             }
                             PostDotItems::NormalItems(items) => {
-                                items.push(*item);
+                                items.push(item);
                             }
                         }
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
-                        entry.insert(PostDotItems::LeoEligible(*item));
+                        entry.insert(PostDotItems::LeoEligible(item));
                         insert_column_to_postdot_nonterminal(postdot);
                         added_postdot_items.insert(postdot);
                     }
@@ -1294,7 +1294,7 @@ where
             None
         } else {
             leo_items.reserve(leo_items_buffer.len());
-            for &leo_item in leo_items_buffer.iter() {
+            for leo_item in leo_items_buffer.iter().copied() {
                 // Very interestingly, this is faster than leo_items_buffer.drain()
                 let dotted = Dotted {
                     postdot_nonterminal_id: leo_item.nonterminal_id,
@@ -1323,7 +1323,7 @@ where
         }) {
             match postdot {
                 PostDotItems::NormalItems(items) => {
-                    for &item in items.iter() {
+                    for item in items.iter().copied() {
                         Self::advance_item(
                             grammar,
                             to_be_completed_items_buffer,
@@ -1471,7 +1471,7 @@ where
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
         for index in max_start_position + 1..earley_set_index {
             if let Some(nonterminals) = column_to_postdot_nonterminals.get(&index.as_()) {
-                for &nonterminal in nonterminals.iter() {
+                for nonterminal in nonterminals.iter().copied() {
                     let dotted = Dotted {
                         postdot_nonterminal_id: nonterminal,
                         column: index.as_(),
@@ -1624,7 +1624,7 @@ where
         let column_to_postdot_nonterminals_ptr = &mut self.column_to_postdot_nonterminals
             as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         if self.config.compaction_enabled {
-            for byte in token.0.iter() {
+            for byte in token.0.iter().copied() {
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1671,11 +1671,11 @@ where
                             &mut *column_to_postdot_nonterminals_ptr
                         })
                     },
-                    *byte,
+                    byte,
                 )?;
             }
         } else {
-            for byte in token.0.iter() {
+            for byte in token.0.iter().copied() {
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1695,7 +1695,7 @@ where
                     len,
                     &mut self.finished,
                     |_, _, _| {},
-                    *byte,
+                    byte,
                 )?;
             }
         }
@@ -1805,7 +1805,7 @@ where
         }
         for (token_id, token) in self.vocabulary.get_tokens_containing_separators() {
             let mut accepted = true;
-            for byte in token.0.iter() {
+            for byte in token.0.iter().copied() {
                 if Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1825,7 +1825,7 @@ where
                     len,
                     &mut self.finished,
                     |_, _, _| {},
-                    *byte,
+                    byte,
                 )
                 .is_err()
                 // The token is rejected
