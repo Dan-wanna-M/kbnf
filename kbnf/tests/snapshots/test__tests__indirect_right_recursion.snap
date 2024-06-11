@@ -1,6 +1,5 @@
 ---
 source: tests/test.rs
-assertion_line: 151
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
@@ -8,7 +7,7 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \"c\"[1]C[1] | \"c\"[1];\n",
+                rules: "start[0] ::= A[1]\"\n\"[0] | ;\nA[1] ::= \"x\"[1]B[2] | \"x\"[1];\nB[2] ::= \"y\"[2]A[1] | \"y\"[2];\n",
                 interned_strings: InternedStrings {
                     nonterminals: StringInterner {
                         dedup: {
@@ -18,13 +17,17 @@ Engine {
                             SymbolU32 {
                                 value: 1,
                             }: (),
+                            SymbolU32 {
+                                value: 3,
+                            }: (),
                         },
                         backend: StringBackend {
                             ends: [
                                 5,
                                 6,
+                                7,
                             ],
-                            buffer: "startC",
+                            buffer: "startAB",
                             marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
                         },
                     },
@@ -34,6 +37,9 @@ Engine {
                                 value: 2,
                             }: (),
                             SymbolU32 {
+                                value: 3,
+                            }: (),
+                            SymbolU32 {
                                 value: 1,
                             }: (),
                         },
@@ -41,8 +47,9 @@ Engine {
                             ends: [
                                 1,
                                 2,
+                                3,
                             ],
-                            buffer: "\nc",
+                            buffer: "\nxy",
                             marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
                         },
                     },
@@ -67,53 +74,65 @@ Engine {
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},
                 id_to_excepted_first_bytes: {},
-                id_to_terminals: {
-                    "\"\n\"[0]": [
-                        10,
-                    ],
-                    "\"c\"[1]": [
-                        99,
-                    ],
-                },
+                id_to_terminals: [
+                    (
+                        "\"\n\"[0]",
+                        [
+                            10,
+                        ],
+                    ),
+                    (
+                        "\"x\"[1]",
+                        [
+                            120,
+                        ],
+                    ),
+                    (
+                        "\"y\"[2]",
+                        [
+                            121,
+                        ],
+                    ),
+                ],
             },
             allowed_first_bytes: [],
             allowed_token_ids: [],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                        dotted_rule: "start[0] -> .A[1]\"\n\"[0]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        dotted_rule: "A[1] -> .\"x\"[1]B[2]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        dotted_rule: "A[1] -> .\"x\"[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                 ],
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> \"c\"[1].C[1]",
+                        dotted_rule: "B[2] -> \"y\"[2].A[1]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> C[1].\"\n\"[0]",
+                        dotted_rule: "start[0] -> A[1].\"\n\"[0]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        dotted_rule: "A[1] -> .\"x\"[1]B[2]",
                         start_position: 1,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        dotted_rule: "A[1] -> .\"x\"[1]",
                         start_position: 1,
                         state: "[0]",
                     },
@@ -126,13 +145,13 @@ Engine {
             postdot_items: [
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "C[1]",
+                        postdot_nonterminal: "A[1]",
                         column: 0,
                     },
                     NormalItems(
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                                dotted_rule: "start[0] -> .A[1]\"\n\"[0]",
                                 start_position: 0,
                                 state: "",
                             },
@@ -141,12 +160,12 @@ Engine {
                 ),
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "C[1]",
+                        postdot_nonterminal: "A[1]",
                         column: 1,
                     },
                     LeoEligible(
                         EarleyItemDebugStruct {
-                            dotted_rule: "C[1] -> \"c\"[1].C[1]",
+                            dotted_rule: "B[2] -> \"y\"[2].A[1]",
                             start_position: 0,
                             state: "",
                         },
@@ -154,7 +173,18 @@ Engine {
                 ),
             ],
             postdot_items_since_last_commit: [],
-            leo_items: [],
+            leo_items: [
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "B[2]",
+                        column: 0,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "A[1]",
+                        start_position: 0,
+                    },
+                ),
+            ],
             leo_items_buffer: [],
             already_predicted_nonterminals: [],
             finished: false,

@@ -335,12 +335,15 @@ where
             )
             .field(
                 "id_to_terminals",
-                &utils::fill_debug_form_of_id_to_x(
-                    {
-                        (0..self.id_to_terminals.len())
-                            .map(|x| self.id_to_terminals.view([x]).as_slice())
-                    },
-                    |x| TerminalID(x.as_()).to_display_form(self),
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &utils::fill_debug_form_of_id_to_x(
+                        {
+                            (0..self.id_to_terminals.len())
+                                .map(|x| self.id_to_terminals.view([x]).as_slice())
+                        },
+                        |x| TerminalID(x.as_()).to_display_form(self),
+                    ),
+                    |(x,&y)| (x.clone(),y),
                 ),
             )
             .finish()
@@ -599,9 +602,9 @@ where
     }
     #[inline]
     /// Get the regex from the grammar without bounds checking.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// The caller must ensure that the regex id is within bounds.
     pub unsafe fn get_regex_unchecked(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         self.id_to_regexes.get_unchecked(regex_id.0.as_())
@@ -618,12 +621,14 @@ where
     }
     #[inline]
     /// Get the terminal from the grammar without bounds checking.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// The caller must ensure that the terminal id is within bounds.
     pub unsafe fn get_terminal_unchecked(&self, terminal_id: TerminalID<TI>) -> &[u8] {
-        self.id_to_terminals.view_unchecked([terminal_id.0.as_()]).as_slice()
+        self.id_to_terminals
+            .view_unchecked([terminal_id.0.as_()])
+            .as_slice()
     }
     #[inline]
     /// Get the terminals from the grammar.

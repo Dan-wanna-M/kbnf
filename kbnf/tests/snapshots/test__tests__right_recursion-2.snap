@@ -7,33 +7,41 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= \"aaa\"[0];\n",
+                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \"c\"[1]C[1] | \"c\"[1];\n",
                 interned_strings: InternedStrings {
                     nonterminals: StringInterner {
                         dedup: {
                             SymbolU32 {
                                 value: 1,
                             }: (),
+                            SymbolU32 {
+                                value: 2,
+                            }: (),
                         },
                         backend: StringBackend {
                             ends: [
                                 5,
+                                6,
                             ],
-                            buffer: "start",
+                            buffer: "startC",
                             marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
                         },
                     },
                     terminals: StringInterner {
                         dedup: {
                             SymbolU32 {
+                                value: 2,
+                            }: (),
+                            SymbolU32 {
                                 value: 1,
                             }: (),
                         },
                         backend: StringBackend {
                             ends: [
-                                3,
+                                1,
+                                2,
                             ],
-                            buffer: "aaa",
+                            buffer: "\nc",
                             marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
                         },
                     },
@@ -60,94 +68,62 @@ Engine {
                 id_to_excepted_first_bytes: {},
                 id_to_terminals: [
                     (
-                        "\"aaa\"[0]",
+                        "\"\n\"[0]",
                         [
-                            97,
-                            97,
-                            97,
+                            10,
+                        ],
+                    ),
+                    (
+                        "\"c\"[1]",
+                        [
+                            99,
                         ],
                     ),
                 ],
             },
-            allowed_first_bytes: [
-                97,
-            ],
+            allowed_first_bytes: [],
             allowed_token_ids: [],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
+                        dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                 ],
                 [],
             ],
-            cache: [
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
-                        "aaa[6885]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[2]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                    ],
-                ),
-            ],
+            cache: [],
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
             deduplication_buffer: [],
-            postdot_items: [],
+            postdot_items: [
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "C[1]",
+                        column: 0,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                                start_position: 0,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+            ],
             postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],

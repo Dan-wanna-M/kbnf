@@ -1,6 +1,5 @@
 ---
 source: tests/test.rs
-assertion_line: 189
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
@@ -13,13 +12,13 @@ Engine {
                     nonterminals: StringInterner {
                         dedup: {
                             SymbolU32 {
-                                value: 3,
-                            }: (),
-                            SymbolU32 {
                                 value: 2,
                             }: (),
                             SymbolU32 {
                                 value: 1,
+                            }: (),
+                            SymbolU32 {
+                                value: 3,
                             }: (),
                         },
                         backend: StringBackend {
@@ -75,17 +74,26 @@ Engine {
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},
                 id_to_excepted_first_bytes: {},
-                id_to_terminals: {
-                    "\"x\"[1]": [
-                        120,
-                    ],
-                    "\"\n\"[0]": [
-                        10,
-                    ],
-                    "\"y\"[2]": [
-                        121,
-                    ],
-                },
+                id_to_terminals: [
+                    (
+                        "\"\n\"[0]",
+                        [
+                            10,
+                        ],
+                    ),
+                    (
+                        "\"x\"[1]",
+                        [
+                            120,
+                        ],
+                    ),
+                    (
+                        "\"y\"[2]",
+                        [
+                            121,
+                        ],
+                    ),
+                ],
             },
             allowed_first_bytes: [],
             allowed_token_ids: [],
@@ -107,28 +115,7 @@ Engine {
                         state: "[0]",
                     },
                 ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "B[2] -> \"y\"[2].A[1]",
-                        start_position: 0,
-                        state: "",
-                    },
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> A[1].\"\n\"[0]",
-                        start_position: 0,
-                        state: "[0]",
-                    },
-                    EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]B[2]",
-                        start_position: 1,
-                        state: "[0]",
-                    },
-                    EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]",
-                        start_position: 1,
-                        state: "[0]",
-                    },
-                ],
+                [],
             ],
             cache: [],
             to_be_completed_items: [],
@@ -150,19 +137,6 @@ Engine {
                         ],
                     ),
                 ),
-                (
-                    DottedDebugStruct {
-                        postdot_nonterminal: "A[1]",
-                        column: 1,
-                    },
-                    LeoEligible(
-                        EarleyItemDebugStruct {
-                            dotted_rule: "B[2] -> \"y\"[2].A[1]",
-                            start_position: 0,
-                            state: "",
-                        },
-                    ),
-                ),
             ],
             postdot_items_since_last_commit: [],
             leo_items: [
@@ -179,7 +153,7 @@ Engine {
             ],
             leo_items_buffer: [],
             already_predicted_nonterminals: [],
-            finished: false,
+            finished: true,
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,

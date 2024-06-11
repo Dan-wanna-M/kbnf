@@ -12,10 +12,10 @@ Engine {
                     nonterminals: StringInterner {
                         dedup: {
                             SymbolU32 {
-                                value: 2,
+                                value: 1,
                             }: (),
                             SymbolU32 {
-                                value: 1,
+                                value: 2,
                             }: (),
                         },
                         backend: StringBackend {
@@ -66,14 +66,20 @@ Engine {
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},
                 id_to_excepted_first_bytes: {},
-                id_to_terminals: {
-                    "\"c\"[1]": [
-                        99,
-                    ],
-                    "\"\n\"[0]": [
-                        10,
-                    ],
-                },
+                id_to_terminals: [
+                    (
+                        "\"\n\"[0]",
+                        [
+                            10,
+                        ],
+                    ),
+                    (
+                        "\"c\"[1]",
+                        [
+                            99,
+                        ],
+                    ),
+                ],
             },
             allowed_first_bytes: [],
             allowed_token_ids: [],
