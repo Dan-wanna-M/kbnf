@@ -1,5 +1,6 @@
 //! This module contains the implementation of the [Engine](crate::engine::Engine) struct and is intended for advanced usages.
 use ahash::{AHashMap, AHashSet};
+use dary_heap::OctonaryHeap;
 use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
@@ -63,10 +64,11 @@ where
         + PartialOrd
         + num::Bounded
         + num::traits::NumAssignOps
-        + std::convert::TryFrom<usize>,
+        + std::convert::TryFrom<usize>
+        + Ord,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TN>
         + num::traits::AsPrimitive<TD>
@@ -187,6 +189,26 @@ where
     nonterminal_id: NonterminalID<TN>,
     start_position: TSP,
 }
+impl<TN, TSP> PartialOrd for ToBeCompletedItem<TN, TSP>
+where
+    TN: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<TN, TSP> Ord for ToBeCompletedItem<TN, TSP>
+where
+    TN: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.start_position
+            .cmp(&other.start_position)
+    }
+}
 
 impl<TN, TSP> ToBeCompletedItem<TN, TSP>
 where
@@ -306,10 +328,11 @@ where
         + PartialOrd
         + num::Bounded
         + num::traits::NumAssignOps
-        + std::convert::TryFrom<usize>,
+        + std::convert::TryFrom<usize>
+        + Ord,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TN>
         + num::traits::AsPrimitive<TD>
@@ -427,8 +450,7 @@ where
     allowed_token_ids: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
-    to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
-    to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
+    to_be_completed_items: OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
     // Maybe a smallvec will be better. Profiling is needed to make a decision.
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
@@ -459,7 +481,8 @@ where
         + PartialOrd
         + num::Bounded
         + std::convert::TryFrom<usize>
-        + NumAssign,
+        + NumAssign
+        + Ord,
     TE: AsPrimitive<usize>
         + ConstOne
         + ConstZero
@@ -470,7 +493,7 @@ where
         + Debug,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
         + num::traits::AsPrimitive<TD>
@@ -503,16 +526,11 @@ where
                 }),
             )
             .field("to_be_completed_items", {
-                &utils::get_deterministic_display_form_from_hash_set(
-                    &self.to_be_completed_items,
-                    |x| x.to_debug_form(&self.grammar),
-                )
-            })
-            .field("to_be_completed_items_buffer", {
-                &utils::get_deterministic_display_form_from_hash_set(
-                    &self.to_be_completed_items_buffer,
-                    |x| x.to_debug_form(&self.grammar),
-                )
+                &self
+                    .to_be_completed_items
+                    .iter()
+                    .map(|x| x.to_debug_form(&self.grammar))
+                    .collect::<Vec<_>>()
             })
             .field("deduplication_buffer", {
                 &utils::get_deterministic_display_form_from_hash_set(
@@ -575,7 +593,8 @@ where
         + PartialOrd
         + num::Bounded
         + num::traits::NumAssignOps
-        + std::convert::TryFrom<usize>,
+        + std::convert::TryFrom<usize>
+        + Ord,
     TE: AsPrimitive<usize>
         + ConstOne
         + ConstZero
@@ -585,7 +604,7 @@ where
         + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
         + num::traits::AsPrimitive<TE>
@@ -634,7 +653,7 @@ where
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size() + 1);
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
-        let to_be_completed_items = AHashSet::default();
+        let to_be_completed_items = OctonaryHeap::new();
         let already_predicted_nonterminals =
             FixedBitSet::with_capacity(grammar.get_nonterminals_size());
         let postdot_items = AHashMap::default();
@@ -655,7 +674,6 @@ where
             postdot_items,
             leo_items: AHashMap::default(),
             finished: false,
-            to_be_completed_items_buffer: AHashSet::default(),
             leo_items_buffer: Vec::new(),
             postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
@@ -923,7 +941,7 @@ where
 
     fn advance_item<T>(
         grammar: &Grammar<TI, TE>,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         add_to_earley_set: T,
@@ -938,7 +956,7 @@ where
             new_dotted_position,
             item.production_index,
         ) {
-            to_be_completed_items.insert(ToBeCompletedItem {
+            to_be_completed_items.push(ToBeCompletedItem {
                 nonterminal_id: item.nonterminal_id,
                 start_position: item.start_position,
             });
@@ -964,7 +982,7 @@ where
     unsafe fn advance_item_normal_unchecked(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
@@ -1031,7 +1049,7 @@ where
     fn scan(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         byte: u8,
@@ -1313,7 +1331,7 @@ where
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items_buffer: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         is_finished: &mut bool,
     ) {
@@ -1354,44 +1372,46 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &regex_automata::util::start::Config,
         excepted_start_config: &regex_automata::util::start::Config,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         finished: &mut bool,
     ) {
-        to_be_completed_items_buffer.clear();
-        while !to_be_completed_items.is_empty() {
-            for item in to_be_completed_items.drain() {
-                if let Some(topmost_item) =
-                    Self::try_leo_complete_item(leo_items_buffer, leo_items, postdot_items, item)
-                {
-                    Self::earley_complete_one_item(
-                        grammar,
-                        topmost_item,
-                        regex_start_config,
-                        excepted_start_config,
-                        postdot_items,
-                        to_be_completed_items_buffer,
-                        deduplication_buffer,
-                        finished,
-                    );
-                } else {
-                    Self::earley_complete_one_item(
-                        grammar,
-                        item,
-                        regex_start_config,
-                        excepted_start_config,
-                        postdot_items,
-                        to_be_completed_items_buffer,
-                        deduplication_buffer,
-                        finished,
-                    );
+        let mut last_item = None;
+        while let Some(item) = to_be_completed_items.pop() {
+            if let Some(last_item) = last_item {
+                if last_item == item {
+                    continue;
                 }
             }
-            std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
+            last_item = Some(item);
+            if let Some(topmost_item) =
+                Self::try_leo_complete_item(leo_items_buffer, leo_items, postdot_items, item)
+            {
+                Self::earley_complete_one_item(
+                    grammar,
+                    topmost_item,
+                    regex_start_config,
+                    excepted_start_config,
+                    postdot_items,
+                    to_be_completed_items,
+                    deduplication_buffer,
+                    finished,
+                );
+            } else {
+                Self::earley_complete_one_item(
+                    grammar,
+                    item,
+                    regex_start_config,
+                    excepted_start_config,
+                    postdot_items,
+                    to_be_completed_items,
+                    deduplication_buffer,
+                    finished,
+                );
+            }
         }
         for item in deduplication_buffer.drain() {
             earley_sets.push_to_last_row(item);
@@ -1423,7 +1443,7 @@ where
     #[inline]
     fn is_rejected(
         earley_sets: &EarleySets<TI, TD, TP, TSP, TS>,
-        to_be_completed_items: &AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
     ) -> bool {
         earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
             && to_be_completed_items.is_empty()
@@ -1489,8 +1509,7 @@ where
     fn accept_byte(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items: &mut OctonaryHeap<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
@@ -1549,7 +1568,6 @@ where
             regex_start_config,
             excepted_start_config,
             to_be_completed_items,
-            to_be_completed_items_buffer,
             leo_items,
             leo_items_buffer,
             postdot_items,
@@ -1589,7 +1607,8 @@ where
         + std::cmp::PartialOrd
         + num::Bounded
         + std::convert::TryFrom<usize>
-        + Debug,
+        + Debug
+        + Ord,
     TI: Eq + std::hash::Hash + PartialEq,
     TE: AsPrimitive<usize>
         + ConstOne
@@ -1600,7 +1619,7 @@ where
         + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
         + num::traits::AsPrimitive<TE>
@@ -1629,7 +1648,6 @@ where
                     &self.grammar,
                     &mut self.earley_sets,
                     &mut self.to_be_completed_items,
-                    &mut self.to_be_completed_items_buffer,
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
@@ -1680,7 +1698,6 @@ where
                     &self.grammar,
                     &mut self.earley_sets,
                     &mut self.to_be_completed_items,
-                    &mut self.to_be_completed_items_buffer,
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
@@ -1734,7 +1751,6 @@ where
                                 &self.grammar,
                                 &mut self.earley_sets,
                                 &mut self.to_be_completed_items,
-                                &mut self.to_be_completed_items_buffer,
                                 &mut self.leo_items,
                                 &mut self.leo_items_buffer,
                                 &mut self.postdot_items,
@@ -1810,7 +1826,6 @@ where
                     &self.grammar,
                     &mut self.earley_sets,
                     &mut self.to_be_completed_items,
-                    &mut self.to_be_completed_items_buffer,
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
@@ -1902,7 +1917,6 @@ where
     fn reset(&mut self) {
         self.earley_sets.clear();
         self.to_be_completed_items.clear();
-        self.to_be_completed_items_buffer.clear();
         self.leo_items.clear();
         self.leo_items_buffer.clear();
         self.postdot_items.clear();
