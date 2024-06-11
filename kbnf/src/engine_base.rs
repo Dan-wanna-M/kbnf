@@ -347,7 +347,7 @@ enum PostDotItemsDebugStruct {
     LeoEligible(EarleyItemDebugStruct),
     NormalItems(Vec<EarleyItemDebugStruct>),
 }
-/// The specific config of the engine
+/// The specific config of the [Engine](crate::engine::Engine).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct EngineConfig {
     /// Whether the cache is enabled. Caching speeds up the engine if any of the following conditions are met:
@@ -361,7 +361,7 @@ pub struct EngineConfig {
     /// It is enabled by default.
     pub compaction_enabled: bool,
 }
-/// The error type for errors in engine creation.
+/// The error type for errors in [EngineBase] creation.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineBaseError {
     #[error(
@@ -391,7 +391,7 @@ pub enum EngineBaseError {
 }
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
-/// The low-level engine struct that implement a variant of the Earley recognizer.
+/// The low-level engine struct that implements the Earley recognizer with Leo optimization and Earley sets compaction.
 pub struct EngineBase<TI, TE, TD, TP, TSP, TS>
 where
     TI: Num
@@ -631,7 +631,7 @@ where
         Self::validate_ts_size_for_excepted(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
-        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size() + 1);
+        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size());
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
@@ -680,10 +680,7 @@ where
         }
         res
     }
-    pub(crate) fn get_display_form_from_token_ids(
-        &self,
-        bitset: &fixedbitset::FixedBitSet,
-    ) -> Vec<String> {
+    fn get_display_form_from_token_ids(&self, bitset: &fixedbitset::FixedBitSet) -> Vec<String> {
         bitset
             .ones()
             .map(|x| {
@@ -755,7 +752,7 @@ where
         Ok(())
     }
 
-    /// Run prediction stage of Earley algorithm on last Earley set and current already_predicted_nonterminals content
+    /// Run prediction stage of Earley algorithm on last Earley set and current `already_predicted_nonterminals` content
     fn predict(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -833,7 +830,8 @@ where
 
     /// Predict one nonterminal according to Earley algorithm on the last Earley set.
     /// This function ensures no duplication happens.
-    /// Returns earley set length increment due to prediction
+    ///
+    /// Returns the number of items added to the Earley set.
     fn predict_nonterminal(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -846,9 +844,14 @@ where
         let nid = nonterminal_id.0.as_();
         if !already_predicted_nonterminals.contains(nid) {
             already_predicted_nonterminals.insert(nid);
-            let production_len = grammar.get_production_len(nonterminal_id);
-            earley_sets.buffer_reserve(production_len);
-            for j in 0..production_len {
+            // SAFETY:
+            // - nonterminal_id is guaranteed to be valid since it always comes from the grammar,
+            // in other words, the jagged array.
+            // - 0 is always valid since no nonterminal could have an empty production.
+            let productions =
+                unsafe { grammar.get_rules().view_unchecked::<2, 1>([nid, 0]) }.as_slice();
+            earley_sets.buffer_reserve(productions.len());
+            for (j, node) in productions.iter().copied().enumerate() {
                 let production_index = j.as_();
                 let new_item = EarleyItem {
                     nonterminal_id,
@@ -859,14 +862,13 @@ where
                         grammar,
                         regex_start_config,
                         excepted_start_config,
-                        unsafe {
-                            *grammar.get_node_unchecked(nonterminal_id, TD::ZERO, production_index)
-                        },
+                        node,
                     ),
                 };
+                // SAFETY: line 853 guarantees the buffer has enough capacity
                 unsafe { earley_sets.push_to_last_row_unchecked(new_item) };
             }
-            production_len
+            productions.len()
         } else {
             0
         }
@@ -910,9 +912,10 @@ where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
-        // SAFETY: nonterminal_id is guaranteed to be valid
+        // SAFETY: nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
         let view = unsafe { grammar.get_dotted_productions(nonterminal_id) };
         if new_dot_position.as_() < view.len() {
+            // SAFETY: new_dot_position is guaranteed to be valid since we checked it in the previous line
             let view = unsafe { view.view_unchecked::<1, 1>([new_dot_position.as_()]) };
             if production_id.as_() < view.len() {
                 return false;
@@ -943,6 +946,10 @@ where
                 grammar,
                 regex_start_config,
                 excepted_start_config,
+                // SAFETY:
+                // nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
+                // dot_position is guaranteed to be valid since we checked it in Self::item_should_be_completed
+                // production_index is guaranteed to be valid since we checked it in Self::item_should_be_completed
                 unsafe {
                     *grammar.get_node_unchecked(
                         item.nonterminal_id,
@@ -961,6 +968,9 @@ where
     }
 
     #[inline]
+    /// # Safety
+    ///
+    /// earley_sets must has enough capacity to push one new item.
     unsafe fn advance_item_normal_unchecked(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -1037,13 +1047,19 @@ where
         byte: u8,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
+                                                             // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
+        // Each regex or excepted will add at most two item to the next Earley set
         earley_sets.buffer_reserve(earley_set_len * 2);
         for i in 0..earley_set_len {
             // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
             let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
+            // SAFETY:
+            // item.nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
+            // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
+            // both of which guarantee the validity.
             let node = unsafe {
                 *grammar.get_node_unchecked(
                     item.nonterminal_id,
@@ -1053,8 +1069,10 @@ where
             };
             match node {
                 HIRNode::Terminal(terminal_id) => {
+                    // SAFETY: terminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
                     let terminal = unsafe { grammar.get_terminal_unchecked(terminal_id) };
                     let mut index = Self::from_state_id_to_index(item.state_id);
+                    // SAFETY: index is guaranteed to be valid since line 1075 ensures it is within the terminal length
                     if unsafe { *terminal.get_unchecked(index) } == byte {
                         index += 1;
                         if index != terminal.len() {
@@ -1063,6 +1081,7 @@ where
                             item.state_id = new_state_index;
                             earley_sets.push_to_last_row(item);
                         } else {
+                            // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                             unsafe {
                                 Self::advance_item_normal_unchecked(
                                     grammar,
@@ -1077,6 +1096,7 @@ where
                     }
                 }
                 HIRNode::RegexString(regex_id) => {
+                    // SAFETY: regex_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
                     let regex = unsafe { grammar.get_regex_unchecked(regex_id) };
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
@@ -1087,6 +1107,7 @@ where
                                 state_id,
                                 dfa,
                                 accept=>{
+                                    // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                     unsafe{Self::advance_item_normal_unchecked(
                                         grammar,
                                         earley_sets,
@@ -1100,6 +1121,7 @@ where
                                         dfa.stride2(),
                                     );
                                     item.state_id = state_id;
+                                    // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                     unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                 },
                                 reject=>{},
@@ -1110,6 +1132,7 @@ where
                                         dfa.stride2(),
                                     );
                                     item.state_id = state_id;
+                                    // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                     unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                 }
                             );
@@ -1134,6 +1157,7 @@ where
                                     if r == INVALID_REPETITION.as_()
                                     // repeat 1 or infinite times
                                     {
+                                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                         unsafe{Self::advance_item_normal_unchecked(
                                             grammar,
                                             earley_sets,
@@ -1147,12 +1171,14 @@ where
                                             dfa.stride2(),
                                         );
                                         item.state_id = state_id;
+                                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                         unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                     }
                                     else{
                                         r -= TE::ONE;
                                         match r.as_() {
                                             INVALID_REPETITION => {
+                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                                 unsafe{Self::advance_item_normal_unchecked(
                                                     grammar,
                                                     earley_sets,
@@ -1164,6 +1190,7 @@ where
                                             }
                                             _ => {
                                                 // repetition is not exhausted
+                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                                 unsafe{Self::advance_item_normal_unchecked(
                                                     grammar,
                                                     earley_sets,
@@ -1179,6 +1206,7 @@ where
                                                         r,
                                                     );
                                                 item.state_id = state_id;
+                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
                                                 unsafe{earley_sets.push_to_last_row_unchecked(item)};
                                             }
                                         }
@@ -1201,12 +1229,17 @@ where
         mut insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
     ) {
         let earley_set_index = earley_sets.len() - 1;
+        // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
         let earley_set = unsafe {
             earley_sets
                 .view_unchecked::<1, 1>([earley_set_index])
                 .as_slice()
         };
         for item in earley_set.iter().copied() {
+            // SAFETY:
+            // item.nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
+            // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
+            // both of which guarantee the validity.
             let node = *unsafe {
                 grammar.get_node_unchecked(
                     item.nonterminal_id,
@@ -1254,7 +1287,6 @@ where
             }
         }
     }
-    #[allow(clippy::type_complexity)]
     fn try_leo_complete_item(
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
@@ -1338,6 +1370,7 @@ where
                 }
                 PostDotItems::LeoEligible(_) => {
                     debug_assert!(false, "Leo item should already be handled");
+                    // SAFETY: should be unreachable since `try_leo_complete_item` should have handled this case
                     unsafe { unreachable_unchecked() };
                 }
             }
@@ -1413,6 +1446,7 @@ where
         earley_sets.truncate::<0>(earley_set_length);
         *finished = false;
         for postdot in added_postdot_items.iter() {
+            // interestingly, this is faster than drain
             postdot_items.remove(postdot);
             leo_items.remove(postdot);
             column_to_postdot_nonterminal_operation(postdot.column);
@@ -1473,8 +1507,8 @@ where
         }
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
         for index in max_start_position + 1..earley_set_index {
-            if let Some(nonterminals) = column_to_postdot_nonterminals.get(&index.as_()) {
-                for nonterminal in nonterminals.iter().copied() {
+            if let Some(nonterminals) = column_to_postdot_nonterminals.remove(&index.as_()) {
+                for nonterminal in nonterminals.into_iter() {
                     let dotted = Dotted {
                         postdot_nonterminal_id: nonterminal,
                         column: index.as_(),
@@ -1483,9 +1517,6 @@ where
                     leo_items.remove(&dotted);
                 }
             }
-        }
-        for index in max_start_position + 1..earley_set_index {
-            column_to_postdot_nonterminals.remove(&index.as_());
         }
     }
 
@@ -1939,7 +1970,7 @@ where
             &mut self.postdot_items,
             &mut AHashSet::default(), // We will never need to revert the engine's state since it is the initialization
             |_| {},                   // column zero should never be removed
-            |_| {},                   // column zero should never be added
+            |_| {},                   // column zero should never be removed
         );
     }
 

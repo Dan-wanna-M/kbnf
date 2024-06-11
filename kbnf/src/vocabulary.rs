@@ -78,7 +78,7 @@ impl Debug for Vocabulary {
 #[derive(Debug, thiserror::Error)]
 /// The error type for [Vocabulary] creation.
 pub enum VocabularyError {
-    /// The token ID and token ID corresponds to the same token. 
+    /// The token ID and token ID corresponds to the same token.
     #[error("Token ID {0} and token ID {1} corresponds to the same token.")]
     DuplicateToken(u32, u32),
     /// The vocabulary size exceeds the maximum supported size.
@@ -192,12 +192,13 @@ impl Vocabulary {
     }
 
     /// Retrieves the size of the vocabulary.
-    ///
-    /// # Returns
-    ///
-    /// The number of tokens in the vocabulary.
     pub fn get_vocab_size(&self) -> usize {
-        self.id_to_token.len()
+        self.id_to_token
+            .keys()
+            .copied()
+            .max()
+            .map(|x| x + 1)
+            .unwrap_or(0) as usize
     }
 
     /// Retrieves an iterator over the normal tokens that have the given first byte.

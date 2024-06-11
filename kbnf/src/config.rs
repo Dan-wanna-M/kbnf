@@ -52,10 +52,10 @@ pub enum FsaType {
 pub struct RegexConfig {
     /// The maximum memory usage in bytes allowed when compiling the regex.
     /// If the memory usage exceeds this limit, an error will be returned.
-    /// The default is `None`, which means no limit for dfa and some reasonable limits for ldfa.
+    /// The default is `None`, which means no limit for dfa.
     pub max_memory_usage: Option<usize>,
     /// The type of the Finite State Automaton to be used.
-    /// The default is `FsaType::Ldfa`.
+    /// The default is `FsaType::Dfa`.
     pub fsa_type: FsaType,
 }
 

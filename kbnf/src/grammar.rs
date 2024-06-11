@@ -562,8 +562,12 @@ where
     }
     #[inline]
     /// Get the length of the production.
-    pub fn get_production_len(&self, nonterminal_id: NonterminalID<TI>) -> usize {
-        self.rules.view::<2, 1>([nonterminal_id.0.as_(), 0]).len()
+    /// 
+    /// # Safety
+    /// 
+    /// The caller must ensure that the nonterminal id is within bounds.
+    pub(crate) unsafe fn get_productions_len(&self, nonterminal_id: NonterminalID<TI>) -> usize {
+        self.rules.view_unchecked::<2, 1>([nonterminal_id.0.as_(), 0]).len()
     }
     #[inline]
     /// Get the interned strings.
