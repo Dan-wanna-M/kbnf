@@ -205,8 +205,7 @@ where
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq + Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.start_position
-            .cmp(&other.start_position)
+        self.start_position.cmp(&other.start_position)
     }
 }
 
@@ -950,17 +949,12 @@ where
         T: FnOnce(EarleyItem<TI, TD, TP, TSP, TS>),
     {
         let new_dotted_position = item.dot_position + TD::ONE;
-        if Self::item_should_be_completed(
+        if !Self::item_should_be_completed(
             grammar,
             item.nonterminal_id,
             new_dotted_position,
             item.production_index,
         ) {
-            to_be_completed_items.push(ToBeCompletedItem {
-                nonterminal_id: item.nonterminal_id,
-                start_position: item.start_position,
-            });
-        } else {
             item.dot_position = new_dotted_position;
             item.state_id = Self::initialize_state_id_based_on_node(
                 grammar,
@@ -975,6 +969,11 @@ where
                 },
             );
             add_to_earley_set(item);
+        } else {
+            to_be_completed_items.push(ToBeCompletedItem {
+                nonterminal_id: item.nonterminal_id,
+                start_position: item.start_position,
+            });
         }
     }
 
@@ -1411,6 +1410,9 @@ where
                     deduplication_buffer,
                     finished,
                 );
+            }
+            if *finished {
+                return;
             }
         }
         for item in deduplication_buffer.drain() {
