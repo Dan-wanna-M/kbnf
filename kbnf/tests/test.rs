@@ -10,7 +10,9 @@ mod tests {
     use ahash::AHashMap;
     use insta::assert_snapshot;
     use kbnf::{
-        engine_base::EngineConfig, engine_like::{AcceptTokenResult, EngineLike}, vocabulary::{Token, Vocabulary}
+        engine_base::EngineConfig,
+        engine_like::{AcceptTokenResult, EngineLike},
+        vocabulary::{Token, Vocabulary},
     };
     #[derive(Debug, thiserror::Error)]
     /// Error type when reading RWKV world model's vocabulary file.
@@ -134,13 +136,49 @@ mod tests {
             },
             ..Default::default()
         };
-        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(),config).unwrap();
+        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(), config).unwrap();
         for i in 0..10 {
             let result = engine
                 .try_accept_new_token(
                     vocab
+                        .get_token_id_from_token(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                        .unwrap(),
+                )
+                .unwrap();
+            assert_eq!(result, AcceptTokenResult::Ongoing);
+            // engine.compute_allowed_token_ids();
+        }
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+        assert_snapshot!(format!("{:#?}", engine));
+    }
+    #[test]
+    fn indirect_right_recursion() {
+        let input = "start::=A'\n';A::='x'|'x' B;B::='y'|'y' A;";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.get_vocab_size()];
+        let config = kbnf::config::Config {
+            engine_config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            ..Default::default()
+        };
+        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(), config).unwrap();
+        for i in 0..10 {
+            let value = if i % 2 == 0 { "x" } else { "y" };
+            let result = engine
+                .try_accept_new_token(
+                    vocab
                         .get_token_id_from_token(&Token(
-                            "c".as_bytes().to_vec().into_boxed_slice(),
+                            value.as_bytes().to_vec().into_boxed_slice(),
                         ))
                         .unwrap(),
                 )

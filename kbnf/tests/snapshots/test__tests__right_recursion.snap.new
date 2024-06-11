@@ -1,0 +1,175 @@
+---
+source: tests/test.rs
+assertion_line: 151
+expression: "format!(\"{:#?}\", engine)"
+---
+Engine {
+    union: U16U0U16U32U32U32(
+        EngineBase {
+            grammar: Grammar {
+                start_nonterminal: "start[0]",
+                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \"c\"[1]C[1] | \"c\"[1];\n",
+                interned_strings: InternedStrings {
+                    nonterminals: StringInterner {
+                        dedup: {
+                            SymbolU32 {
+                                value: 2,
+                            }: (),
+                            SymbolU32 {
+                                value: 1,
+                            }: (),
+                        },
+                        backend: StringBackend {
+                            ends: [
+                                5,
+                                6,
+                            ],
+                            buffer: "startC",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    terminals: StringInterner {
+                        dedup: {
+                            SymbolU32 {
+                                value: 2,
+                            }: (),
+                            SymbolU32 {
+                                value: 1,
+                            }: (),
+                        },
+                        backend: StringBackend {
+                            ends: [
+                                1,
+                                2,
+                            ],
+                            buffer: "\nc",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    regex_strings: StringInterner {
+                        dedup: {},
+                        backend: StringBackend {
+                            ends: [],
+                            buffer: "",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                    excepteds: StringInterner {
+                        dedup: {},
+                        backend: StringBackend {
+                            ends: [],
+                            buffer: "",
+                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
+                        },
+                    },
+                },
+                id_to_regexes: {},
+                id_to_excepteds: {},
+                id_to_regex_first_bytes: {},
+                id_to_excepted_first_bytes: {},
+                id_to_terminals: {
+                    "\"\n\"[0]": [
+                        10,
+                    ],
+                    "\"c\"[1]": [
+                        99,
+                    ],
+                },
+            },
+            allowed_first_bytes: [],
+            allowed_token_ids: [],
+            earley_sets: [
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> \"c\"[1].C[1]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> C[1].\"\n\"[0]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                ],
+            ],
+            cache: [],
+            to_be_completed_items: [],
+            to_be_completed_items_buffer: [],
+            deduplication_buffer: [],
+            postdot_items: [
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "C[1]",
+                        column: 0,
+                    },
+                    NormalItems(
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
+                                start_position: 0,
+                                state: "",
+                            },
+                        ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "C[1]",
+                        column: 1,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "C[1] -> \"c\"[1].C[1]",
+                            start_position: 0,
+                            state: "",
+                        },
+                    ),
+                ),
+            ],
+            postdot_items_since_last_commit: [],
+            leo_items: [],
+            leo_items_buffer: [],
+            already_predicted_nonterminals: [],
+            finished: false,
+            config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            regex_start_config: Config {
+                look_behind: None,
+                anchored: Yes,
+            },
+            excepted_start_config: Config {
+                look_behind: None,
+                anchored: No,
+            },
+        },
+    ),
+}

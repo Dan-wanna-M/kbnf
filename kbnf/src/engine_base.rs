@@ -13,7 +13,6 @@ use num::{
 };
 use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
-use regex_automata::util::start;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -1223,14 +1222,13 @@ where
                 match postdot_items.entry(postdot) {
                     std::collections::hash_map::Entry::Occupied(mut entry) => {
                         let mut_ref = entry.get_mut();
+                        add_column_to_postdot_nonterminal(postdot);
                         match mut_ref {
                             &mut PostDotItems::LeoEligible(old_item) => {
                                 *mut_ref = PostDotItems::NormalItems(vec![old_item, *item]);
-                                add_column_to_postdot_nonterminal(postdot);
                             }
                             PostDotItems::NormalItems(items) => {
                                 items.push(*item);
-                                add_column_to_postdot_nonterminal(postdot);
                             }
                         }
                     }
@@ -1296,13 +1294,15 @@ where
             None
         } else {
             leo_items.reserve(leo_items_buffer.len());
-            for leo_item in leo_items_buffer.drain(..) {
+            for &leo_item in leo_items_buffer.iter() {
+                // Very interestingly, this is faster than leo_items_buffer.drain()
                 let dotted = Dotted {
                     postdot_nonterminal_id: leo_item.nonterminal_id,
                     column: leo_item.start_position,
                 };
                 leo_items.insert(dotted, topmost_item);
             }
+            leo_items_buffer.clear();
             Some(topmost_item)
         }
     }
@@ -1441,12 +1441,24 @@ where
         let mut max_start_position = 0;
         for item in earley_set.iter_mut() {
             let mut start_position = item.start_position.as_();
-            if let Some(leo_item) = leo_items.get(&Dotted {
-                postdot_nonterminal_id: item.nonterminal_id,
-                column: item.start_position,
-            }) {
+            if let Some(leo_item) = leo_items
+                .get(&Dotted {
+                    postdot_nonterminal_id: item.nonterminal_id,
+                    column: item.start_position,
+                })
+                .copied()
+            {
                 // the chain of leo items allows us to fold the start position
                 item.start_position = leo_item.start_position;
+                if item.nonterminal_id != leo_item.nonterminal_id {
+                    leo_items.insert(
+                        Dotted {
+                            postdot_nonterminal_id: item.nonterminal_id,
+                            column: item.start_position,
+                        },
+                        leo_item,
+                    );
+                }
                 start_position = leo_item.start_position.as_();
             }
             if start_position > max_start_position {
