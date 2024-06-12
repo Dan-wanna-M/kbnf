@@ -40,7 +40,7 @@ pub struct Config {
 }
 /// The type of the Finite State Automaton to be used.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum FsaType {
+pub enum Fsa {
     /// The Deterministic Finite Automaton.
     /// It is a deterministic finite automaton that eagerly computes all the state transitions.
     /// It is the fastest type of finite automaton, but it is also the most memory-consuming.
@@ -56,7 +56,7 @@ pub struct RegexConfig {
     pub max_memory_usage: Option<usize>,
     /// The type of the Finite State Automaton to be used.
     /// The default is `FsaType::Dfa`.
-    pub fsa_type: FsaType,
+    pub fsa_type: Fsa,
 }
 
 /// The configuration of regular expressions.
@@ -71,11 +71,11 @@ impl Default for Config {
         Self {
             regex_config: RegexConfig {
                 max_memory_usage: None,
-                fsa_type: FsaType::Dfa,
+                fsa_type: Fsa::Dfa,
             },
             excepted_config: RegexConfig {
                 max_memory_usage: None,
-                fsa_type: FsaType::Dfa,
+                fsa_type: Fsa::Dfa,
             },
             engine_config: EngineConfig {
                 cache_enabled: true,
@@ -92,14 +92,14 @@ impl Config {
     /// Converts the configuration to the internal configuration.
     pub fn internal_config(self) -> InternalConfig {
         let regex_config = match self.regex_config.fsa_type {
-            FsaType::Dfa => FiniteStateAutomatonConfig::Dfa(
+            Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.regex_config.max_memory_usage)
                     .start_kind(regex_automata::dfa::StartKind::Anchored),
             )
         };
         let excepted_config = match self.excepted_config.fsa_type {
-            FsaType::Dfa => FiniteStateAutomatonConfig::Dfa(
+            Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.excepted_config.max_memory_usage),
             )

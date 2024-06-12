@@ -3,8 +3,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, S
 use num::cast::AsPrimitive;
 use num::traits::{ConstOne, ConstZero};
 use num::{Bounded, One};
-// This is not exactly zero overhead since Option<Zero> takes one byte rather than zero byte.
-// What I want is closer to Option<!> but implementing this will be complicated, if not impossible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Zero {}
 #[derive(thiserror::Error, Debug, Clone)]

@@ -34,13 +34,13 @@ pub struct Engine {
 }
 #[derive(Debug, thiserror::Error)]
 /// Represents the error type for the [Engine] creation.
-pub enum EngineError {
+pub enum CreateEngineError {
     #[error("{0}")] // inherits the error message from the wrapped EngineBaseError
     /// A wrapper for the [EngineBaseError](crate::engine_base::EngineBaseError) error type.
-    EngineBaseError(#[from] crate::engine_base::EngineBaseError),
+    EngineBaseError(#[from] crate::engine_base::CreateEngineBaseError),
     #[error("{0}")] // inherits the error message from the wrapped GrammarError
     /// A wrapper for the [GrammarError](crate::grammar::GrammarError) error type.
-    GrammarError(#[from] crate::grammar::GrammarError),
+    GrammarError(#[from] crate::grammar::CreateGrammarError),
     #[error("The grammar after simplification is empty.
     This usually means that the grammar only contains empty terminals and/or self recursions like A::=A;")]
     /// The grammar is empty.
@@ -68,7 +68,7 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, EngineError> {
+    pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, CreateEngineError> {
         let config = Config::default();
         Self::with_config(ebnf_grammar_str, vocabulary, config)
     }
@@ -97,12 +97,12 @@ impl Engine {
         ebnf_grammar_str: &str,
         vocabulary: Vocabulary,
         config: Config,
-    ) -> Result<Self, EngineError> {
+    ) -> Result<Self, CreateEngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
         let grammar = utils::construct_ebnf_grammar(ebnf_grammar_str, internal_config.clone())?;
         if grammar.is_empty() {
-            return Err(EngineError::EmptyGrammarError);
+            return Err(CreateEngineError::EmptyGrammarError);
         }
         let max_r = utils::find_max_repetition_from_ebnf_grammar(&grammar);
         let td = utils::find_max_dotted_position_from_ebnf_grammar(&grammar);
@@ -229,7 +229,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else {
-            return Err(EngineError::InvalidInputError);
+            return Err(CreateEngineError::InvalidInputError);
         };
         Ok(Self { union: engine })
     }
@@ -295,31 +295,31 @@ impl EngineLike for Engine {
         }
     }
 
-    fn get_allowed_token_ids_from_last_computation(&self) -> &fixedbitset::FixedBitSet {
+    fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset::FixedBitSet {
         match &self.union {
             EngineUnion::U8U0U8U8U8U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U8U0U8U16U16U16(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U16U0U16U32U32U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U8U8U8U8U8U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U8U8U8U16U16U16(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U16U8U16U32U32U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U8U16U8U8U8U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U16U16U16U32U32U32(engine) => {
-                engine.get_allowed_token_ids_from_last_computation()
+                engine.allowed_token_ids_from_last_computation()
             }
         }
     }
@@ -378,16 +378,16 @@ impl EngineLike for Engine {
             }),
         }
     }
-    fn get_vocab(&self) -> Arc<Vocabulary> {
+    fn vocab(&self) -> Arc<Vocabulary> {
         match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.get_vocab(),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.get_vocab(),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.get_vocab(),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.get_vocab(),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.get_vocab(),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.get_vocab(),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.get_vocab(),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.get_vocab(),
+            EngineUnion::U8U0U8U8U8U32(engine) => engine.vocab(),
+            EngineUnion::U8U0U8U16U16U16(engine) => engine.vocab(),
+            EngineUnion::U16U0U16U32U32U32(engine) => engine.vocab(),
+            EngineUnion::U8U8U8U8U8U32(engine) => engine.vocab(),
+            EngineUnion::U8U8U8U16U16U16(engine) => engine.vocab(),
+            EngineUnion::U16U8U16U32U32U32(engine) => engine.vocab(),
+            EngineUnion::U8U16U8U8U8U32(engine) => engine.vocab(),
+            EngineUnion::U16U16U16U32U32U32(engine) => engine.vocab(),
         }
     }
 }

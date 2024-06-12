@@ -9,7 +9,7 @@ use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
 
 use crate::config::InternalConfig;
-use crate::grammar::GrammarError;
+use crate::grammar::CreateGrammarError;
 
 pub(crate) type ByteSet = FixedBitSet<{ get_nblock(u8::MAX as usize) }>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
@@ -22,7 +22,7 @@ pub(crate) enum FsaStateStatus {
 pub fn construct_ebnf_grammar(
     input: &str,
     config: InternalConfig,
-) -> Result<SimplifiedGrammar, GrammarError> {
+) -> Result<SimplifiedGrammar, CreateGrammarError> {
     let grammar = ebnf::get_grammar(input).map_err(|e| match e {
         nom::Err::Error(e) => nom::Err::Error(VerboseError {
             errors: e

@@ -1,11 +1,7 @@
 #[cfg(test)]
 
 mod tests {
-    use std::{
-        fs::File,
-        io::{BufRead, BufReader},
-        path::Path,
-    };
+    use std::{fs::File, io::BufReader, path::Path};
 
     use ahash::AHashMap;
     use insta::assert_snapshot;
@@ -63,14 +59,14 @@ mod tests {
     }
 
     fn get_token_id_from_str(vocab: &Vocabulary, token: &str) -> Option<u32> {
-        vocab.get_token_id_from_token(&Token(token.as_bytes().to_vec().into_boxed_slice()))
+        vocab.token_id(&Token(token.as_bytes().to_vec().into_boxed_slice()))
     }
 
     #[test]
     fn minimal_case() {
         let input = "start::='aaa';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         assert!(
             engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
@@ -111,12 +107,12 @@ mod tests {
     fn left_recursion() {
         let input = "start::='bb'|start'bb';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("bb".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("bb".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -128,7 +124,7 @@ mod tests {
     fn right_recursion() {
         let input = "start::=C'\n';C::='c'|'c' C;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let config = kbnf::config::Config {
             engine_config: EngineConfig {
                 cache_enabled: true,
@@ -141,7 +137,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .get_token_id_from_token(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                        .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
@@ -152,7 +148,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -163,7 +159,7 @@ mod tests {
     fn indirect_right_recursion() {
         let input = "start::=A'\n';A::='x'|'x' B;B::='y'|'y' A;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let config = kbnf::config::Config {
             engine_config: EngineConfig {
                 cache_enabled: true,
@@ -177,7 +173,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .get_token_id_from_token(&Token(
+                        .token_id(&Token(
                             value.as_bytes().to_vec().into_boxed_slice(),
                         ))
                         .unwrap(),
@@ -190,7 +186,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -201,13 +197,13 @@ mod tests {
     fn middle_recursion() {
         let input = "start::=('{'start'}')?;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         for _ in 0..10 {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .get_token_id_from_token(&Token("{".as_bytes().to_vec().into_boxed_slice()))
+                        .token_id(&Token("{".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
@@ -218,7 +214,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .get_token_id_from_token(&Token("}".as_bytes().to_vec().into_boxed_slice()))
+                        .token_id(&Token("}".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
@@ -228,7 +224,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("}".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("}".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -239,14 +235,14 @@ mod tests {
     fn always_match_regex() {
         let input = "start::=#\".+\"'\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         for j in 0..1 {
             for i in 0..5 {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .get_token_id_from_token(&Token(
+                            .token_id(&Token(
                                 "imper".as_bytes().to_vec().into_boxed_slice(),
                             ))
                             .unwrap(),
@@ -258,7 +254,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .get_token_id_from_token(&Token(
+                        .token_id(&Token(
                             "\n".as_bytes().to_vec().into_boxed_slice(),
                         ))
                         .unwrap(),
@@ -272,14 +268,14 @@ mod tests {
     fn excepted_basic() {
         let input = "start::=except!('\n\n')'\n\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         for j in 0..1 {
             for i in 0..5 {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .get_token_id_from_token(&Token(
+                            .token_id(&Token(
                                 "imper".as_bytes().to_vec().into_boxed_slice(),
                             ))
                             .unwrap(),
@@ -292,7 +288,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -300,7 +296,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -309,7 +305,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -322,14 +318,14 @@ mod tests {
     fn excepted_basic2() {
         let input = "start::=except!('\n\n',5)'\n\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.get_vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         for j in 0..1 {
             for i in 0..5 {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .get_token_id_from_token(&Token(
+                            .token_id(&Token(
                                 "a".as_bytes().to_vec().into_boxed_slice(),
                             ))
                             .unwrap(),
@@ -342,14 +338,14 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
         assert_eq!(result, AcceptTokenResult::Ongoing);
         let result = engine.try_accept_new_token(
             vocab
-                .get_token_id_from_token(&Token("a".as_bytes().to_vec().into_boxed_slice()))
+                .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
                 .unwrap(),
         );
         assert_eq!(result, Err(kbnf::engine_like::AcceptTokenError::Rejected));
@@ -357,7 +353,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -367,7 +363,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
@@ -376,7 +372,7 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .get_token_id_from_token(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();

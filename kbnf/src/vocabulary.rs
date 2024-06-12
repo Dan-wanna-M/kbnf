@@ -56,11 +56,11 @@ impl Debug for Vocabulary {
             .field("first_byte_to_normal_tokens", {
                 let mut hash_map = AHashMap::new();
                 for byte in 0..u8::MAX as usize + 1 {
-                    let mut iter = self.get_normal_tokens_from_first_byte(byte as u8);
+                    let mut iter = self.normal_tokens_from_first_byte(byte as u8);
                     while let Some(item) = iter.next() {
                         if let TokenIterItem::TokenByte(byte) = item {
                             hash_map
-                                .entry(iter.get_current_token_id().unwrap())
+                                .entry(iter.current_token_id().unwrap())
                                 .or_insert_with(Vec::new)
                                 .push(byte.get());
                         }
@@ -77,7 +77,7 @@ impl Debug for Vocabulary {
 }
 #[derive(Debug, thiserror::Error)]
 /// The error type for [Vocabulary] creation.
-pub enum VocabularyError {
+pub enum CreateVocabularyError {
     /// The token ID and token ID corresponds to the same token.
     #[error("Token ID {0} and token ID {1} corresponds to the same token.")]
     DuplicateToken(u32, u32),
@@ -99,9 +99,9 @@ impl Vocabulary {
     pub fn new(
         id_to_token: AHashMap<u32, Token>,
         id_to_token_string: AHashMap<u32, String>,
-    ) -> Result<Self, VocabularyError> {
+    ) -> Result<Self, CreateVocabularyError> {
         if id_to_token.len() >= 0x1000000 {
-            return Err(VocabularyError::VocabularyTooLarge(
+            return Err(CreateVocabularyError::VocabularyTooLarge(
                 id_to_token.len() as u32,
                 0x1000000,
             ));
@@ -110,7 +110,10 @@ impl Vocabulary {
         for (&token_id, token) in id_to_token.iter() {
             match token_to_id.entry(token.clone()) {
                 Entry::Occupied(entry) => {
-                    return Err(VocabularyError::DuplicateToken(token_id, *entry.get()));
+                    return Err(CreateVocabularyError::DuplicateToken(
+                        token_id,
+                        *entry.get(),
+                    ));
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(token_id);
@@ -159,7 +162,7 @@ impl Vocabulary {
     ///
     /// * `Some(u32)` - The token ID if it exists.
     /// * `None` - If the token does not exist in the vocabulary.
-    pub fn get_token_id_from_token(&self, token: &Token) -> Option<u32> {
+    pub fn token_id(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
 
@@ -173,7 +176,7 @@ impl Vocabulary {
     ///
     /// * `Some(&Token)` - The token if it exists.
     /// * `None` - If the token ID is out of range.
-    pub fn get_token_from_token_id(&self, token_id: u32) -> Option<&Token> {
+    pub fn token(&self, token_id: u32) -> Option<&Token> {
         self.id_to_token.get(&token_id)
     }
 
@@ -187,12 +190,12 @@ impl Vocabulary {
     ///
     /// * `Some(&str)` - The token string if it exists.
     /// * `None` - If the token ID is out of range.
-    pub fn get_token_string_from_token_id(&self, token_id: u32) -> Option<&str> {
+    pub fn token_string(&self, token_id: u32) -> Option<&str> {
         self.id_to_token_string.get(&token_id).map(|x| x.as_str())
     }
 
     /// Retrieves the size of the vocabulary.
-    pub fn get_vocab_size(&self) -> usize {
+    pub fn vocab_size(&self) -> usize {
         self.id_to_token
             .keys()
             .copied()
@@ -210,7 +213,7 @@ impl Vocabulary {
     /// # Returns
     ///
     /// An iterator over the normal tokens with the given first byte.
-    pub(crate) fn get_normal_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {
+    pub(crate) fn normal_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {
         TokensIter {
             current_token_id: None,
             iter: self
@@ -226,7 +229,7 @@ impl Vocabulary {
     /// # Returns
     ///
     /// An iterator over the tokens that contain separators.
-    pub(crate) fn get_tokens_containing_separators(&self) -> impl Iterator<Item = (u32, &Token)> {
+    pub(crate) fn tokens_containing_separators(&self) -> impl Iterator<Item = (u32, &Token)> {
         self.tokens_containing_separators
             .iter()
             .map(|(x, y)| (*x, y))
@@ -267,7 +270,7 @@ impl Iterator for TokensIter<'_> {
 }
 
 impl TokensIter<'_> {
-    pub fn get_current_token_id(&self) -> Option<NonMaxU32> {
+    pub fn current_token_id(&self) -> Option<NonMaxU32> {
         self.current_token_id
     }
 }

@@ -1,7 +1,14 @@
 [package]
-name = "kbnf"
-version = "0.1.0"
+authors = ["Xintong Sun <xs28@rice.edu>"]
+categories = ["science", "text-processing"]
+description = "A general purpose constrained decoding engine based on context free grammar."
 edition = "2021"
+exclude = []
+keywords = ["deep-learning", "language", "model", "decoding"]
+license = "MIT OR Apache-2.0"
+name = "kbnf"
+repository =  "https://github.com/Dan-Wanna-M/kbnf"
+version = "0.1.0"
 
 [dependencies]
 ahash = "0.8.11"

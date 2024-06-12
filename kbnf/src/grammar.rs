@@ -50,7 +50,7 @@ where
     {
         format!(
             "\"{}\"[{}]",
-            grammar.get_terminal_str(*self).unwrap(),
+            grammar.terminal_str(*self).unwrap(),
             self.0.as_()
         )
     }
@@ -85,7 +85,7 @@ where
     {
         format!(
             "{}[{}]",
-            grammar.get_nonterminal_str(*self).unwrap(),
+            grammar.nonterminal_str(*self).unwrap(),
             self.0.as_()
         )
     }
@@ -120,7 +120,7 @@ where
     {
         format!(
             "except!({}{})[{}]",
-            grammar.get_excepted_str(*self).unwrap(),
+            grammar.excepted_str(*self).unwrap(),
             self.0.as_(),
             if r.as_() != INVALID_REPETITION {
                 r.as_().to_string()
@@ -160,7 +160,7 @@ where
     {
         format!(
             "#\"{}\"[{}]",
-            grammar.get_regex_str(*self).unwrap(),
+            grammar.regex_str(*self).unwrap(),
             self.0.as_()
         )
     }
@@ -200,7 +200,7 @@ where
         match self {
             HIRNode::Terminal(x) => x.to_display_form(grammar),
             HIRNode::RegexString(x) => {
-                format!("#\"{}\"[{}]", grammar.get_regex_str(*x).unwrap(), x.0.as_())
+                format!("#\"{}\"[{}]", grammar.regex_str(*x).unwrap(), x.0.as_())
             }
             HIRNode::Nonterminal(x) => x.to_display_form(grammar),
             HIRNode::EXCEPT(x, r) => x.to_display_form(grammar, *r),
@@ -228,7 +228,7 @@ where
 
 #[derive(Debug, thiserror::Error)]
 /// The error type for errors in Grammar creation.
-pub enum GrammarError {
+pub enum CreateGrammarError {
     #[error("EBNF parsing error: {0}")]
     /// Error due to parsing the EBNF grammar.
     ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to clone the str to remove lifetime so pyo3 works later
@@ -343,7 +343,7 @@ where
                         },
                         |x| TerminalID(x.as_()).to_display_form(self),
                     ),
-                    |(x,&y)| (x.clone(),y),
+                    |(x, &y)| (x.clone(), y),
                 ),
             )
             .finish()
@@ -383,7 +383,7 @@ where
     ///
     /// Returns an error if the conversion from [usize] to the generic parameter fails, or if the regex initialization fails.
     /// More information about the error can be found in the [GrammarError] enum docs.
-    pub fn new(grammar: SimplifiedGrammar) -> Result<Self, GrammarError> {
+    pub fn new(grammar: SimplifiedGrammar) -> Result<Self, CreateGrammarError> {
         let mut id_to_terminals = JaggedArray::<u8, Vec<usize>, 2>::new();
         for (id, terminal) in grammar.interned_strings.terminals.iter() {
             id_to_terminals.new_row::<0>();
@@ -406,7 +406,7 @@ where
                         rules.push_to_last_row(match node {
                             FinalNode::Terminal(x) => HIRNode::Terminal(TerminalID(
                                 x.to_usize().try_into().map_err(|_| {
-                                    GrammarError::IntConversionError(
+                                    CreateGrammarError::IntConversionError(
                                         "terminal".to_string(),
                                         x.to_usize(),
                                         TI::max_value().as_(),
@@ -415,7 +415,7 @@ where
                             )),
                             FinalNode::RegexString(x) => HIRNode::RegexString(RegexID(
                                 x.to_usize().try_into().map_err(|_| {
-                                    GrammarError::IntConversionError(
+                                    CreateGrammarError::IntConversionError(
                                         "regex".to_string(),
                                         x.to_usize(),
                                         TI::max_value().as_(),
@@ -424,7 +424,7 @@ where
                             )),
                             FinalNode::Nonterminal(x) => HIRNode::Nonterminal(NonterminalID(
                                 x.to_usize().try_into().map_err(|_| {
-                                    GrammarError::IntConversionError(
+                                    CreateGrammarError::IntConversionError(
                                         "nonterminal".to_string(),
                                         x.to_usize(),
                                         TI::max_value().as_(),
@@ -433,7 +433,7 @@ where
                             )),
                             FinalNode::EXCEPT(x, r) => HIRNode::EXCEPT(
                                 ExceptedID(x.to_usize().try_into().map_err(|_| {
-                                    GrammarError::IntConversionError(
+                                    CreateGrammarError::IntConversionError(
                                         "excepted".to_string(),
                                         x.to_usize(),
                                         TI::max_value().as_(),
@@ -441,7 +441,7 @@ where
                                 })?),
                                 match r {
                                     Some(r) => r.to_usize().try_into().map_err(|_| {
-                                        GrammarError::IntConversionError(
+                                        CreateGrammarError::IntConversionError(
                                             "repetition".to_string(),
                                             r.to_usize(),
                                             TE::max_value().as_(),
@@ -465,7 +465,7 @@ where
         Ok(Self {
             start_nonterminal_id: NonterminalID(
                 grammar.start_symbol.to_usize().try_into().map_err(|_| {
-                    GrammarError::IntConversionError(
+                    CreateGrammarError::IntConversionError(
                         "start_nonterminal".to_string(),
                         grammar.start_symbol.to_usize(),
                         TI::max_value().as_(),
@@ -486,7 +486,7 @@ where
         id_to_regexes: &[FiniteStateAutomaton],
         config: &regex_automata::util::start::Config,
         negated: bool,
-    ) -> Result<Vec<ByteSet>, GrammarError> {
+    ) -> Result<Vec<ByteSet>, CreateGrammarError> {
         let mut id_to_regex_first_bytes = vec![];
         for regex in id_to_regexes.iter() {
             let mut set = ByteSet::with_capacity(256);
@@ -522,7 +522,7 @@ where
     /// # Panics
     ///
     /// Panics if the nonterminal id, dot position, or production id is out of bounds.
-    pub fn get_node<TP, TD>(
+    pub fn node<TP, TD>(
         &self,
         nonterminal_id: NonterminalID<TI>,
         dot_position: TD,
@@ -544,7 +544,7 @@ where
     /// # Safety
     ///
     /// The caller must ensure that the nonterminal id, dot position, and production id are within bounds.
-    pub unsafe fn get_node_unchecked<TP, TD>(
+    pub unsafe fn node_unchecked<TP, TD>(
         &self,
         nonterminal_id: NonterminalID<TI>,
         dot_position: TD,
@@ -561,39 +561,34 @@ where
         ])
     }
     #[inline]
-    /// Get the length of the production.
-    /// 
-    /// # Safety
-    /// 
-    /// The caller must ensure that the nonterminal id is within bounds.
-    pub(crate) unsafe fn get_productions_len(&self, nonterminal_id: NonterminalID<TI>) -> usize {
-        self.rules.view_unchecked::<2, 1>([nonterminal_id.0.as_(), 0]).len()
-    }
-    #[inline]
     /// Get the interned strings.
-    pub fn get_interned_strings(&self) -> &InternedStrings {
+    pub fn interned_strings(&self) -> &InternedStrings {
         &self.interned_strings
     }
+    #[inline]
     /// Get the nonterminal string from the grammar.
-    pub fn get_nonterminal_str(&self, nonterminal_id: NonterminalID<TI>) -> Option<&str> {
+    pub fn nonterminal_str(&self, nonterminal_id: NonterminalID<TI>) -> Option<&str> {
         self.interned_strings
             .nonterminals
             .resolve(SymbolU32::try_from_usize(nonterminal_id.0.as_()).unwrap())
     }
+    #[inline]
     /// Get the terminal string from the grammar.
-    pub fn get_terminal_str(&self, terminal_id: TerminalID<TI>) -> Option<&str> {
+    pub fn terminal_str(&self, terminal_id: TerminalID<TI>) -> Option<&str> {
         self.interned_strings
             .terminals
             .resolve(SymbolU32::try_from_usize(terminal_id.0.as_()).unwrap())
     }
+    #[inline]
     /// Get the regex string from the grammar.
-    pub fn get_regex_str(&self, regex_id: RegexID<TI>) -> Option<&str> {
+    pub fn regex_str(&self, regex_id: RegexID<TI>) -> Option<&str> {
         self.interned_strings
             .regex_strings
             .resolve(SymbolU32::try_from_usize(regex_id.0.as_()).unwrap())
     }
+    #[inline]
     /// Get the excepted string from the grammar.
-    pub fn get_excepted_str(&self, excepted_id: ExceptedID<TI>) -> Option<&str> {
+    pub fn excepted_str(&self, excepted_id: ExceptedID<TI>) -> Option<&str> {
         self.interned_strings
             .excepteds
             .resolve(SymbolU32::try_from_usize(excepted_id.0.as_()).unwrap())
@@ -601,7 +596,7 @@ where
 
     #[inline]
     /// Get the regex from the grammar.
-    pub fn get_regex(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
+    pub fn regex(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_regexes[regex_id.0.as_()]
     }
     #[inline]
@@ -610,17 +605,17 @@ where
     /// # Safety
     ///
     /// The caller must ensure that the regex id is within bounds.
-    pub unsafe fn get_regex_unchecked(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
+    pub unsafe fn regex_unchecked(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         self.id_to_regexes.get_unchecked(regex_id.0.as_())
     }
     #[inline]
     /// Get the excepted from the grammar.
-    pub fn get_excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
+    pub fn excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_excepteds[excepted_id.0.as_()]
     }
     #[inline]
     /// Get the terminal from the grammar.
-    pub fn get_terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
+    pub fn terminal(&self, terminal_id: TerminalID<TI>) -> &[u8] {
         self.id_to_terminals.view([terminal_id.0.as_()]).as_slice()
     }
     #[inline]
@@ -629,48 +624,48 @@ where
     /// # Safety
     ///
     /// The caller must ensure that the terminal id is within bounds.
-    pub unsafe fn get_terminal_unchecked(&self, terminal_id: TerminalID<TI>) -> &[u8] {
+    pub unsafe fn terminal_unchecked(&self, terminal_id: TerminalID<TI>) -> &[u8] {
         self.id_to_terminals
             .view_unchecked([terminal_id.0.as_()])
             .as_slice()
     }
     #[inline]
     /// Get the terminals from the grammar.
-    pub fn get_id_to_terminals(&self) -> &JaggedArray<u8, Vec<usize>, 2> {
+    pub fn id_to_terminals(&self) -> &JaggedArray<u8, Vec<usize>, 2> {
         &self.id_to_terminals
     }
     #[inline]
     /// Get the regexes from the grammar.
-    pub fn get_id_to_regexes(&self) -> &[FiniteStateAutomaton] {
+    pub fn id_to_regexes(&self) -> &[FiniteStateAutomaton] {
         &self.id_to_regexes
     }
     #[inline]
     /// Get the excepteds from the grammar.
-    pub fn get_id_to_excepteds(&self) -> &[FiniteStateAutomaton] {
+    pub fn id_to_excepteds(&self) -> &[FiniteStateAutomaton] {
         &self.id_to_excepteds
     }
     #[inline]
     /// Get the terminals size.
-    pub fn get_nonterminals_size(&self) -> usize {
+    pub fn nonterminals_size(&self) -> usize {
         self.interned_strings.nonterminals.len()
     }
     #[inline]
-    pub(crate) fn get_first_bytes_from_regex(&self, regex_id: RegexID<TI>) -> &ByteSet {
+    pub(crate) fn first_bytes_from_regex(&self, regex_id: RegexID<TI>) -> &ByteSet {
         &self.id_to_regex_first_bytes[regex_id.0.as_()]
     }
     #[inline]
-    pub(crate) fn get_first_bytes_from_excepted(&self, excepted_id: ExceptedID<TI>) -> &ByteSet {
+    pub(crate) fn first_bytes_from_excepted(&self, excepted_id: ExceptedID<TI>) -> &ByteSet {
         &self.id_to_excepted_first_bytes[excepted_id.0.as_()]
     }
     #[inline]
-    pub(crate) unsafe fn get_dotted_productions(
+    pub(crate) unsafe fn dotted_productions(
         &self,
         nonterminal_id: NonterminalID<TI>,
     ) -> JaggedArrayView<HIRNode<TI, TE>, usize, 2> {
         unsafe { self.rules.view_unchecked::<1, 2>([nonterminal_id.0.as_()]) }
     }
     #[inline]
-    pub(crate) fn get_rules(&self) -> &JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3> {
+    pub(crate) fn rules(&self) -> &JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3> {
         &self.rules
     }
 }

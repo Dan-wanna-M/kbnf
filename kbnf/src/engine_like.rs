@@ -106,7 +106,7 @@ pub trait EngineLike {
     /// # Returns
     ///
     /// A `FixedBitSet` representing the current allowed token IDs.
-    fn get_allowed_token_ids_from_last_computation(&self) -> &FixedBitSet;
+    fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet;
 
     /// Checks if the engine is finished.
     ///
@@ -120,5 +120,5 @@ pub trait EngineLike {
     /// Converts the engine to a boxed engine.
     fn into_boxed_engine(self) -> Box<dyn EngineLike>;
     /// Gets the vocabulary of the engine as an Arc.
-    fn get_vocab(&self)->Arc<Vocabulary>;
+    fn vocab(&self)->Arc<Vocabulary>;
 }

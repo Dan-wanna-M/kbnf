@@ -88,8 +88,7 @@ where
             + NumAssign,
         usize: num::traits::AsPrimitive<TE>,
     {
-        let dotted_productions =
-            unsafe { engine.grammar.get_dotted_productions(self.nonterminal_id) };
+        let dotted_productions = unsafe { engine.grammar.dotted_productions(self.nonterminal_id) };
         let mut dotted_rule = format!(
             "{} -> ",
             self.nonterminal_id.to_display_form(&engine.grammar)
@@ -110,14 +109,14 @@ where
             dotted_rule.push('.');
             format!("[{}]", self.state_id.as_())
         } else {
-            match engine.grammar.get_node(
+            match engine.grammar.node(
                 self.nonterminal_id,
                 self.dot_position,
                 self.production_index,
             ) {
                 HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
                 &HIRNode::RegexString(id) => {
-                    match engine.grammar.get_regex(id) {
+                    match engine.grammar.regex(id) {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             format!(
                             "[{}({})]",
@@ -133,7 +132,7 @@ where
                         }
                     }
                 }
-                &HIRNode::EXCEPT(id, r) => match engine.grammar.get_excepted(id) {
+                &HIRNode::EXCEPT(id, r) => match engine.grammar.excepted(id) {
                     FiniteStateAutomaton::Dfa(dfa) => match r.as_() {
                         INVALID_REPETITION => format!(
                             "[{}({})]",
@@ -363,7 +362,7 @@ pub struct EngineConfig {
 }
 /// The error type for errors in [EngineBase] creation.
 #[derive(Debug, thiserror::Error)]
-pub enum EngineBaseError {
+pub enum CreateEngineBaseError {
     #[error(
         "Terminal length {0} exceeds {1}, the maximum terminal length allowed by current size of StateID(TS).
      Consider reducing terminal length or use larger StateID(TS)."
@@ -614,11 +613,15 @@ where
     ///
     /// Returns an error if the terminal length, regex length, excepted length
     /// or repetition in regex exceeds the maximum allowed by the current size of StateID(TS).
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the size of StateID(TS) exceeds the size of usize.
     pub fn new(
         vocabulary: Arc<Vocabulary>,
         grammar: Arc<Grammar<TI, TE>>,
         config: EngineConfig,
-    ) -> Result<Self, EngineBaseError> {
+    ) -> Result<Self, CreateEngineBaseError> {
         // Verify necessary conditions
         assert!(
             Self::STATE_ID_TYPE_SIZE <= USIZE_WIDTH,
@@ -631,12 +634,12 @@ where
         Self::validate_ts_size_for_excepted(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
-        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.get_vocab_size());
+        let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
         let already_predicted_nonterminals =
-            FixedBitSet::with_capacity(grammar.get_nonterminals_size());
+            FixedBitSet::with_capacity(grammar.nonterminals_size());
         let postdot_items = AHashMap::default();
         let mut engine = Self {
             vocabulary,
@@ -683,38 +686,30 @@ where
     fn get_display_form_from_token_ids(&self, bitset: &fixedbitset::FixedBitSet) -> Vec<String> {
         bitset
             .ones()
-            .map(|x| {
-                format!(
-                    "{}[{}]",
-                    self.vocabulary
-                        .get_token_string_from_token_id(x as u32)
-                        .unwrap(),
-                    x
-                )
-            })
+            .map(|x| format!("{}[{}]", self.vocabulary.token_string(x as u32).unwrap(), x))
             .collect()
     }
 
-    fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
-        let terminals = grammar.get_id_to_terminals();
+    fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+        let terminals = grammar.id_to_terminals();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
             let terminal = terminals.view::<1, 1>([i]);
             if terminal.len() > max {
-                return Err(EngineBaseError::TerminalTooLong(terminal.len(), max));
+                return Err(CreateEngineBaseError::TerminalTooLong(terminal.len(), max));
             }
         }
         Ok(())
     }
 
-    fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
-        let regexes = grammar.get_id_to_regexes();
+    fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+        let regexes = grammar.id_to_regexes();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
             match fsa {
                 FiniteStateAutomaton::Dfa(dfa) => {
                     if dfa.state_len() > max {
-                        return Err(EngineBaseError::RegexTooLarge(dfa.state_len(), max));
+                        return Err(CreateEngineBaseError::RegexTooLarge(dfa.state_len(), max));
                     }
                 }
             }
@@ -722,8 +717,8 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_excepted(grammar: &Grammar<TI, TE>) -> Result<(), EngineBaseError> {
-        let rules = grammar.get_rules();
+    fn validate_ts_size_for_excepted(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+        let rules = grammar.rules();
         for i in 0..rules.len() {
             let productions = rules.view::<1, 2>([i]);
             for j in 0..productions.len() {
@@ -732,13 +727,13 @@ where
                     let node = column[[k]];
                     if let HIRNode::EXCEPT(id, _) = node {
                         // repetition is verified in grammar
-                        let fsa = grammar.get_excepted(id);
+                        let fsa = grammar.excepted(id);
                         let max: usize =
                             (1 << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) - 1;
                         match fsa {
                             FiniteStateAutomaton::Dfa(dfa) => {
                                 if dfa.state_len() > max {
-                                    return Err(EngineBaseError::ExceptedTooLarge(
+                                    return Err(CreateEngineBaseError::ExceptedTooLarge(
                                         dfa.state_len(),
                                         max,
                                     ));
@@ -768,7 +763,7 @@ where
             let item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
             // SAFETY: Earley algorithm guarantees item is a valid index
             let node = unsafe {
-                *grammar.get_node_unchecked(
+                *grammar.node_unchecked(
                     item.nonterminal_id,
                     item.dot_position,
                     item.production_index,
@@ -798,7 +793,7 @@ where
     ) -> TS {
         match node {
             HIRNode::RegexString(id) => {
-                let fsa = grammar.get_regex(id);
+                let fsa = grammar.regex(id);
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
@@ -808,7 +803,7 @@ where
                 }
             }
             HIRNode::EXCEPT(id, r) => {
-                let fsa = grammar.get_excepted(id);
+                let fsa = grammar.excepted(id);
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
@@ -849,7 +844,7 @@ where
             // in other words, the jagged array.
             // - 0 is always valid since no nonterminal could have an empty production.
             let productions =
-                unsafe { grammar.get_rules().view_unchecked::<2, 1>([nid, 0]) }.as_slice();
+                unsafe { grammar.rules().view_unchecked::<2, 1>([nid, 0]) }.as_slice();
             earley_sets.buffer_reserve(productions.len());
             for (j, node) in productions.iter().copied().enumerate() {
                 let production_index = j.as_();
@@ -879,7 +874,7 @@ where
         let earley_set_index = self.earley_sets.len() - 1;
         let earley_set = self.earley_sets.view::<1, 1>([earley_set_index]).as_slice();
         for item in earley_set.iter().copied() {
-            let node = *self.grammar.get_node(
+            let node = *self.grammar.node(
                 item.nonterminal_id,
                 item.dot_position,
                 item.production_index,
@@ -887,15 +882,15 @@ where
             match node {
                 HIRNode::Terminal(terminal_id) => {
                     self.allowed_first_bytes
-                        .insert(self.grammar.get_terminal(terminal_id)[0].as_());
+                        .insert(self.grammar.terminal(terminal_id)[0].as_());
                 }
                 HIRNode::RegexString(regex_id) => {
                     self.allowed_first_bytes
-                        .union_with(self.grammar.get_first_bytes_from_regex(regex_id));
+                        .union_with(self.grammar.first_bytes_from_regex(regex_id));
                 }
                 HIRNode::EXCEPT(excepted_id, _) => {
                     self.allowed_first_bytes
-                        .union_with(self.grammar.get_first_bytes_from_excepted(excepted_id));
+                        .union_with(self.grammar.first_bytes_from_excepted(excepted_id));
                 }
                 _ => {}
             }
@@ -913,7 +908,7 @@ where
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
     {
         // SAFETY: nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
-        let view = unsafe { grammar.get_dotted_productions(nonterminal_id) };
+        let view = unsafe { grammar.dotted_productions(nonterminal_id) };
         if new_dot_position.as_() < view.len() {
             // SAFETY: new_dot_position is guaranteed to be valid since we checked it in the previous line
             let view = unsafe { view.view_unchecked::<1, 1>([new_dot_position.as_()]) };
@@ -951,7 +946,7 @@ where
                 // dot_position is guaranteed to be valid since we checked it in Self::item_should_be_completed
                 // production_index is guaranteed to be valid since we checked it in Self::item_should_be_completed
                 unsafe {
-                    *grammar.get_node_unchecked(
+                    *grammar.node_unchecked(
                         item.nonterminal_id,
                         new_dotted_position,
                         item.production_index,
@@ -1061,7 +1056,7 @@ where
             // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
             // both of which guarantee the validity.
             let node = unsafe {
-                *grammar.get_node_unchecked(
+                *grammar.node_unchecked(
                     item.nonterminal_id,
                     item.dot_position,
                     item.production_index,
@@ -1070,7 +1065,7 @@ where
             match node {
                 HIRNode::Terminal(terminal_id) => {
                     // SAFETY: terminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
-                    let terminal = unsafe { grammar.get_terminal_unchecked(terminal_id) };
+                    let terminal = unsafe { grammar.terminal_unchecked(terminal_id) };
                     let mut index = Self::from_state_id_to_index(item.state_id);
                     // SAFETY: index is guaranteed to be valid since line 1075 ensures it is within the terminal length
                     if unsafe { *terminal.get_unchecked(index) } == byte {
@@ -1097,7 +1092,7 @@ where
                 }
                 HIRNode::RegexString(regex_id) => {
                     // SAFETY: regex_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
-                    let regex = unsafe { grammar.get_regex_unchecked(regex_id) };
+                    let regex = unsafe { grammar.regex_unchecked(regex_id) };
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             let mut state_id =
@@ -1140,7 +1135,7 @@ where
                     }
                 }
                 HIRNode::EXCEPT(excepted_id, _) => {
-                    let fsa = grammar.get_excepted(excepted_id);
+                    let fsa = grammar.excepted(excepted_id);
                     match fsa {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             let (state_id, mut r) = Self::from_state_id_to_dfa_state_id_with_r(
@@ -1241,7 +1236,7 @@ where
             // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
             // both of which guarantee the validity.
             let node = *unsafe {
-                grammar.get_node_unchecked(
+                grammar.node_unchecked(
                     item.nonterminal_id,
                     item.dot_position,
                     item.production_index,
@@ -1650,7 +1645,7 @@ where
         if self.is_finished() {
             return Err(crate::engine_like::AcceptTokenError::Finished);
         }
-        let token = match self.vocabulary.get_token_from_token_id(token_id) {
+        let token = match self.vocabulary.token(token_id) {
             Some(token) => token,
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
@@ -1756,9 +1751,7 @@ where
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
             let mut current_token_id: Option<NonMaxU32> = None;
-            let mut token_iter = self
-                .vocabulary
-                .get_normal_tokens_from_first_byte(byte as u8);
+            let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
             #[allow(clippy::while_let_loop)]
             'outer: loop {
                 if let Some(token_byte) = token_iter.next() {
@@ -1794,7 +1787,7 @@ where
                                         Some(TokenIterItem::TokenByte(_)) => {} // skip the remaining token bytes
                                         Some(TokenIterItem::NewToken) => {
                                             // reach the next token
-                                            current_token_id = token_iter.get_current_token_id();
+                                            current_token_id = token_iter.current_token_id();
                                             break;
                                         }
                                         None => {
@@ -1819,7 +1812,7 @@ where
                             if let Some(token_id) = current_token_id {
                                 self.allowed_token_ids.insert(token_id.get() as usize);
                             }
-                            current_token_id = token_iter.get_current_token_id();
+                            current_token_id = token_iter.current_token_id();
                         }
                     }
                 } else {
@@ -1837,7 +1830,7 @@ where
                 }
             }
         }
-        for (token_id, token) in self.vocabulary.get_tokens_containing_separators() {
+        for (token_id, token) in self.vocabulary.tokens_containing_separators() {
             let mut accepted = true;
             for byte in token.0.iter().copied() {
                 if Self::accept_byte(
@@ -1889,7 +1882,7 @@ where
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
-        if logits.len() != self.vocabulary.get_vocab_size() {
+        if logits.len() != self.vocabulary.vocab_size() {
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
         for (token_id, logit) in logits.iter_mut().enumerate() {
@@ -1925,7 +1918,7 @@ where
         Ok(crate::engine_like::AcceptTokenResult::Ongoing)
     }
 
-    fn get_allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
+    fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
         &self.allowed_token_ids
     }
 
@@ -1977,7 +1970,7 @@ where
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
         Box::new(self)
     }
-    fn get_vocab(&self) -> Arc<Vocabulary> {
+    fn vocab(&self) -> Arc<Vocabulary> {
         self.vocabulary.clone()
     }
 }
