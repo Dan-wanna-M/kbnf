@@ -1,4 +1,4 @@
-//! This module contains the implementation of the [Engine](crate::engine::Engine) struct and is intended for advanced usages.
+//! This module contains the implementation of the [`Engine`](crate::engine::Engine) struct and is intended for advanced usages.
 use ahash::{AHashMap, AHashSet};
 use ebnf::regex::FiniteStateAutomaton;
 use fixedbitset::FixedBitSet;
@@ -13,18 +13,18 @@ use num::{
 };
 use regex_automata::dfa::Automaton;
 use regex_automata::util::primitives::StateID;
-use serde::Deserialize;
-use serde::Serialize;
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
 use std::sync::Arc;
 
+use crate::engine::EngineConfig;
 use crate::engine_like::EngineLike;
 use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
 use crate::vocabulary::TokenIterItem;
+use crate::AcceptTokenResult;
 use crate::{
     grammar::{Grammar, HIRNode, NonterminalID},
     vocabulary::Vocabulary,
@@ -346,21 +346,7 @@ enum PostDotItemsDebugStruct {
     LeoEligible(EarleyItemDebugStruct),
     NormalItems(Vec<EarleyItemDebugStruct>),
 }
-/// The specific config of the [Engine](crate::engine::Engine).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct EngineConfig {
-    /// Whether the cache is enabled. Caching speeds up the engine if any of the following conditions are met:
-    /// 1. The grammar is 'simple'. What exactly constitutes a simple grammar is not well defined at the moment but
-    /// grammars purely made of left recursive rules, right recursive rules and/or regular rules should be simple.
-    /// 2. The grammar is reused multiple times for inputs of similar lengths.
-    /// It is enabled by default.
-    pub cache_enabled: bool,
-    /// Whether the compaction is enabled. Compaction reduces the memory usage of the engine and
-    /// should not affect the performance significantly. In particular, usually caching requires compaction to be effective.
-    /// It is enabled by default.
-    pub compaction_enabled: bool,
-}
-/// The error type for errors in [EngineBase] creation.
+/// The error type for errors in [`EngineBase`] creation.
 #[derive(Debug, thiserror::Error)]
 pub enum CreateEngineBaseError {
     #[error(
@@ -613,9 +599,9 @@ where
     ///
     /// Returns an error if the terminal length, regex length, excepted length
     /// or repetition in regex exceeds the maximum allowed by the current size of StateID(TS).
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the size of StateID(TS) exceeds the size of usize.
     pub fn new(
         vocabulary: Arc<Vocabulary>,
@@ -690,7 +676,9 @@ where
             .collect()
     }
 
-    fn validate_ts_size_for_terminals(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+    fn validate_ts_size_for_terminals(
+        grammar: &Grammar<TI, TE>,
+    ) -> Result<(), CreateEngineBaseError> {
         let terminals = grammar.id_to_terminals();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
@@ -702,7 +690,9 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_regexes(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+    fn validate_ts_size_for_regexes(
+        grammar: &Grammar<TI, TE>,
+    ) -> Result<(), CreateEngineBaseError> {
         let regexes = grammar.id_to_regexes();
         let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
@@ -717,7 +707,9 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_excepted(grammar: &Grammar<TI, TE>) -> Result<(), CreateEngineBaseError> {
+    fn validate_ts_size_for_excepted(
+        grammar: &Grammar<TI, TE>,
+    ) -> Result<(), CreateEngineBaseError> {
         let rules = grammar.rules();
         for i in 0..rules.len() {
             let productions = rules.view::<1, 2>([i]);
@@ -1792,6 +1784,7 @@ where
                                         }
                                         None => {
                                             // reach the end of the token iterator
+                                            current_token_id = None; // mark the end of the token iterator
                                             break 'outer;
                                         }
                                     }
@@ -1816,18 +1809,21 @@ where
                         }
                     }
                 } else {
-                    // reach the end of the token iterator, revert the last token's change
-                    Self::revert_change(
-                        &mut self.earley_sets,
-                        &mut self.postdot_items,
-                        &mut self.postdot_items_since_last_commit,
-                        &mut self.leo_items,
-                        |_| {},
-                        len,
-                        &mut self.finished,
-                    );
                     break;
                 }
+            }
+            // reach the end of the token iterator, revert the last token's change
+            Self::revert_change(
+                &mut self.earley_sets,
+                &mut self.postdot_items,
+                &mut self.postdot_items_since_last_commit,
+                &mut self.leo_items,
+                |_| {},
+                len,
+                &mut self.finished,
+            );
+            if let Some(token_id) = current_token_id {
+                self.allowed_token_ids.insert(token_id.get() as usize);
             }
         }
         for (token_id, token) in self.vocabulary.tokens_containing_separators() {
@@ -1898,7 +1894,7 @@ where
         token_id: u32,
         logits: &mut [f32],
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::UpdateLogitsError> {
-        self.try_accept_new_token(token_id).map_err(|e| match e {
+        let result = self.try_accept_new_token(token_id).map_err(|e| match e {
             crate::engine_like::AcceptTokenError::Finished => {
                 crate::engine_like::UpdateLogitsError::Finished
             }
@@ -1909,13 +1905,16 @@ where
                 crate::engine_like::UpdateLogitsError::Rejected
             }
         })?;
+        if AcceptTokenResult::Finished == result {
+            return Ok(crate::engine_like::AcceptTokenResult::Finished);
+        }
         self.compute_allowed_token_ids();
         self.mask_logits(logits).map_err(|e| match e {
             crate::engine_like::MaskLogitsError::InvalidLogitsLength => {
                 crate::engine_like::UpdateLogitsError::InvalidLogitsLength
             }
         })?;
-        Ok(crate::engine_like::AcceptTokenResult::Ongoing)
+        Ok(result)
     }
 
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {

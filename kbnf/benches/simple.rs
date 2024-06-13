@@ -4,7 +4,7 @@ use ahash::AHashMap;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kbnf::{
     engine::Engine,
-    engine_base::EngineConfig,
+    engine::EngineConfig,
     engine_like::EngineLike,
     vocabulary::{Token, Vocabulary},
 };

@@ -2,7 +2,7 @@
 use ebnf::regex::FiniteStateAutomatonConfig;
 use serde::{Deserialize, Serialize};
 
-use crate::engine_base::EngineConfig;
+use crate::engine::EngineConfig;
 #[derive(Debug, Clone)]
 /// The internal configuration of the KBNF engine. This is intended for advanced usages.
 pub struct InternalConfig {
@@ -17,7 +17,7 @@ pub struct InternalConfig {
     /// The start nonterminal of the grammar.
     pub start_nonterminal: String,
 }
-/// The configuration of the `Engine` struct. This should suffice most scenarios.
+/// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -45,7 +45,7 @@ pub enum Fsa {
     /// It is a deterministic finite automaton that eagerly computes all the state transitions.
     /// It is the fastest type of finite automaton, but it is also the most memory-consuming.
     /// In particular, construction time and space required could be exponential in the worst case.
-    Dfa
+    Dfa,
 }
 /// The configuration of regular expressions.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -55,7 +55,7 @@ pub struct RegexConfig {
     /// The default is `None`, which means no limit for dfa.
     pub max_memory_usage: Option<usize>,
     /// The type of the Finite State Automaton to be used.
-    /// The default is `FsaType::Dfa`.
+    /// The default is [`Fsa::Dfa`].
     pub fsa_type: Fsa,
 }
 
@@ -96,13 +96,13 @@ impl Config {
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.regex_config.max_memory_usage)
                     .start_kind(regex_automata::dfa::StartKind::Anchored),
-            )
+            ),
         };
         let excepted_config = match self.excepted_config.fsa_type {
             Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
                 regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.excepted_config.max_memory_usage),
-            )
+            ),
         };
         let compression_config = ebnf::config::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,

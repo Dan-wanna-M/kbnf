@@ -6,7 +6,7 @@ mod tests {
     use ahash::AHashMap;
     use insta::assert_snapshot;
     use kbnf::{
-        engine_base::EngineConfig,
+        engine::EngineConfig,
         engine_like::{AcceptTokenResult, EngineLike},
         vocabulary::{Token, Vocabulary},
     };
@@ -101,6 +101,28 @@ mod tests {
         );
         engine.compute_allowed_token_ids();
         assert_snapshot!(format!("{:#?}", engine));
+    }
+
+    #[test]
+    fn escaped_literal() {
+        let input = "start::='\\n\\n';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.vocab_size()];
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        assert!(
+            engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
+                == Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "This should not be accepted"
+        );
+        engine.compute_allowed_token_ids();
+        assert!(
+            engine
+                .try_accept_new_token(get_token_id_from_str(&vocab, "\n\n").unwrap())
+                .unwrap()
+                == AcceptTokenResult::Finished,
+            "Failed to accept token"
+        );
+        engine.compute_allowed_token_ids();
     }
 
     #[test]
@@ -318,7 +340,7 @@ mod tests {
     fn excepted_basic2() {
         let input = "start::=except!('\n\n',5)'\n\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let logits = vec![0.0; vocab.vocab_size()];
+        let mut logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         for j in 0..1 {
             for i in 0..5 {
@@ -333,6 +355,8 @@ mod tests {
                     .unwrap();
                 assert_eq!(result, AcceptTokenResult::Ongoing);
                 engine.compute_allowed_token_ids();
+                engine.mask_logits(logits.as_mut_slice()).unwrap();
+
             }
         }
         let result = engine
@@ -372,11 +396,19 @@ mod tests {
         let result = engine
             .try_accept_new_token(
                 vocab
-                    .token_id(&Token("\n\n".as_bytes().to_vec().into_boxed_slice()))
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                     .unwrap(),
             )
             .unwrap();
-        assert_eq!(result, AcceptTokenResult::Finished);
+        assert_eq!(result, AcceptTokenResult::Ongoing);
         engine.compute_allowed_token_ids();
+        let result = engine
+        .try_accept_new_token(
+            vocab
+                .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(result, AcceptTokenResult::Finished);
     }
 }

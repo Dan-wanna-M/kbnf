@@ -1,26 +1,43 @@
+//! The main module that contains the [`Engine`] struct and its related types.
 use std::sync::Arc;
 
 use ebnf::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     config::Config, engine_base::EngineBase, engine_like::EngineLike, grammar::Grammar, utils,
     vocabulary::Vocabulary, zero::Zero,
 };
+
+/// The specific config of the [`Engine`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct EngineConfig {
+    /// Whether the cache is enabled. Caching speeds up the engine eventually if any of the following conditions are met:
+    /// 1. The grammar is "simple". What exactly constitutes a simple grammar is not well defined at the moment but
+    /// all regular grammars should be simple.
+    /// 2. The grammar is reused multiple times for inputs of similar lengths.
+    /// It is enabled by default.
+    pub cache_enabled: bool,
+    /// Whether the compaction is enabled. Compaction reduces the memory usage of the engine and
+    /// speeds up the engine in most cases. In particular, cache usually requires compaction to be effective.
+    /// It is enabled by default.
+    pub compaction_enabled: bool,
+}
 #[derive(Debug, Clone)]
-/// An enum that represents the common type combinations of `EngineBase`.
+/// An enum that represents the common type combinations of [`EngineBase`].
 pub(crate) enum EngineUnion {
-    /// Typical simple grammar with lazy/complex dfa without any repetition
+    /// Typical simple grammar with complex dfa without any repetition
     U8U0U8U8U8U32(EngineBase<u8, Zero, u8, u8, u8, u32>),
     /// Typical simple grammar with simple dfa without any repetition
     U8U0U8U16U16U16(EngineBase<u8, Zero, u8, u16, u16, u16>),
-    /// Complex grammar with lazy/complex dfa without any repetition
+    /// Complex grammar with complex dfa without any repetition
     U16U0U16U32U32U32(EngineBase<u16, Zero, u16, u32, u32, u32>),
-    /// Typical simple grammar with lazy/complex dfa
+    /// Typical simple grammar with complex dfa
     U8U8U8U8U8U32(EngineBase<u8, u8, u8, u8, u8, u32>),
     /// Typical simple grammar with simple dfa
     U8U8U8U16U16U16(EngineBase<u8, u8, u8, u16, u16, u16>),
-    /// Complex grammar with lazy/complex dfa
+    /// Complex grammar with complex dfa
     U16U8U16U32U32U32(EngineBase<u16, u8, u16, u32, u32, u32>),
     /// Typical simple grammar with simple dfa and unusually large repetitions
     U8U16U8U8U8U32(EngineBase<u8, u16, u8, u8, u8, u32>),
@@ -28,18 +45,18 @@ pub(crate) enum EngineUnion {
     U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
 #[derive(Debug, Clone)]
-/// The main struct that wraps the `EngineBase` so the user do not have to specify the generic type every time for common cases.
+/// The main struct that wraps the [`EngineBase`] so the user do not have to specify the generic type every time for common cases.
 pub struct Engine {
     union: EngineUnion,
 }
 #[derive(Debug, thiserror::Error)]
-/// Represents the error type for the [Engine] creation.
+/// Represents the error type for the [`Engine`] creation.
 pub enum CreateEngineError {
     #[error("{0}")] // inherits the error message from the wrapped EngineBaseError
-    /// A wrapper for the [EngineBaseError](crate::engine_base::EngineBaseError) error type.
+    /// A wrapper for the [`CreateEngineBaseError`](crate::engine_base::CreateEngineBaseError) error type.
     EngineBaseError(#[from] crate::engine_base::CreateEngineBaseError),
     #[error("{0}")] // inherits the error message from the wrapped GrammarError
-    /// A wrapper for the [GrammarError](crate::grammar::GrammarError) error type.
+    /// A wrapper for the [`CreateGrammarError`](crate::grammar::CreateGrammarError) error type.
     GrammarError(#[from] crate::grammar::CreateGrammarError),
     #[error("The grammar after simplification is empty.
     This usually means that the grammar only contains empty terminals and/or self recursions like A::=A;")]
@@ -53,21 +70,21 @@ pub enum CreateEngineError {
 }
 
 impl Engine {
-    /// Create a new [Engine] from an EBNF grammar string and a [Vocabulary].
+    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
     ///
     /// # Arguments
     ///
     /// * `ebnf_grammar_str` - The EBNF grammar string.
     ///
-    /// * `vocabulary` - The [Vocabulary] object.
+    /// * `vocabulary` - The [`Vocabulary`] object.
     ///
     /// # Returns
     ///
-    /// * [Engine] - The new [Engine] object.
+    /// * [`Engine`] - The new [`Engine`] object.
     ///
     /// # Errors
     ///
-    /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
     pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, CreateEngineError> {
         let config = Config::default();
         Self::with_config(ebnf_grammar_str, vocabulary, config)
@@ -78,21 +95,21 @@ impl Engine {
             && grammar.interned_strings.nonterminals.len() <= value
             && grammar.interned_strings.excepteds.len() <= value
     }
-    /// Create a new [Engine] from an EBNF grammar string, a [Vocabulary], and a [Config].
+    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
     /// # Arguments
     ///
     /// * `ebnf_grammar_str` - The EBNF grammar string.
-    /// * `vocabulary` - The [Vocabulary] object.
-    /// * `config` - The [Config] object.
+    /// * `vocabulary` - The [`Vocabulary`] object.
+    /// * `config` - The [`Config`] object.
     ///
     /// # Returns
     ///
-    /// * [Engine] - The new [Engine] object.
+    /// * [`Engine`] - The new [`Engine`] object.
     ///
     /// # Errors
     ///
-    /// Returns an [EngineError] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
     pub fn with_config(
         ebnf_grammar_str: &str,
         vocabulary: Vocabulary,
@@ -297,27 +314,21 @@ impl EngineLike for Engine {
 
     fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset::FixedBitSet {
         match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
+            EngineUnion::U8U0U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
             EngineUnion::U8U0U8U16U16U16(engine) => {
                 engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U16U0U16U32U32U32(engine) => {
                 engine.allowed_token_ids_from_last_computation()
             }
-            EngineUnion::U8U8U8U8U8U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
+            EngineUnion::U8U8U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
             EngineUnion::U8U8U8U16U16U16(engine) => {
                 engine.allowed_token_ids_from_last_computation()
             }
             EngineUnion::U16U8U16U32U32U32(engine) => {
                 engine.allowed_token_ids_from_last_computation()
             }
-            EngineUnion::U8U16U8U8U8U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
+            EngineUnion::U8U16U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
             EngineUnion::U16U16U16U32U32U32(engine) => {
                 engine.allowed_token_ids_from_last_computation()
             }
