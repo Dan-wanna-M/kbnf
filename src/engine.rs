@@ -257,7 +257,7 @@ impl Engine {
 }
 
 macro_rules! match_engine_union {
-    ($s:expr, $e:path$(,$p:ident)*) => {
+    ($e:path[$s:expr$(,$p:ident)*]) => {
         match $s {
             EngineUnion::U8U0U8U8U8U32(engine) => $e(engine, $($p,)*),
             EngineUnion::U8U0U8U16U16U16(engine) => $e(engine, $($p,)*),
@@ -276,15 +276,15 @@ impl EngineLike for Engine {
         &mut self,
         token_id: u32,
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
-        match_engine_union!(&mut self.union, EngineLike::try_accept_new_token, token_id)
+        match_engine_union!(EngineLike::try_accept_new_token[&mut self.union, token_id])
     }
 
     fn compute_allowed_token_ids(&mut self) {
-        match_engine_union!(&mut self.union, EngineLike::compute_allowed_token_ids)
+        match_engine_union!(EngineLike::compute_allowed_token_ids[&mut self.union])
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
-        match_engine_union!(&self.union, EngineLike::mask_logits, logits)
+        match_engine_union!(EngineLike::mask_logits[&self.union, logits])
     }
 
     fn update_logits(
@@ -292,28 +292,25 @@ impl EngineLike for Engine {
         token_id: u32,
         logits: &mut [f32],
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::UpdateLogitsError> {
-        match_engine_union!(&mut self.union, EngineLike::update_logits, token_id, logits)
+        match_engine_union!(EngineLike::update_logits[&mut self.union, token_id, logits])
     }
 
     fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
-        match_engine_union!(
-            &self.union,
-            EngineLike::allowed_token_ids_from_last_computation
-        )
+        match_engine_union!(EngineLike::allowed_token_ids_from_last_computation[&self.union])
     }
 
     fn is_finished(&self) -> bool {
-        match_engine_union!(&self.union, EngineLike::is_finished)
+        match_engine_union!(EngineLike::is_finished[&self.union])
     }
 
     fn reset(&mut self) {
-        match_engine_union!(&mut self.union, EngineLike::reset)
+        match_engine_union!(EngineLike::reset[&mut self.union])
     }
 
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
-        match_engine_union!(self.union, EngineLike::into_boxed_engine)
+        match_engine_union!(EngineLike::into_boxed_engine[self.union])
     }
     fn vocab(&self) -> Arc<Vocabulary> {
-        match_engine_union!(&self.union, EngineLike::vocab)
+        match_engine_union!(EngineLike::vocab[&self.union])
     }
 }
