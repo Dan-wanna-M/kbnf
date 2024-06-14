@@ -22,7 +22,7 @@ If you are interested in the design and implementation behind this crate, you ma
 
 ## Add to your project
 
-Simply run `cargo add kbnf` in your command line.
+Simply add it to your `Cargo.toml` or run `cargo add kbnf` in your command line.
 
 ## Performance
 

@@ -103,6 +103,8 @@ pub trait EngineLike {
 
     /// Gets the allowed token IDs since last computation.
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    ///
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet;
     /// Checks if the engine is finished.
     fn is_finished(&self) -> bool;

@@ -12,13 +12,13 @@ Engine {
                     nonterminals: StringInterner {
                         dedup: {
                             SymbolU32 {
+                                value: 3,
+                            }: (),
+                            SymbolU32 {
                                 value: 2,
                             }: (),
                             SymbolU32 {
                                 value: 1,
-                            }: (),
-                            SymbolU32 {
-                                value: 3,
                             }: (),
                         },
                         backend: StringBackend {

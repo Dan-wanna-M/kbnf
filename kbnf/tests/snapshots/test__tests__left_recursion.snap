@@ -83,18 +83,18 @@ Engine {
                         state: "[0]",
                     },
                 ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> start[0].\"bb\"[0]",
-                        start_position: 0,
-                        state: "[0]",
-                    },
-                ],
+                [],
             ],
             cache: [],
             to_be_completed_items: [],
             to_be_completed_items_buffer: [],
-            deduplication_buffer: [],
+            deduplication_buffer: [
+                EarleyItemDebugStruct {
+                    dotted_rule: "start[0] -> start[0].\"bb\"[0]",
+                    start_position: 0,
+                    state: "[0]",
+                },
+            ],
             postdot_items: [
                 (
                     DottedDebugStruct {

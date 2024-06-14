@@ -12,10 +12,10 @@ Engine {
                     nonterminals: StringInterner {
                         dedup: {
                             SymbolU32 {
-                                value: 1,
+                                value: 2,
                             }: (),
                             SymbolU32 {
-                                value: 2,
+                                value: 1,
                             }: (),
                         },
                         backend: StringBackend {

@@ -129,7 +129,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("simple except! with repetition 5 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
     });
-
 }
 
 criterion_group!(benches, criterion_benchmark);
