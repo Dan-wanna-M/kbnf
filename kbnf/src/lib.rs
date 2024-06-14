@@ -124,7 +124,7 @@
 //!
 //! Any KBNF grammar is made of nonterminal definitions. **By default, the engine starts from the definition of the nonterminal `start`**.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! (*In KBNF,
 //!  this is a comment.*)
 //! start ::= "A"; (* Defines a nonterminal start that corresponds to a terminal "A". *)
@@ -133,7 +133,7 @@
 //!
 //! A nonterminal can be defined multiple times.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A";
 //! start ::= "B";
 //! (*This means nonterminal start can either expand to "A" or "B".
@@ -164,11 +164,11 @@
 //!
 //! Two or more symbols in a sequence are concatenated.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A" "B"; (* Equivalent to start ::= "AB". *)
 //! ```
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A" start;
 //! (*
 //! The expansion: start -> "A" start -> "A" "A" start -> "A" "A" "A" start -> ...
@@ -180,7 +180,7 @@
 //!
 //! Concatenated symbols separated by `|` are alternatives to each other.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A" | "B";
 //! (*
 //!  The engine will constrain the output to be either "A" or "B".
@@ -190,7 +190,7 @@
 //! *)
 //! ```
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A" start | "B" start;
 //! (*
 //!  The engine will constrain the output to be an infinite sequence that only contains "A" and "B".
@@ -201,7 +201,7 @@
 //!
 //! Symbols enclosed in parentheses are grouped.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= ("A"|"B") "C";
 //! (*
 //! The engine will constrain the output to be either "AC" or "BC".
@@ -215,7 +215,7 @@
 //!
 //! Symbols enclosed in square brackets are optional.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A" ["B"];
 //! (*
 //! The engine will constrain the output to be either "A" or "AB".
@@ -227,14 +227,14 @@
 //!
 //! A symbol followed by a `?` is optional.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A"? "B";
 //! (*
 //! The engine will constrain the output to be either "B" or "AB".
 //! *)
 //! ```
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= ("{"start"}")?;
 //! (*
 //! The engine will constrain the output to be a sequence of balanced curly brackets.
@@ -248,25 +248,25 @@
 //!
 //! Symbols enclosed in curly brackets can be repeated zero or more times.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A"{"A"};
 //! ```
 //!
 //! **NOTE THAT KBNF ends eagerly, so the engine will constrain the output to be exactly one "A".**
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= {"A"|"C"} "B";
 //! (*The engine will constrain the output to a sequence of "A"s and "C"s followed by exactly one "B".*)
 //! ```
 //!
 //! A symbol followed by a `*` can be repeated zero or more times.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= "A"* "B"; (*The engine will constrain the output to a sequence of "A"s followed by exactly one "B".*)
 //! ```
 //!
 //! A symbol followed by a `+` can be repeated one or more times.
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= ("A"|"B")+ "C";
 //! (*The engine will constrain the output to a nonempty sequence of "A"s and "B"s followed by exactly one "C".*)
 //! ```
@@ -275,7 +275,7 @@
 //!
 //! A UTF-8 string enclosed in `#""` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= #".+A";
 //! (*
 //! The engine will constrain the output to be a sequence of any characters followed by exactly one A.
@@ -296,7 +296,7 @@
 //! Although exception is the formal term, I personally find it confusing, so I will refer to it as "except!".
 //! The `except!` keyword is used to exclude certain strings from the output.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= except!('\n\n')'\n\n';
 //! (*
 //! The engine will constrain the output to be a sequence of characters
@@ -308,13 +308,13 @@
 //! The first `\n` comes from the exception(since `\n != \n\n`), and the second `\n\n` comes from the terminal.
 //! If you want a string that strictly ends with `\n\n`, you should use the following definition:
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= #".*\n\n";
 //! ```
 //!
 //! You can use a nonterminal that directly contains alternations of terminals in `except!`.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= except!(C)C;
 //! C ::= "A"|"B";
 //! (*The engine will constrain the output to be a sequence of characters that ends with "A" or "B". *)
@@ -322,7 +322,7 @@
 //!
 //! You can also specify the maximum repetition of `except!`.
 //!
-//! ```ebnf
+//! ```kbnf_syntax
 //! start ::= except!('\n\n',50)'\n\n';
 //! (*The engine will constrain the output
 //! to be a sequence of bytes of maximum length 50 that does not contain "\n\n" followed by exactly one "\n\n".*)

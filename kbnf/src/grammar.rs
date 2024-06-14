@@ -2,10 +2,10 @@
 use std::fmt::Debug;
 
 use crate::utils::{self, ByteSet};
-use ebnf::node::{FinalNode, FinalRhs};
-use ebnf::simplified_grammar::SimplifiedGrammar;
-use ebnf::InternedStrings;
-use ebnf::{self, regex::FiniteStateAutomaton};
+use kbnf_syntax::node::{FinalNode, FinalRhs};
+use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
+use kbnf_syntax::InternedStrings;
+use kbnf_syntax::{self, regex::FiniteStateAutomaton};
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use num::traits::{NumAssign, NumOps};
@@ -15,8 +15,8 @@ use num::{
     traits::{ConstOne, ConstZero},
     Num,
 };
-use regex_automata::dfa::Automaton;
-use regex_automata::Anchored;
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::Anchored;
 use string_interner::symbol::SymbolU32;
 use string_interner::Symbol;
 pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
@@ -234,19 +234,19 @@ pub enum CreateGrammarError {
     ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to clone the str to remove lifetime so pyo3 works later
     #[error("EBNF semantics error: {0}")]
     /// Error due to semantic errors in the EBNF grammar.
-    SemanticError(#[from] Box<ebnf::semantic_error::SemanticError>),
+    SemanticError(#[from] Box<kbnf_syntax::semantic_error::SemanticError>),
     #[error("The number of {0}, which is {1}, exceeds the maximum value {2}.")]
     /// Error due to the number of a certain type exceeding the maximum value specified in the generic parameter.
     IntConversionError(String, usize, usize),
     #[error("Regex initialization error: {0}")]
     /// Error when computing the start state for a DFA.
-    DfaStartError(#[from] regex_automata::dfa::StartError),
+    DfaStartError(#[from] kbnf_regex_automata::dfa::StartError),
     #[error("Regex initialization error: {0}")]
     /// Error when computing the start state for a lazy DFA.
-    LazyDfaStartError(#[from] regex_automata::hybrid::StartError),
+    LazyDfaStartError(#[from] kbnf_regex_automata::hybrid::StartError),
     #[error("Regex initialization error: {0}")]
     /// Error due to inefficient cache usage in a lazy DFA.
-    LazyDfaCacheError(#[from] regex_automata::hybrid::CacheError),
+    LazyDfaCacheError(#[from] kbnf_regex_automata::hybrid::CacheError),
 }
 impl<TI, TE> Debug for Grammar<TI, TE>
 where
@@ -457,7 +457,7 @@ where
         }
         let id_to_regexes = grammar.id_to_regex;
         let id_to_excepteds = grammar.id_to_excepted;
-        let config = regex_automata::util::start::Config::new().anchored(Anchored::Yes);
+        let config = kbnf_regex_automata::util::start::Config::new().anchored(Anchored::Yes);
         let id_to_regex_first_bytes =
             Self::construct_regex_first_bytes(&id_to_regexes, &config, false)?;
         let id_to_excepted_first_bytes =
@@ -484,7 +484,7 @@ where
 
     fn construct_regex_first_bytes(
         id_to_regexes: &[FiniteStateAutomaton],
-        config: &regex_automata::util::start::Config,
+        config: &kbnf_regex_automata::util::start::Config,
         negated: bool,
     ) -> Result<Vec<ByteSet>, CreateGrammarError> {
         let mut id_to_regex_first_bytes = vec![];

@@ -1,12 +1,12 @@
 //! Utility functions for the library.
 use ahash::{AHashMap, AHashSet};
-use ebnf::node::FinalNode;
-use ebnf::regex::FiniteStateAutomaton;
-use ebnf::simplified_grammar::SimplifiedGrammar;
-use fixedbitset::on_stack::{get_nblock, FixedBitSet};
+use kbnf_syntax::node::FinalNode;
+use kbnf_syntax::regex::FiniteStateAutomaton;
+use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
+use fixedbitset_stack::on_stack::{get_nblock, FixedBitSet};
 use nom::error::VerboseError;
-use regex_automata::dfa::Automaton;
-use regex_automata::util::primitives::StateID;
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::util::primitives::StateID;
 
 use crate::config::InternalConfig;
 use crate::grammar::CreateGrammarError;
@@ -19,11 +19,11 @@ pub(crate) enum FsaStateStatus {
     InProgress,
 }
 /// Helper function to construct a simplified grammar from an EBNF grammar string.
-pub fn construct_ebnf_grammar(
+pub fn construct_kbnf_syntax_grammar(
     input: &str,
     config: InternalConfig,
 ) -> Result<SimplifiedGrammar, CreateGrammarError> {
-    let grammar = ebnf::get_grammar(input).map_err(|e| match e {
+    let grammar = kbnf_syntax::get_grammar(input).map_err(|e| match e {
         nom::Err::Error(e) => nom::Err::Error(VerboseError {
             errors: e
                 .errors
@@ -44,13 +44,13 @@ pub fn construct_ebnf_grammar(
     let grammar = grammar.simplify_grammar(
         config.compression_config,
         config.excepted_config,
-        &regex_automata::util::start::Config::new().anchored(regex_automata::Anchored::Yes),
+        &kbnf_regex_automata::util::start::Config::new().anchored(kbnf_regex_automata::Anchored::Yes),
     );
     Ok(grammar)
 }
 /// Helper function to find the maximum repetition from an EBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TI).
-pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
+pub fn find_max_repetition_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_repetition = 0;
     for rule in grammar.expressions.iter() {
         for production in rule.alternations.iter() {
@@ -65,7 +65,7 @@ pub fn find_max_repetition_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usi
 }
 /// Helper function to find the maximum state ID from an EBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TS).
-pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
+pub fn find_max_state_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_state_id = 0;
     let terminals = &grammar.interned_strings.terminals;
     for (_, i) in terminals {
@@ -87,7 +87,7 @@ pub fn find_max_state_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize
 }
 /// Helper function to find the maximum dotted position from an EBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TD).
-pub fn find_max_dotted_position_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
+pub fn find_max_dotted_position_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_dotted_position = 0;
     for i in grammar.expressions.iter() {
         for j in i.alternations.iter() {
@@ -98,7 +98,7 @@ pub fn find_max_dotted_position_from_ebnf_grammar(grammar: &SimplifiedGrammar) -
 }
 /// Helper function to find the maximum production ID from an EBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TP).
-pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> usize {
+pub fn find_max_production_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_production_id = 0;
     for i in grammar.expressions.iter() {
         max_production_id = max_production_id.max(i.alternations.len());
@@ -108,7 +108,7 @@ pub fn find_max_production_id_from_ebnf_grammar(grammar: &SimplifiedGrammar) -> 
 #[inline]
 pub(crate) fn check_dfa_state_status(
     dfa_state: StateID,
-    dfa: &regex_automata::dfa::dense::DFA<Vec<u32>>,
+    dfa: &kbnf_regex_automata::dfa::dense::DFA<Vec<u32>>,
 ) -> FsaStateStatus {
     if dfa.is_special_state(dfa_state)
         && (dfa.is_dead_state(dfa_state) || dfa.is_quit_state(dfa_state))
@@ -140,7 +140,7 @@ pub(crate) fn get_display_form_from_bitset_on_stack<const NBLOCK: usize>(
     bitset.ones().collect()
 }
 
-pub(crate) fn get_display_form_from_bitset(bitset: &fixedbitset::FixedBitSet) -> Vec<usize> {
+pub(crate) fn get_display_form_from_bitset(bitset: &fixedbitset_stack::FixedBitSet) -> Vec<usize> {
     bitset.ones().collect()
 }
 

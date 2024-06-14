@@ -1,7 +1,7 @@
 //! This module contains the implementation of the [`Engine`](crate::engine::Engine) struct and is intended for advanced usages.
 use ahash::{AHashMap, AHashSet};
-use ebnf::regex::FiniteStateAutomaton;
-use fixedbitset::FixedBitSet;
+use kbnf_syntax::regex::FiniteStateAutomaton;
+use fixedbitset_stack::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::JaggedArrayMutViewTrait;
@@ -11,8 +11,8 @@ use num::{
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
     Num,
 };
-use regex_automata::dfa::Automaton;
-use regex_automata::util::primitives::StateID;
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::util::primitives::StateID;
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
 use std::sync::Arc;
@@ -427,8 +427,8 @@ where
     already_predicted_nonterminals: FixedBitSet,
     finished: bool,
     config: EngineConfig,
-    regex_start_config: regex_automata::util::start::Config,
-    excepted_start_config: regex_automata::util::start::Config,
+    regex_start_config: kbnf_regex_automata::util::start::Config,
+    excepted_start_config: kbnf_regex_automata::util::start::Config,
 }
 
 impl<TI, TE, TD, TP, TSP, TS> Debug for EngineBase<TI, TE, TD, TP, TSP, TS>
@@ -637,10 +637,10 @@ where
             to_be_completed_items,
             already_predicted_nonterminals,
             config,
-            regex_start_config: regex_automata::util::start::Config::new()
-                .anchored(regex_automata::Anchored::Yes),
-            excepted_start_config: regex_automata::util::start::Config::new()
-                .anchored(regex_automata::Anchored::No),
+            regex_start_config: kbnf_regex_automata::util::start::Config::new()
+                .anchored(kbnf_regex_automata::Anchored::Yes),
+            excepted_start_config: kbnf_regex_automata::util::start::Config::new()
+                .anchored(kbnf_regex_automata::Anchored::No),
             postdot_items,
             leo_items: AHashMap::default(),
             finished: false,
@@ -669,7 +669,7 @@ where
         }
         res
     }
-    fn get_display_form_from_token_ids(&self, bitset: &fixedbitset::FixedBitSet) -> Vec<String> {
+    fn get_display_form_from_token_ids(&self, bitset: &fixedbitset_stack::FixedBitSet) -> Vec<String> {
         bitset
             .ones()
             .map(|x| format!("{}[{}]", self.vocabulary.token_string(x as u32).unwrap(), x))
@@ -743,8 +743,8 @@ where
     fn predict(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         already_predicted_nonterminals: &mut FixedBitSet,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -779,8 +779,8 @@ where
 
     fn initialize_state_id_based_on_node(
         grammar: &Grammar<TI, TE>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         node: HIRNode<TI, TE>,
     ) -> TS {
         match node {
@@ -823,8 +823,8 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         already_predicted_nonterminals: &mut FixedBitSet,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         nonterminal_id: NonterminalID<TI>,
         earley_set_index: usize,
     ) -> usize {
@@ -914,8 +914,8 @@ where
     fn advance_item<T>(
         grammar: &Grammar<TI, TE>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         add_to_earley_set: T,
         mut item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) where
@@ -962,8 +962,8 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) {
         Self::advance_item(
@@ -1029,8 +1029,8 @@ where
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         byte: u8,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
@@ -1329,8 +1329,8 @@ where
     fn earley_complete_one_item(
         grammar: &Grammar<TI, TE>,
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1372,8 +1372,8 @@ where
     fn complete(
         grammar: &Grammar<TI, TE>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
@@ -1521,8 +1521,8 @@ where
         insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
-        regex_start_config: &regex_automata::util::start::Config,
-        excepted_start_config: &regex_automata::util::start::Config,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         previous_earley_set_length: usize,
         finished: &mut bool,
         compact: impl FnOnce(

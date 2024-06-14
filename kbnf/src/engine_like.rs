@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use displaydoc::Display;
-use fixedbitset::FixedBitSet;
+use fixedbitset_stack::FixedBitSet;
 
 use crate::vocabulary::Vocabulary;
 

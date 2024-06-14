@@ -1,5 +1,5 @@
 //! The configuration module of the KBNF engine.
-use ebnf::regex::FiniteStateAutomatonConfig;
+use kbnf_syntax::regex::FiniteStateAutomatonConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::engine::EngineConfig;
@@ -9,7 +9,7 @@ pub struct InternalConfig {
     /// The configuration of the regular expressions.
     pub regex_config: FiniteStateAutomatonConfig,
     /// The configuration about how to compress terminals in the grammar.
-    pub compression_config: ebnf::config::CompressionConfig,
+    pub compression_config: kbnf_syntax::config::CompressionConfig,
     /// The configuration of the engine itself.
     pub engine_config: EngineConfig,
     /// The configuration of except!.
@@ -93,20 +93,20 @@ impl Config {
     pub fn internal_config(self) -> InternalConfig {
         let regex_config = match self.regex_config.fsa_type {
             Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
-                regex_automata::dfa::dense::Config::new()
+                kbnf_regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.regex_config.max_memory_usage)
-                    .start_kind(regex_automata::dfa::StartKind::Anchored),
+                    .start_kind(kbnf_regex_automata::dfa::StartKind::Anchored),
             ),
         };
         let excepted_config = match self.excepted_config.fsa_type {
             Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
-                regex_automata::dfa::dense::Config::new()
+                kbnf_regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.excepted_config.max_memory_usage),
             ),
         };
-        let compression_config = ebnf::config::CompressionConfig {
+        let compression_config = kbnf_syntax::config::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,
-            regex_config: FiniteStateAutomatonConfig::Dfa(regex_automata::dfa::dense::Config::new()),
+            regex_config: FiniteStateAutomatonConfig::Dfa(kbnf_regex_automata::dfa::dense::Config::new()),
         };
         InternalConfig {
             regex_config,

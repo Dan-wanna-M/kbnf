@@ -1,7 +1,7 @@
 //! The main module that contains the [`Engine`] struct and its related types.
 use std::sync::Arc;
 
-use ebnf::simplified_grammar::SimplifiedGrammar;
+use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ impl Engine {
     ///
     /// # Arguments
     ///
-    /// * `ebnf_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
     ///
     /// * `vocabulary` - The [`Vocabulary`] object.
     ///
@@ -85,9 +85,9 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    pub fn new(ebnf_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, CreateEngineError> {
+    pub fn new(kbnf_syntax_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, CreateEngineError> {
         let config = Config::default();
-        Self::with_config(ebnf_grammar_str, vocabulary, config)
+        Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
     }
 
     fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
@@ -99,7 +99,7 @@ impl Engine {
     ///
     /// # Arguments
     ///
-    /// * `ebnf_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
     /// * `vocabulary` - The [`Vocabulary`] object.
     /// * `config` - The [`Config`] object.
     ///
@@ -111,20 +111,20 @@ impl Engine {
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
     pub fn with_config(
-        ebnf_grammar_str: &str,
+        kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,
         config: Config,
     ) -> Result<Self, CreateEngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
-        let grammar = utils::construct_ebnf_grammar(ebnf_grammar_str, internal_config.clone())?;
+        let grammar = utils::construct_kbnf_syntax_grammar(kbnf_syntax_grammar_str, internal_config.clone())?;
         if grammar.is_empty() {
             return Err(CreateEngineError::EmptyGrammarError);
         }
-        let max_r = utils::find_max_repetition_from_ebnf_grammar(&grammar);
-        let td = utils::find_max_dotted_position_from_ebnf_grammar(&grammar);
-        let tp = utils::find_max_production_id_from_ebnf_grammar(&grammar);
-        let ts = utils::find_max_state_id_from_ebnf_grammar(&grammar);
+        let max_r = utils::find_max_repetition_from_kbnf_syntax_grammar(&grammar);
+        let td = utils::find_max_dotted_position_from_kbnf_syntax_grammar(&grammar);
+        let tp = utils::find_max_production_id_from_kbnf_syntax_grammar(&grammar);
+        let ts = utils::find_max_state_id_from_kbnf_syntax_grammar(&grammar);
         let engine = if Self::check_id_length(&grammar, u8::MAX.into())
             && max_r <= Zero::max_value().into()
             && td <= u8::MAX.into()
@@ -312,7 +312,7 @@ impl EngineLike for Engine {
         }
     }
 
-    fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset::FixedBitSet {
+    fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
         match &self.union {
             EngineUnion::U8U0U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
             EngineUnion::U8U0U8U16U16U16(engine) => {
