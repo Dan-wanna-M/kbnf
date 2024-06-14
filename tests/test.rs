@@ -195,9 +195,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .token_id(&Token(
-                            value.as_bytes().to_vec().into_boxed_slice(),
-                        ))
+                        .token_id(&Token(value.as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
@@ -264,9 +262,7 @@ mod tests {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .token_id(&Token(
-                                "imper".as_bytes().to_vec().into_boxed_slice(),
-                            ))
+                            .token_id(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
                             .unwrap(),
                     )
                     .unwrap();
@@ -276,9 +272,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .token_id(&Token(
-                            "\n".as_bytes().to_vec().into_boxed_slice(),
-                        ))
+                        .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
@@ -297,9 +291,7 @@ mod tests {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .token_id(&Token(
-                                "imper".as_bytes().to_vec().into_boxed_slice(),
-                            ))
+                            .token_id(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
                             .unwrap(),
                     )
                     .unwrap();
@@ -347,16 +339,13 @@ mod tests {
                 let result = engine
                     .try_accept_new_token(
                         vocab
-                            .token_id(&Token(
-                                "a".as_bytes().to_vec().into_boxed_slice(),
-                            ))
+                            .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
                             .unwrap(),
                     )
                     .unwrap();
                 assert_eq!(result, AcceptTokenResult::Ongoing);
                 engine.compute_allowed_token_ids();
                 engine.mask_logits(logits.as_mut_slice()).unwrap();
-
             }
         }
         let result = engine
@@ -403,12 +392,12 @@ mod tests {
         assert_eq!(result, AcceptTokenResult::Ongoing);
         engine.compute_allowed_token_ids();
         let result = engine
-        .try_accept_new_token(
-            vocab
-                .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        )
-        .unwrap();
-    assert_eq!(result, AcceptTokenResult::Finished);
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
     }
 }

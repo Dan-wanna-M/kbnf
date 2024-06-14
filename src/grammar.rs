@@ -2,12 +2,14 @@
 use std::fmt::Debug;
 
 use crate::utils::{self, ByteSet};
+use jaggedarray::jagged_array::JaggedArrayViewTrait;
+use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::Anchored;
 use kbnf_syntax::node::{FinalNode, FinalRhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use kbnf_syntax::InternedStrings;
 use kbnf_syntax::{self, regex::FiniteStateAutomaton};
-use jaggedarray::jagged_array::JaggedArrayViewTrait;
-use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use num::traits::{NumAssign, NumOps};
 use num::Bounded;
 use num::{
@@ -15,8 +17,6 @@ use num::{
     traits::{ConstOne, ConstZero},
     Num,
 };
-use kbnf_regex_automata::dfa::Automaton;
-use kbnf_regex_automata::Anchored;
 use string_interner::symbol::SymbolU32;
 use string_interner::Symbol;
 pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0

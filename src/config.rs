@@ -106,7 +106,9 @@ impl Config {
         };
         let compression_config = kbnf_syntax::config::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,
-            regex_config: FiniteStateAutomatonConfig::Dfa(kbnf_regex_automata::dfa::dense::Config::new()),
+            regex_config: FiniteStateAutomatonConfig::Dfa(
+                kbnf_regex_automata::dfa::dense::Config::new(),
+            ),
         };
         InternalConfig {
             regex_config,

@@ -85,7 +85,10 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    pub fn new(kbnf_syntax_grammar_str: &str, vocabulary: Vocabulary) -> Result<Self, CreateEngineError> {
+    pub fn new(
+        kbnf_syntax_grammar_str: &str,
+        vocabulary: Vocabulary,
+    ) -> Result<Self, CreateEngineError> {
         let config = Config::default();
         Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
     }
@@ -117,7 +120,8 @@ impl Engine {
     ) -> Result<Self, CreateEngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
-        let grammar = utils::construct_kbnf_syntax_grammar(kbnf_syntax_grammar_str, internal_config.clone())?;
+        let grammar =
+            utils::construct_kbnf_syntax_grammar(kbnf_syntax_grammar_str, internal_config.clone())?;
         if grammar.is_empty() {
             return Err(CreateEngineError::EmptyGrammarError);
         }

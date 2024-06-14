@@ -1,12 +1,12 @@
 //! Utility functions for the library.
 use ahash::{AHashMap, AHashSet};
+use fixedbitset_stack::on_stack::{get_nblock, FixedBitSet};
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::util::primitives::StateID;
 use kbnf_syntax::node::FinalNode;
 use kbnf_syntax::regex::FiniteStateAutomaton;
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
-use fixedbitset_stack::on_stack::{get_nblock, FixedBitSet};
 use nom::error::VerboseError;
-use kbnf_regex_automata::dfa::Automaton;
-use kbnf_regex_automata::util::primitives::StateID;
 
 use crate::config::InternalConfig;
 use crate::grammar::CreateGrammarError;
@@ -44,7 +44,8 @@ pub fn construct_kbnf_syntax_grammar(
     let grammar = grammar.simplify_grammar(
         config.compression_config,
         config.excepted_config,
-        &kbnf_regex_automata::util::start::Config::new().anchored(kbnf_regex_automata::Anchored::Yes),
+        &kbnf_regex_automata::util::start::Config::new()
+            .anchored(kbnf_regex_automata::Anchored::Yes),
     );
     Ok(grammar)
 }

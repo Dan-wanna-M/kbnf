@@ -1,18 +1,18 @@
 //! This module contains the implementation of the [`Engine`](crate::engine::Engine) struct and is intended for advanced usages.
 use ahash::{AHashMap, AHashSet};
-use kbnf_syntax::regex::FiniteStateAutomaton;
 use fixedbitset_stack::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::JaggedArrayMutViewTrait;
+use kbnf_regex_automata::dfa::Automaton;
+use kbnf_regex_automata::util::primitives::StateID;
+use kbnf_syntax::regex::FiniteStateAutomaton;
 use nonmax::NonMaxU32;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
     Num,
 };
-use kbnf_regex_automata::dfa::Automaton;
-use kbnf_regex_automata::util::primitives::StateID;
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
 use std::sync::Arc;
@@ -669,7 +669,10 @@ where
         }
         res
     }
-    fn get_display_form_from_token_ids(&self, bitset: &fixedbitset_stack::FixedBitSet) -> Vec<String> {
+    fn get_display_form_from_token_ids(
+        &self,
+        bitset: &fixedbitset_stack::FixedBitSet,
+    ) -> Vec<String> {
         bitset
             .ones()
             .map(|x| format!("{}[{}]", self.vocabulary.token_string(x as u32).unwrap(), x))

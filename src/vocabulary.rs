@@ -95,7 +95,6 @@ impl Vocabulary {
     /// * `id_to_token_string` - A map from token IDs to tokens in UTF-8 String representation.
     /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
     /// vice versa. For example, a token may contain `0xFF` byte.
-    ///
     pub fn new(
         id_to_token: AHashMap<u32, Token>,
         id_to_token_string: AHashMap<u32, String>,
