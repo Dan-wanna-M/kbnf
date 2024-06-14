@@ -256,47 +256,35 @@ impl Engine {
     }
 }
 
+macro_rules! match_engine_union {
+    ($s:expr, $e:path$(,$p:ident)*) => {
+        match $s {
+            EngineUnion::U8U0U8U8U8U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U0U8U16U16U16(engine) => $e(engine, $($p,)*),
+            EngineUnion::U16U0U16U32U32U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U8U8U8U8U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U8U8U16U16U16(engine) => $e(engine, $($p,)*),
+            EngineUnion::U16U8U16U32U32U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U16U8U8U8U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U16U16U16U32U32U32(engine) => $e(engine, $($p,)*),
+        }
+    }
+}
+
 impl EngineLike for Engine {
     fn try_accept_new_token(
         &mut self,
         token_id: u32,
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
-        match &mut self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.try_accept_new_token(token_id),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.try_accept_new_token(token_id),
-        }
+        match_engine_union!(&mut self.union, EngineLike::try_accept_new_token, token_id)
     }
 
     fn compute_allowed_token_ids(&mut self) {
-        match &mut self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.compute_allowed_token_ids(),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.compute_allowed_token_ids(),
-        }
+        match_engine_union!(&mut self.union, EngineLike::compute_allowed_token_ids)
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
-        match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.mask_logits(logits),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.mask_logits(logits),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.mask_logits(logits),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.mask_logits(logits),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.mask_logits(logits),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.mask_logits(logits),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.mask_logits(logits),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.mask_logits(logits),
-        }
+        match_engine_union!(&self.union, EngineLike::mask_logits, logits)
     }
 
     fn update_logits(
@@ -304,105 +292,28 @@ impl EngineLike for Engine {
         token_id: u32,
         logits: &mut [f32],
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::UpdateLogitsError> {
-        match &mut self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.update_logits(token_id, logits),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.update_logits(token_id, logits),
-        }
+        match_engine_union!(&mut self.union, EngineLike::update_logits, token_id, logits)
     }
 
     fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
-        match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
-            EngineUnion::U8U0U8U16U16U16(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
-            EngineUnion::U16U0U16U32U32U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
-            EngineUnion::U8U8U8U16U16U16(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
-            EngineUnion::U16U8U16U32U32U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.allowed_token_ids_from_last_computation(),
-            EngineUnion::U16U16U16U32U32U32(engine) => {
-                engine.allowed_token_ids_from_last_computation()
-            }
-        }
+        match_engine_union!(
+            &self.union,
+            EngineLike::allowed_token_ids_from_last_computation
+        )
     }
 
     fn is_finished(&self) -> bool {
-        match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.is_finished(),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.is_finished(),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.is_finished(),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.is_finished(),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.is_finished(),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.is_finished(),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.is_finished(),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.is_finished(),
-        }
+        match_engine_union!(&self.union, EngineLike::is_finished)
     }
 
     fn reset(&mut self) {
-        match &mut self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.reset(),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.reset(),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.reset(),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.reset(),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.reset(),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.reset(),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.reset(),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.reset(),
-        }
+        match_engine_union!(&mut self.union, EngineLike::reset)
     }
 
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
-        match self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => Box::new(Engine {
-                union: EngineUnion::U8U0U8U8U8U32(engine),
-            }),
-            EngineUnion::U8U0U8U16U16U16(engine) => Box::new(Engine {
-                union: EngineUnion::U8U0U8U16U16U16(engine),
-            }),
-            EngineUnion::U16U0U16U32U32U32(engine) => Box::new(Engine {
-                union: EngineUnion::U16U0U16U32U32U32(engine),
-            }),
-            EngineUnion::U8U8U8U8U8U32(engine) => Box::new(Engine {
-                union: EngineUnion::U8U8U8U8U8U32(engine),
-            }),
-            EngineUnion::U8U8U8U16U16U16(engine) => Box::new(Engine {
-                union: EngineUnion::U8U8U8U16U16U16(engine),
-            }),
-            EngineUnion::U16U8U16U32U32U32(engine) => Box::new(Engine {
-                union: EngineUnion::U16U8U16U32U32U32(engine),
-            }),
-            EngineUnion::U8U16U8U8U8U32(engine) => Box::new(Engine {
-                union: EngineUnion::U8U16U8U8U8U32(engine),
-            }),
-            EngineUnion::U16U16U16U32U32U32(engine) => Box::new(Engine {
-                union: EngineUnion::U16U16U16U32U32U32(engine),
-            }),
-        }
+        match_engine_union!(self.union, EngineLike::into_boxed_engine)
     }
     fn vocab(&self) -> Arc<Vocabulary> {
-        match &self.union {
-            EngineUnion::U8U0U8U8U8U32(engine) => engine.vocab(),
-            EngineUnion::U8U0U8U16U16U16(engine) => engine.vocab(),
-            EngineUnion::U16U0U16U32U32U32(engine) => engine.vocab(),
-            EngineUnion::U8U8U8U8U8U32(engine) => engine.vocab(),
-            EngineUnion::U8U8U8U16U16U16(engine) => engine.vocab(),
-            EngineUnion::U16U8U16U32U32U32(engine) => engine.vocab(),
-            EngineUnion::U8U16U8U8U8U32(engine) => engine.vocab(),
-            EngineUnion::U16U16U16U32U32U32(engine) => engine.vocab(),
-        }
+        match_engine_union!(&self.union, EngineLike::vocab)
     }
 }
