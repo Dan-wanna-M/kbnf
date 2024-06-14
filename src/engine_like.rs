@@ -68,7 +68,11 @@ pub trait EngineLike {
     /// Computes the allowed token IDs based on current states.
     fn compute_allowed_token_ids(&mut self);
 
-    /// Masks the logits based on current states.
+    /// Masks the logits based on last computed token IDs.
+    /// These token IDs can also be obtained from [`EngineLike::allowed_token_ids_from_last_computation`]. 
+    /// 
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called. 
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect the masking!
     ///
     /// # Arguments
     ///
@@ -77,6 +81,7 @@ pub trait EngineLike {
     /// # Errors
     ///
     /// Returns a [`MaskLogitsError`] when the input logits array is not of the expected length according to the vocabulary.
+    /// The logits array is not updated in this case.
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), MaskLogitsError>;
 
     /// Try to accept the token ID and if succeeds, update the given logits array.
