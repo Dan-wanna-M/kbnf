@@ -10,29 +10,37 @@ Here is a quick example of how this crate works:
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
 let grammar_str = r#"
-start ::= except!('\n\n')'\n\n';
+start ::= "你好"except!('\n\n')'\n\n';
 "#;
 let mut token_strings: AHashMap<u32, String> = AHashMap::default();
 token_strings.extend(
     [
-        (1, "a".to_string()),
+        (1, "你好".to_string()),
         (2, "hello".to_string()),
+        (3, "250".to_string()),
         (4, "\n".to_string()),
         (5, "\n\n".to_string()),
     ]
 );
-let tokens = token_strings
+let mut tokens = token_strings
     .iter()
     .map(|(k, v)| (*k, Token(v.as_bytes().to_vec().into_boxed_slice())))
     .collect::<AHashMap<u32, _>>();
+tokens.insert(3,Token(Box::new([250])));
 let vocab = Vocabulary::new(tokens, token_strings).unwrap();
 let mut engine = Engine::new(grammar_str, vocab).unwrap();
 let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
 assert_eq!(
-    engine.update_logits(2, &mut logits).unwrap(),
+    engine.update_logits(1, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
-assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, -inf, 0.0, 0.0]");
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
+let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+assert_eq!(
+    engine.update_logits(3, &mut logits).unwrap(),
+    kbnf::AcceptTokenResult::Ongoing
+);
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
 let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
 assert_eq!(
     engine.update_logits(4, &mut logits).unwrap(),
@@ -40,14 +48,14 @@ assert_eq!(
 );
 assert_eq!(
     &format!("{:?}", logits),
-    "[-inf, 0.0, 0.0, -inf, 0.0, -inf]"
+    "[-inf, 0.0, 0.0, 0.0, 0.0, -inf]"
 );
 let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
 assert_eq!(
     engine.update_logits(1, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
-assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, -inf, 0.0, 0.0]");
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
 let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
 assert_eq!(
     engine.update_logits(5, &mut logits).unwrap(),

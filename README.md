@@ -13,6 +13,9 @@ If you are interested in the design and implementation behind this crate, you ma
 - Asymptotically fastest for subclasses of context free grammar.
   - Guarantees worst case O(m*n) time complexity for every LR(k) grammar(which includes almost all practical grammars)
   - Achieves O(n) time complexity with caching eventually given that `n` has a fixed upper bound, or the grammar is regular.
+- Tokenizer-independent.
+  - BPE, BBPE, you-name-it, all tokenizers are supported.
+- Supports UTF-8 grammar.
 - Embeddable regular expressions.
 - More flexible exceptions that can exclude unions of strings.
 
