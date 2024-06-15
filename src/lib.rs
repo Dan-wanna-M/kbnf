@@ -7,6 +7,10 @@ KBNF includes features that enhance usability, notably embeddable regular expres
 Here is a quick example of how this crate works:
 
 ```rust
+fn greedy_decode(logits: &[f32])->u32 {
+    logits.iter().enumerate().max_by(|a,b|a.1.partial_cmp(b.1).unwrap()).unwrap().0 as u32
+}
+
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
 let grammar_str = r#"
@@ -29,36 +33,41 @@ let mut tokens = token_strings
 tokens.insert(3,Token(Box::new([250])));
 let vocab = Vocabulary::new(tokens, token_strings).unwrap();
 let mut engine = Engine::new(grammar_str, vocab).unwrap();
-let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+let mut token = 1; // the prompt token
+let mut logits = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]; // logits obtained from the language model
 assert_eq!(
-    engine.update_logits(1, &mut logits).unwrap(),
+    engine.update_logits(token, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
-assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
-let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 1.0, 0.0, 0.0]");
+token = greedy_decode(&logits);
+logits = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]; // new logits obtained from the language model
 assert_eq!(
-    engine.update_logits(3, &mut logits).unwrap(),
+    engine.update_logits(token, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
-assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
-let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 1.0, 0.0]");
+token = greedy_decode(&logits);
+logits = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]; // new logits obtained from the language model
 assert_eq!(
-    engine.update_logits(4, &mut logits).unwrap(),
+    engine.update_logits(token, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
 assert_eq!(
     &format!("{:?}", logits),
-    "[-inf, 0.0, 0.0, 0.0, 0.0, -inf]"
+    "[-inf, 1.0, 0.0, 0.0, 0.0, -inf]"
 );
-let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+token = greedy_decode(&logits);
+logits = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]; // new logits obtained from the language model
 assert_eq!(
-    engine.update_logits(1, &mut logits).unwrap(),
+    engine.update_logits(token, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Ongoing
 );
-assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 0.0]");
-let mut logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // The logits of the language model
+assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, 0.0, 0.0, 1.0]");
+token = greedy_decode(&logits);
+logits = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // new logits obtained from the language model
 assert_eq!(
-    engine.update_logits(5, &mut logits).unwrap(),
+    engine.update_logits(token, &mut logits).unwrap(),
     kbnf::AcceptTokenResult::Finished
 );
 assert_eq!(&format!("{:?}", logits), "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]");

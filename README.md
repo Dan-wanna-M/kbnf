@@ -15,7 +15,7 @@ If you are interested in the design and implementation behind this crate, you ma
   - Achieves O(n) time complexity with caching eventually given that `n` has a fixed upper bound, or the grammar is regular.
 - Tokenizer-independent.
   - BPE, BBPE, you-name-it, all tokenizers are supported.
-- Supports UTF-8 grammar.
+- Supports UTF-8 characters in grammar.
 - Embeddable regular expressions.
 - More flexible exceptions that can exclude unions of strings.
 
