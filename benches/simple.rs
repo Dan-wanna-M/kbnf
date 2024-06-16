@@ -3,9 +3,8 @@ use std::{fs::File, io::BufReader, path::Path, time::Duration};
 use ahash::AHashMap;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kbnf::{
-    engine::Engine,
-    engine::EngineConfig,
-    vocabulary::{Token, Vocabulary},
+    engine::{Engine, EngineConfig},
+    vocabulary::{Token, Vocabulary}, EngineLike,
 };
 #[derive(Debug, thiserror::Error)]
 /// Error type when reading RWKV world model's vocabulary file.

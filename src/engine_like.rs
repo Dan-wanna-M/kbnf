@@ -4,12 +4,14 @@ use std::sync::Arc;
 
 use displaydoc::Display;
 use fixedbitset_stack::FixedBitSet;
+#[cfg(feature = "python")]
 use pyo3::pyclass;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::vocabulary::Vocabulary;
-#[pyclass]
-#[wasm_bindgen]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen)]
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the error when an [`EngineLike`] tries to accept a token.
 pub enum AcceptTokenError {
@@ -20,8 +22,8 @@ pub enum AcceptTokenError {
     /// The [`EngineLike`] is finished, as defined by its grammar. No more tokens can be accepted.
     Finished,
 }
-#[pyclass]
-#[wasm_bindgen]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen)]
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the result after [`EngineLike`] successfully accepts a token.
 pub enum AcceptTokenResult {
@@ -30,16 +32,16 @@ pub enum AcceptTokenResult {
     /// The [`EngineLike`] is finished and no more tokens can be accepted.
     Finished,
 }
-#[pyclass]
-#[wasm_bindgen]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen)]
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the error when an [`EngineLike`] tries to mask logits.
 pub enum MaskLogitsError {
     /// The input logits array is not equal to the vocabulary size.
     InvalidLogitsLength,
 }
-#[pyclass]
-#[wasm_bindgen]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen)]
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 /// Represents the error when an [`EngineLike`] tries to update logits.
 pub enum UpdateLogitsError {

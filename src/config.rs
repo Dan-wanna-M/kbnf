@@ -1,9 +1,11 @@
 //! The configuration module of the KBNF engine.
 use kbnf_syntax::regex::FiniteStateAutomatonConfig;
+#[cfg(feature = "python")]
 use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 
 use crate::engine::EngineConfig;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 #[derive(Debug, Clone)]
 /// The internal configuration of the KBNF engine. This is intended for advanced usages.
@@ -20,9 +22,9 @@ pub struct InternalConfig {
     pub start_nonterminal: String,
 }
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
-#[pyclass]
-#[pyo3(get_all,set_all)]
-#[wasm_bindgen(inspectable)]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="python", pyo3(get_all,set_all))]
+#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -33,7 +35,7 @@ pub struct Config {
     pub engine_config: EngineConfig,
     /// The start nonterminal of the grammar.
     /// The default is `start`.
-    #[wasm_bindgen(getter_with_clone)]
+    #[cfg_attr(feature="wasm", wasm_bindgen(getter_with_clone))]
     pub start_nonterminal: String,
     /// The length of the expected output in bytes.
     /// This is used to determine the index type used in EngineBase.
@@ -45,8 +47,8 @@ pub struct Config {
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
-#[pyclass]
-#[wasm_bindgen]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub enum Fsa {
     /// The Deterministic Finite Automaton.
@@ -56,9 +58,9 @@ pub enum Fsa {
     Dfa,
 }
 /// The configuration of regular expressions.
-#[pyclass]
-#[pyo3(get_all,set_all)]
-#[wasm_bindgen(inspectable)]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="python", pyo3(get_all,set_all))]
+#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct RegexConfig {
     /// The maximum memory usage in bytes allowed when compiling the regex.
@@ -71,9 +73,9 @@ pub struct RegexConfig {
 }
 
 /// The configuration of regular expressions.
-#[pyclass]
-#[pyo3(get_all,set_all)]
-#[wasm_bindgen(inspectable)]
+#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature="python", pyo3(get_all,set_all))]
+#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct CompressionConfig {
     /// The minimum number of terminals to be compressed. The default is 5.
