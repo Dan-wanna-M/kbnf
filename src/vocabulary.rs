@@ -3,6 +3,8 @@ use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
+use pyo3::pyclass;
+use pyo3::pymethods;
 use serde::Deserialize;
 use std::array;
 use std::collections::hash_map::Entry;
@@ -12,10 +14,12 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
 const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one additional index.
+
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 #[repr(transparent)]
 #[wasm_bindgen(getter_with_clone)]
+#[pyclass]
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct FirstBytes([u32; BYTES_NUM]);
@@ -38,6 +42,7 @@ impl tinyvec::Array for FirstBytes {
 /// The struct represents a language model's vocabulary.
 #[derive(Clone)]
 #[wasm_bindgen]
+#[pyclass]
 pub struct Vocabulary {
     pub(crate) token_to_id: AHashMap<Token, u32>,
     pub(crate) id_to_token: AHashMap<u32, Token>,
@@ -214,6 +219,7 @@ impl Vocabulary {
             .map(|(x, y)| (*x, y))
     }
 }
+#[pymethods]
 #[wasm_bindgen]
 impl Vocabulary {
     /// Retrieves the token ID associated with the given token.
@@ -226,11 +232,13 @@ impl Vocabulary {
     ///
     /// * `Some(u32)` - The token ID if it exists.
     /// * `None` - If the token does not exist in the vocabulary.
+    #[pyo3(name = "get_token_id")]
     #[wasm_bindgen(js_name = getTokenID)]
     pub fn token_id(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
     /// Retrieves the size of the vocabulary.
+    #[pyo3(name = "get_vocab_size")]
     #[wasm_bindgen(js_name = getVocabSize)]
     pub fn vocab_size(&self) -> usize {
         self.id_to_token

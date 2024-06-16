@@ -1,5 +1,6 @@
 //! The configuration module of the KBNF engine.
 use kbnf_syntax::regex::FiniteStateAutomatonConfig;
+use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 
 use crate::engine::EngineConfig;
@@ -19,6 +20,8 @@ pub struct InternalConfig {
     pub start_nonterminal: String,
 }
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
+#[pyclass]
+#[pyo3(get_all,set_all)]
 #[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
@@ -42,6 +45,7 @@ pub struct Config {
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
+#[pyclass]
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub enum Fsa {
@@ -52,6 +56,8 @@ pub enum Fsa {
     Dfa,
 }
 /// The configuration of regular expressions.
+#[pyclass]
+#[pyo3(get_all,set_all)]
 #[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct RegexConfig {
@@ -65,6 +71,8 @@ pub struct RegexConfig {
 }
 
 /// The configuration of regular expressions.
+#[pyclass]
+#[pyo3(get_all,set_all)]
 #[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct CompressionConfig {

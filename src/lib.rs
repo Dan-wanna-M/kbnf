@@ -466,7 +466,7 @@ pub mod engine_like;
 pub mod grammar;
 pub mod utils;
 pub mod vocabulary;
-mod wasm_binding;
+mod ffi_bindings;
 mod zero;
 pub use config::Config;
 pub use engine::Engine;

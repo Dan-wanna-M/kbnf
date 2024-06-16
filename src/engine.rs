@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
+use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -12,6 +13,8 @@ use crate::{
 };
 
 /// The specific config of the [`Engine`].
+#[pyclass]
+#[pyo3(get_all,set_all)]
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct EngineConfig {
@@ -46,6 +49,7 @@ pub(crate) enum EngineUnion {
     /// Complex grammar with complex dfa and unusually large repetitions
     U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
+#[pyclass]
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 /// The main struct that wraps the [`EngineBase`] so the user do not have to specify the generic type every time for common cases.
@@ -71,6 +75,7 @@ pub enum CreateEngineError {
     /// The grammar and/or config's value range is not supported by the Engine.
     InvalidInputError,
 }
+
 #[wasm_bindgen]
 impl Engine {
     /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].

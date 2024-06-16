@@ -5,7 +5,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kbnf::{
     engine::Engine,
     engine::EngineConfig,
-    engine_like::EngineLike,
     vocabulary::{Token, Vocabulary},
 };
 #[derive(Debug, thiserror::Error)]
