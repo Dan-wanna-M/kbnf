@@ -3,6 +3,7 @@ use kbnf_syntax::regex::FiniteStateAutomatonConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::engine::EngineConfig;
+use wasm_bindgen::prelude::*;
 #[derive(Debug, Clone)]
 /// The internal configuration of the KBNF engine. This is intended for advanced usages.
 pub struct InternalConfig {
@@ -18,6 +19,7 @@ pub struct InternalConfig {
     pub start_nonterminal: String,
 }
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
+#[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -28,6 +30,7 @@ pub struct Config {
     pub engine_config: EngineConfig,
     /// The start nonterminal of the grammar.
     /// The default is `start`.
+    #[wasm_bindgen(getter_with_clone)]
     pub start_nonterminal: String,
     /// The length of the expected output in bytes.
     /// This is used to determine the index type used in EngineBase.
@@ -39,7 +42,8 @@ pub struct Config {
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub enum Fsa {
     /// The Deterministic Finite Automaton.
     /// It is a deterministic finite automaton that eagerly computes all the state transitions.
@@ -48,7 +52,8 @@ pub enum Fsa {
     Dfa,
 }
 /// The configuration of regular expressions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct RegexConfig {
     /// The maximum memory usage in bytes allowed when compiling the regex.
     /// If the memory usage exceeds this limit, an error will be returned.
@@ -60,7 +65,8 @@ pub struct RegexConfig {
 }
 
 /// The configuration of regular expressions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct CompressionConfig {
     /// The minimum number of terminals to be compressed. The default is 5.
     pub min_terminals: usize,
@@ -87,7 +93,6 @@ impl Default for Config {
         }
     }
 }
-
 impl Config {
     /// Converts the configuration to the internal configuration.
     pub fn internal_config(self) -> InternalConfig {

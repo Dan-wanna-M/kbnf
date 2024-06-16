@@ -3,16 +3,19 @@ use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
+use serde::Deserialize;
 use std::array;
 use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use tinyvec::ArrayVec;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
 const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one additional index.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[repr(transparent)]
+#[wasm_bindgen(getter_with_clone)]
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct FirstBytes([u32; BYTES_NUM]);
@@ -32,12 +35,13 @@ impl tinyvec::Array for FirstBytes {
         Self([0; BYTES_NUM])
     }
 }
-#[derive(Clone)]
 /// The struct represents a language model's vocabulary.
+#[derive(Clone)]
+#[wasm_bindgen]
 pub struct Vocabulary {
-    token_to_id: AHashMap<Token, u32>,
-    id_to_token: AHashMap<u32, Token>,
-    id_to_token_string: AHashMap<u32, String>,
+    pub(crate) token_to_id: AHashMap<Token, u32>,
+    pub(crate) id_to_token: AHashMap<u32, Token>,
+    pub(crate) id_to_token_string: AHashMap<u32, String>,
     /// This field represents a map from the first byte of a token to the token id and token that DO NOT contain byte 0xFF.
     /// memory representation: \[Unicode unused byte\]\[token_id(3 bytes little endian)\]\[token(remaining bytes)\]
     // TODO: check whether a variable length token_id encoding is better
@@ -98,7 +102,7 @@ impl Vocabulary {
     pub fn new(
         id_to_token: AHashMap<u32, Token>,
         id_to_token_string: AHashMap<u32, String>,
-    ) -> Result<Self, CreateVocabularyError> {
+    ) -> Result<Vocabulary, CreateVocabularyError> {
         if id_to_token.len() >= 0x1000000 {
             return Err(CreateVocabularyError::VocabularyTooLarge(
                 id_to_token.len() as u32,
@@ -151,20 +155,6 @@ impl Vocabulary {
         })
     }
 
-    /// Retrieves the token ID associated with the given token.
-    ///
-    /// # Arguments
-    ///
-    /// * `token` - The token to retrieve the ID for.
-    ///
-    /// # Returns
-    ///
-    /// * `Some(u32)` - The token ID if it exists.
-    /// * `None` - If the token does not exist in the vocabulary.
-    pub fn token_id(&self, token: &Token) -> Option<u32> {
-        self.token_to_id.get(token).copied()
-    }
-
     /// Retrieves the token associated with the given token ID.
     ///
     /// # Arguments
@@ -191,16 +181,6 @@ impl Vocabulary {
     /// * `None` - If the token ID is out of range.
     pub fn token_string(&self, token_id: u32) -> Option<&str> {
         self.id_to_token_string.get(&token_id).map(|x| x.as_str())
-    }
-
-    /// Retrieves the size of the vocabulary.
-    pub fn vocab_size(&self) -> usize {
-        self.id_to_token
-            .keys()
-            .copied()
-            .max()
-            .map(|x| x + 1)
-            .unwrap_or(0) as usize
     }
 
     /// Retrieves an iterator over the normal tokens that have the given first byte.
@@ -234,6 +214,32 @@ impl Vocabulary {
             .map(|(x, y)| (*x, y))
     }
 }
+#[wasm_bindgen]
+impl Vocabulary {
+    /// Retrieves the token ID associated with the given token.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The token to retrieve the ID for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u32)` - The token ID if it exists.
+    /// * `None` - If the token does not exist in the vocabulary.
+    pub fn token_id(&self, token: &Token) -> Option<u32> {
+        self.token_to_id.get(token).copied()
+    }
+    /// Retrieves the size of the vocabulary.
+    pub fn vocab_size(&self) -> usize {
+        self.id_to_token
+            .keys()
+            .copied()
+            .max()
+            .map(|x| x + 1)
+            .unwrap_or(0) as usize
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct TokensIter<'a> {
     current_token_id: Option<NonMaxU32>,

@@ -466,6 +466,7 @@ pub mod engine_like;
 pub mod grammar;
 pub mod utils;
 pub mod vocabulary;
+mod wasm_binding;
 mod zero;
 pub use config::Config;
 pub use engine::Engine;
@@ -474,3 +475,9 @@ pub use engine_like::EngineLike;
 pub use grammar::Grammar;
 pub use vocabulary::Token;
 pub use vocabulary::Vocabulary;
+
+// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
+// allocator.
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;

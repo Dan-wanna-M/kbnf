@@ -4,6 +4,7 @@ use std::sync::Arc;
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use num::Bounded;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     config::Config, engine_base::EngineBase, engine_like::EngineLike, grammar::Grammar, utils,
@@ -11,7 +12,8 @@ use crate::{
 };
 
 /// The specific config of the [`Engine`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct EngineConfig {
     /// Whether the cache is enabled. Caching speeds up the engine eventually if any of the following conditions are met:
     /// 1. The grammar is "simple". What exactly constitutes a simple grammar is not well defined at the moment but
@@ -44,6 +46,7 @@ pub(crate) enum EngineUnion {
     /// Complex grammar with complex dfa and unusually large repetitions
     U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
+#[wasm_bindgen]
 #[derive(Debug, Clone)]
 /// The main struct that wraps the [`EngineBase`] so the user do not have to specify the generic type every time for common cases.
 pub struct Engine {
@@ -68,7 +71,7 @@ pub enum CreateEngineError {
     /// The grammar and/or config's value range is not supported by the Engine.
     InvalidInputError,
 }
-
+#[wasm_bindgen]
 impl Engine {
     /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
     ///
@@ -85,10 +88,11 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    #[wasm_bindgen(constructor)]
     pub fn new(
         kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,
-    ) -> Result<Self, CreateEngineError> {
+    ) -> Result<Engine, CreateEngineError> {
         let config = Config::default();
         Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
     }
@@ -117,7 +121,7 @@ impl Engine {
         kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,
         config: Config,
-    ) -> Result<Self, CreateEngineError> {
+    ) -> Result<Engine, CreateEngineError> {
         let tsp = config.expected_output_length;
         let internal_config = config.internal_config();
         let grammar =
