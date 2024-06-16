@@ -29,7 +29,7 @@ pub enum CreateVocabularyErrorJs {
 impl Token {
     /// Creates a new instance of [`Token`].
     #[wasm_bindgen(constructor)]
-    pub fn new_js(value:Box<[u8]>) -> Token {
+    pub fn new_js(value: Box<[u8]>) -> Token {
         Token(value)
     }
 }
@@ -40,8 +40,8 @@ impl Vocabulary {
     ///
     /// # Arguments
     ///
-    /// * `id_to_token` - A map from token IDs to tokens.
-    /// * `id_to_token_string` - A map from token IDs to tokens in UTF-8 String representation.
+    /// * `id_to_token` - A Map<number, Uint8Array> from token IDs to tokens.
+    /// * `id_to_token_string` - A Map<number, string> from token IDs to tokens in UTF-8 String representation.
     /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
     /// vice versa. For example, a token may contain `0xFF` byte.
     #[wasm_bindgen(constructor)]
@@ -64,7 +64,7 @@ impl Vocabulary {
     ///
     /// * `Some(String)` - The token string if it exists.
     /// * `None` - If the token ID is out of range.
-    #[wasm_bindgen(js_name = get_token_string)]
+    #[wasm_bindgen(js_name = getTokenString)]
     pub fn token_string_js(&self, token_id: u32) -> Option<String> {
         self.id_to_token_string.get(&token_id).cloned()
     }
@@ -77,9 +77,9 @@ impl Vocabulary {
     ///
     /// # Returns
     ///
-    /// * `Some(&Token)` - The token if it exists.
+    /// * `Some(Token)` - The token if it exists.
     /// * `None` - If the token ID is out of range.
-    #[wasm_bindgen(js_name = get_token)]
+    #[wasm_bindgen(js_name = getToken)]
     pub fn token_js(&self, token_id: u32) -> Option<Token> {
         self.id_to_token.get(&token_id).cloned()
     }
@@ -101,6 +101,7 @@ impl Engine {
     ///
     /// Returns an [`AcceptTokenError`] when a token is not accepted. Check the error type docs for more details.
     /// The [`EngineLike`] internal states are not updated in this case.
+    #[wasm_bindgen(js_name = tryAcceptNewToken)]
     pub fn try_accept_new_token(
         &mut self,
         token_id: u32,
@@ -109,6 +110,7 @@ impl Engine {
     }
 
     /// Computes the allowed token IDs based on current states.
+    #[wasm_bindgen(js_name = computeAllowedTokenIds)]
     pub fn compute_allowed_token_ids(&mut self) {
         EngineLike::compute_allowed_token_ids(self)
     }
@@ -127,6 +129,7 @@ impl Engine {
     ///
     /// Returns a [`MaskLogitsError`] when the input logits array is not of the expected length according to the vocabulary.
     /// The logits array is not updated in this case.
+    #[wasm_bindgen(js_name = maskLogits)]
     pub fn mask_logits(&self, logits: &mut [f32]) -> Result<(), MaskLogitsError> {
         EngineLike::mask_logits(self, logits)
     }
@@ -147,6 +150,7 @@ impl Engine {
     /// Returns an [`UpdateLogitsError`] when the logits is not updated. Check the error type docs for more details.
     /// The [`EngineLike`] internal states are not updated in this case.
     /// The logits array is not updated as well.
+    #[wasm_bindgen(js_name = updateLogits)]
     pub fn update_logits(
         &mut self,
         token_id: u32,
@@ -159,20 +163,24 @@ impl Engine {
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
     ///
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    #[wasm_bindgen(js_name = getAllowedTokenIdsFromLastComputation)]
     pub fn allowed_token_ids_from_last_computation(&self) -> Vec<usize> {
         EngineLike::allowed_token_ids_from_last_computation(self)
             .ones()
             .collect()
     }
     /// Checks if the engine is finished.
+    #[wasm_bindgen(js_name = isFinished)]
     pub fn is_finished(&self) -> bool {
         EngineLike::is_finished(self)
     }
     /// Resets the engine to its initial state. Notably, the cache is preserved.
+    #[wasm_bindgen(js_name = reset)]
     pub fn reset(&mut self) {
         EngineLike::reset(self)
     }
     /// Gets the vocabulary of the engine.
+    #[wasm_bindgen(js_name = getVocab)]
     pub fn vocab(&self) -> Vocabulary {
         EngineLike::vocab(self).as_ref().clone()
     }

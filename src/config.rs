@@ -19,7 +19,7 @@ pub struct InternalConfig {
     pub start_nonterminal: String,
 }
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
-#[wasm_bindgen]
+#[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -52,7 +52,7 @@ pub enum Fsa {
     Dfa,
 }
 /// The configuration of regular expressions.
-#[wasm_bindgen]
+#[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct RegexConfig {
     /// The maximum memory usage in bytes allowed when compiling the regex.
@@ -65,7 +65,7 @@ pub struct RegexConfig {
 }
 
 /// The configuration of regular expressions.
-#[wasm_bindgen]
+#[wasm_bindgen(inspectable)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
 pub struct CompressionConfig {
     /// The minimum number of terminals to be compressed. The default is 5.

@@ -226,10 +226,12 @@ impl Vocabulary {
     ///
     /// * `Some(u32)` - The token ID if it exists.
     /// * `None` - If the token does not exist in the vocabulary.
+    #[wasm_bindgen(js_name = getTokenID)]
     pub fn token_id(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
     /// Retrieves the size of the vocabulary.
+    #[wasm_bindgen(js_name = getVocabSize)]
     pub fn vocab_size(&self) -> usize {
         self.id_to_token
             .keys()
