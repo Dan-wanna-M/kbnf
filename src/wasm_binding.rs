@@ -46,11 +46,11 @@ impl Vocabulary {
     /// vice versa. For example, a token may contain `0xFF` byte.
     #[wasm_bindgen(constructor)]
     pub fn new_js(
-        id_to_token: JsValue,
-        id_to_token_string: JsValue,
+        id_to_token: js_sys::Map,
+        id_to_token_string: js_sys::Map,
     ) -> Result<Vocabulary, CreateVocabularyErrorJs> {
-        let id_to_token = serde_wasm_bindgen::from_value(id_to_token)?;
-        let id_to_token_string = serde_wasm_bindgen::from_value(id_to_token_string)?;
+        let id_to_token = serde_wasm_bindgen::from_value(id_to_token.into())?;
+        let id_to_token_string = serde_wasm_bindgen::from_value(id_to_token_string.into())?;
         Ok(Vocabulary::new(id_to_token, id_to_token_string)?)
     }
 
