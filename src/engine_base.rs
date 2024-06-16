@@ -581,8 +581,8 @@ where
 {
     const STATE_ID_TYPE_SIZE: usize = std::mem::size_of::<TS>();
     const EXCEPTED_ID_TYPE_SIZE: usize = std::mem::size_of::<TE>();
-    const STATE_ID_TYPE_BIT: usize = Self::STATE_ID_TYPE_SIZE * 8;
-    const EXCEPTED_ID_TYPE_BIT: usize = Self::EXCEPTED_ID_TYPE_SIZE * 8;
+    const STATE_ID_TYPE_BIT: u32 = (Self::STATE_ID_TYPE_SIZE * 8) as u32;
+    const EXCEPTED_ID_TYPE_BIT: u32 = (Self::EXCEPTED_ID_TYPE_SIZE * 8) as u32;
     /// Create a new [EngineBase](crate::engine_base::EngineBase).
     ///
     /// # Arguments
@@ -683,7 +683,7 @@ where
         grammar: &Grammar<TI, TE>,
     ) -> Result<(), CreateEngineBaseError> {
         let terminals = grammar.id_to_terminals();
-        let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
+        let max: usize = 2usize.saturating_pow(Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
             let terminal = terminals.view::<1, 1>([i]);
             if terminal.len() > max {
@@ -697,7 +697,7 @@ where
         grammar: &Grammar<TI, TE>,
     ) -> Result<(), CreateEngineBaseError> {
         let regexes = grammar.id_to_regexes();
-        let max: usize = (1 << Self::STATE_ID_TYPE_BIT) - 1;
+        let max: usize = 2usize.saturating_pow(Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
             match fsa {
                 FiniteStateAutomaton::Dfa(dfa) => {
@@ -723,8 +723,9 @@ where
                     if let HIRNode::EXCEPT(id, _) = node {
                         // repetition is verified in grammar
                         let fsa = grammar.excepted(id);
-                        let max: usize =
-                            (1 << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)) - 1;
+                        let max: usize = 2usize
+                            .saturating_pow(Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)
+                            - 1;
                         match fsa {
                             FiniteStateAutomaton::Dfa(dfa) => {
                                 if dfa.state_len() > max {

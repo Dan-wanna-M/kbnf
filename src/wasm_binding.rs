@@ -1,6 +1,7 @@
 use crate::engine::CreateEngineError;
+use crate::engine_like::{AcceptTokenError, MaskLogitsError, UpdateLogitsError};
 use crate::vocabulary::{CreateVocabularyError, Vocabulary};
-use crate::Token;
+use crate::{AcceptTokenResult, Engine, EngineLike, Token};
 use wasm_bindgen::prelude::*;
 
 #[allow(clippy::from_over_into)]
@@ -20,8 +21,17 @@ impl Into<JsValue> for CreateVocabularyErrorJs {
 pub enum CreateVocabularyErrorJs {
     #[error("Failed to create the vocabulary: {0}")]
     CreateVocabularyError(#[from] CreateVocabularyError),
-    #[error("Invalid map value: {0}")]
+    #[error("{0}")]
     Error(#[from] serde_wasm_bindgen::Error),
+}
+
+#[wasm_bindgen]
+impl Token {
+    /// Creates a new instance of [`Token`].
+    #[wasm_bindgen(constructor)]
+    pub fn new_js(value:Box<[u8]>) -> Token {
+        Token(value)
+    }
 }
 
 #[wasm_bindgen]
@@ -72,5 +82,98 @@ impl Vocabulary {
     #[wasm_bindgen(js_name = get_token)]
     pub fn token_js(&self, token_id: u32) -> Option<Token> {
         self.id_to_token.get(&token_id).cloned()
+    }
+}
+
+#[wasm_bindgen]
+impl Engine {
+    /// Tries to accept a new token with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to be accepted.
+    ///
+    /// # Returns
+    ///
+    /// * [`AcceptTokenResult`] - The result of accepting the token.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`AcceptTokenError`] when a token is not accepted. Check the error type docs for more details.
+    /// The [`EngineLike`] internal states are not updated in this case.
+    pub fn try_accept_new_token(
+        &mut self,
+        token_id: u32,
+    ) -> Result<AcceptTokenResult, AcceptTokenError> {
+        EngineLike::try_accept_new_token(self, token_id)
+    }
+
+    /// Computes the allowed token IDs based on current states.
+    pub fn compute_allowed_token_ids(&mut self) {
+        EngineLike::compute_allowed_token_ids(self)
+    }
+
+    /// Masks the logits based on last computed token IDs.
+    /// These token IDs can also be obtained from [`EngineLike::allowed_token_ids_from_last_computation`].
+    ///
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect the masking!
+    ///
+    /// # Arguments
+    ///
+    /// * `logits` - A mutable reference to the logits array to be masked.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`MaskLogitsError`] when the input logits array is not of the expected length according to the vocabulary.
+    /// The logits array is not updated in this case.
+    pub fn mask_logits(&self, logits: &mut [f32]) -> Result<(), MaskLogitsError> {
+        EngineLike::mask_logits(self, logits)
+    }
+
+    /// Try to accept the token ID and if succeeds, update the given logits array.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token.
+    /// * `logits` - A mutable reference to the logits array to be updated.
+    ///
+    /// # Returns
+    ///
+    /// * [`AcceptTokenResult`] - The result of accepting the token.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`UpdateLogitsError`] when the logits is not updated. Check the error type docs for more details.
+    /// The [`EngineLike`] internal states are not updated in this case.
+    /// The logits array is not updated as well.
+    pub fn update_logits(
+        &mut self,
+        token_id: u32,
+        logits: &mut [f32],
+    ) -> Result<AcceptTokenResult, UpdateLogitsError> {
+        EngineLike::update_logits(self, token_id, logits)
+    }
+
+    /// Gets the allowed token IDs since last computation.
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    ///
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    pub fn allowed_token_ids_from_last_computation(&self) -> Vec<usize> {
+        EngineLike::allowed_token_ids_from_last_computation(self)
+            .ones()
+            .collect()
+    }
+    /// Checks if the engine is finished.
+    pub fn is_finished(&self) -> bool {
+        EngineLike::is_finished(self)
+    }
+    /// Resets the engine to its initial state. Notably, the cache is preserved.
+    pub fn reset(&mut self) {
+        EngineLike::reset(self)
+    }
+    /// Gets the vocabulary of the engine.
+    pub fn vocab(&self) -> Vocabulary {
+        EngineLike::vocab(self).as_ref().clone()
     }
 }
