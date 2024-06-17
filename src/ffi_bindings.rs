@@ -76,6 +76,17 @@ impl Token {
         Token(value)
     }
 }
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Token {
+    /// Creates a new instance of [`Token`].
+    #[new]
+    pub fn new_py(value: &[u8]) -> Token {
+        Token(value.to_vec().into_boxed_slice())
+    }
+}
+
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl Vocabulary {
