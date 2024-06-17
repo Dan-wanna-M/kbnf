@@ -81,6 +81,10 @@ impl Token {
 #[pymethods]
 impl Token {
     /// Creates a new instance of [`Token`].
+    ///
+    /// # Signature
+    ///
+    /// (value: bytes) -> Token
     #[new]
     pub fn new_py(value: &[u8]) -> Token {
         Token(value.to_vec().into_boxed_slice())
@@ -113,6 +117,10 @@ impl Vocabulary {
 impl Vocabulary {
     /// Creates a new instance of [`Vocabulary`].
     ///
+    /// # Signature
+    ///
+    /// (id_to_token: Dict[int, Token], id_to_token_string: Dict[int, str]) -> Vocabulary
+    ///
     /// # Arguments
     ///
     /// * `id_to_token` - A Map<number, Uint8Array> from token IDs to tokens.
@@ -120,6 +128,7 @@ impl Vocabulary {
     /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
     /// vice versa. For example, a token may contain `0xFF` byte.
     #[new]
+    #[pyo3(text_signature = "(id_to_token, id_to_token_string)")]
     pub fn new_py(
         id_to_token: std::collections::HashMap<u32, Token>,
         id_to_token_string: std::collections::HashMap<u32, String>,
@@ -192,6 +201,10 @@ impl Vocabulary {
 impl Vocabulary {
     /// Retrieves the token ID associated with the given token.
     ///
+    /// # Signature
+    ///
+    /// (self, token: Token) -> Optional[int]
+    ///
     /// # Arguments
     ///
     /// * `token` - The token to retrieve the ID for.
@@ -216,6 +229,10 @@ impl Vocabulary {
     }
     /// Retrieves the token string associated with the given token ID.
     ///
+    /// # Signature
+    ///
+    /// (self, token_id: int) -> Optional[str]
+    ///
     /// # Arguments
     ///
     /// * `token_id` - The ID of the token to retrieve the string for.
@@ -230,6 +247,10 @@ impl Vocabulary {
     }
 
     /// Retrieves the token associated with the given token ID.
+    ///
+    /// # Signature
+    ///
+    /// (self, token_id: int) -> Optional[Token]
     ///
     /// # Arguments
     ///
@@ -247,6 +268,51 @@ impl Vocabulary {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl Engine {
+    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
+    ///
+    /// # Arguments
+    ///
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    ///
+    /// * `vocabulary` - The [`Vocabulary`] object.
+    ///
+    /// # Returns
+    ///
+    /// * [`Engine`] - The new [`Engine`] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    #[wasm_bindgen(constructor)]
+    pub fn new_js(
+        kbnf_syntax_grammar_str: &str,
+        vocabulary: Vocabulary,
+    ) -> Result<Engine, CreateEngineError> {
+        Self::new(kbnf_syntax_grammar_str, vocabulary)
+    }
+    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
+    ///
+    /// # Arguments
+    ///
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `vocabulary` - The [`Vocabulary`] object.
+    /// * `config` - The [`Config`] object.
+    ///
+    /// # Returns
+    ///
+    /// * [`Engine`] - The new [`Engine`] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    #[wasm_bindgen(js_name = withConfig)]
+    pub fn with_config_js(
+        kbnf_syntax_grammar_str: &str,
+        vocabulary: Vocabulary,
+        config: Config,
+    ) -> Result<Engine, CreateEngineError> {
+        Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
+    }
     /// Tries to accept a new token with the given token ID.
     ///
     /// # Arguments
@@ -348,7 +414,65 @@ impl Engine {
 #[cfg(feature = "python")]
 #[pymethods]
 impl Engine {
+    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
+    ///
+    /// # Signature
+    ///
+    /// (kbnf_syntax_grammar_str: str, vocabulary: Vocabulary) -> Engine
+    ///
+    /// # Arguments
+    ///
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    ///
+    /// * `vocabulary` - The [`Vocabulary`] object.
+    ///
+    /// # Returns
+    ///
+    /// * [`Engine`] - The new [`Engine`] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    #[new]
+    pub fn new_py(
+        kbnf_syntax_grammar_str: &str,
+        vocabulary: Vocabulary,
+    ) -> Result<Engine, CreateEngineError> {
+        Self::new(kbnf_syntax_grammar_str, vocabulary)
+    }
+    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
+    ///
+    /// # Signature
+    ///
+    /// (kbnf_syntax_grammar_str: str, vocabulary: Vocabulary, config: Config) -> Engine
+    ///
+    /// # Arguments
+    ///
+    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `vocabulary` - The [`Vocabulary`] object.
+    /// * `config` - The [`Config`] object.
+    ///
+    /// # Returns
+    ///
+    /// * [`Engine`] - The new [`Engine`] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
+    #[staticmethod]
+    #[pyo3(name = "with_config")]
+    pub fn with_config_py(
+        kbnf_syntax_grammar_str: &str,
+        vocabulary: Vocabulary,
+        config: Config,
+    ) -> Result<Engine, CreateEngineError> {
+        Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
+    }
     /// Tries to accept a new token with the given token ID.
+    ///
+    /// # Signature
+    ///
+    /// (self, token_id: int) -> AcceptTokenResult
     ///
     /// # Arguments
     ///
@@ -371,6 +495,10 @@ impl Engine {
     }
 
     /// Computes the allowed token IDs based on current states.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> None
     #[pyo3(name = "compute_allowed_token_ids")]
     pub fn compute_allowed_token_ids_py(&mut self) {
         EngineLike::compute_allowed_token_ids(self)
@@ -380,6 +508,10 @@ impl Engine {
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
     ///
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    ///
+    /// # Signature
+    ///
+    /// (self) -> List[int]
     #[pyo3(name = "get_allowed_token_ids_from_last_computation")]
     pub fn allowed_token_ids_from_last_computation_py(&self) -> Vec<usize> {
         EngineLike::allowed_token_ids_from_last_computation(self)
@@ -387,16 +519,28 @@ impl Engine {
             .collect()
     }
     /// Checks if the engine is finished.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> bool
     #[pyo3(name = "is_finished")]
     pub fn is_finished_py(&self) -> bool {
         EngineLike::is_finished(self)
     }
     /// Resets the engine to its initial state. Notably, the cache is preserved.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> None
     #[pyo3(name = "reset")]
     pub fn reset_py(&mut self) {
         EngineLike::reset(self)
     }
     /// Gets the vocabulary of the engine.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> Vocabulary
     #[pyo3(name = "get_vocab")]
     pub fn vocab_py(&self) -> Vocabulary {
         EngineLike::vocab(self).as_ref().clone()
@@ -407,9 +551,13 @@ impl Engine {
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect the masking!
     ///
+    /// # Signature
+    ///
+    /// (self, logits_ptr: int, length: int) -> None
+    ///
     /// # Arguments
     ///
-    /// * `data_ptr` - The pointer to the logits array.
+    /// * `logits_ptr` - The pointer to the logits array.
     /// * `length` - The length of the logits array.
     ///
     /// # Errors
@@ -431,6 +579,10 @@ impl Engine {
     }
 
     /// Try to accept the token ID and if succeeds, update the given logits array.
+    ///
+    /// # Signature
+    ///
+    /// (self, token_id: int, logits_ptr: int, length: int) -> AcceptTokenResult
     ///
     /// # Arguments
     ///

@@ -15,9 +15,9 @@ use crate::{
 };
 
 /// The specific config of the [`Engine`].
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="python", pyo3(get_all,set_all))]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyo3(get_all, set_all))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct EngineConfig {
     /// Whether the cache is enabled. Caching speeds up the engine eventually if any of the following conditions are met:
@@ -51,8 +51,8 @@ pub(crate) enum EngineUnion {
     /// Complex grammar with complex dfa and unusually large repetitions
     U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Clone)]
 /// The main struct that wraps the [`EngineBase`] so the user do not have to specify the generic type every time for common cases.
 pub struct Engine {
@@ -78,7 +78,7 @@ pub enum CreateEngineError {
     InvalidInputError,
 }
 
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl Engine {
     /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
     ///
@@ -95,7 +95,7 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    #[cfg_attr(feature="wasm", wasm_bindgen(constructor))]
+    #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]
     pub fn new(
         kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,

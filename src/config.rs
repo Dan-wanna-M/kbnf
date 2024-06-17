@@ -22,9 +22,9 @@ pub struct InternalConfig {
     pub start_nonterminal: String,
 }
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="python", pyo3(get_all,set_all))]
-#[cfg_attr(feature="wasm", wasm_bindgen(inspectable,getter_with_clone))]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyo3(get_all, set_all))]
+#[cfg_attr(feature = "wasm", wasm_bindgen(inspectable, getter_with_clone))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -46,8 +46,8 @@ pub struct Config {
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub enum Fsa {
     /// The Deterministic Finite Automaton.
@@ -57,10 +57,10 @@ pub enum Fsa {
     Dfa,
 }
 /// The configuration of regular expressions.
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="python", pyo3(get_all,set_all))]
-#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyo3(get_all, set_all))]
+#[cfg_attr(feature = "wasm", wasm_bindgen(inspectable))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct RegexConfig {
     /// The maximum memory usage in bytes allowed when compiling the regex.
     /// If the memory usage exceeds this limit, an error will be returned.
@@ -72,10 +72,10 @@ pub struct RegexConfig {
 }
 
 /// The configuration of regular expressions.
-#[cfg_attr(feature="python", pyclass)]
-#[cfg_attr(feature="python", pyo3(get_all,set_all))]
-#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash,Copy)]
+#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyo3(get_all, set_all))]
+#[cfg_attr(feature = "wasm", wasm_bindgen(inspectable))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct CompressionConfig {
     /// The minimum number of terminals to be compressed. The default is 5.
     pub min_terminals: usize,

@@ -19,8 +19,8 @@ const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation r
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 #[repr(transparent)]
-#[cfg_attr(feature="wasm", wasm_bindgen(getter_with_clone))]
-#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct FirstBytes([u32; BYTES_NUM]);
@@ -42,8 +42,8 @@ impl tinyvec::Array for FirstBytes {
 }
 /// The struct represents a language model's vocabulary.
 #[derive(Clone)]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
-#[cfg_attr(feature="python", pyclass)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct Vocabulary {
     pub(crate) token_to_id: AHashMap<Token, u32>,
     pub(crate) id_to_token: AHashMap<u32, Token>,
