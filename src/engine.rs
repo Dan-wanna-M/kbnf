@@ -78,7 +78,6 @@ pub enum CreateEngineError {
     InvalidInputError,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl Engine {
     /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
     ///
@@ -95,7 +94,6 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]
     pub fn new(
         kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,
