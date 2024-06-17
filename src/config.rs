@@ -24,7 +24,7 @@ pub struct InternalConfig {
 /// The configuration of the [`Engine`](crate::engine::Engine) struct. This should suffice most scenarios.
 #[cfg_attr(feature="python", pyclass)]
 #[cfg_attr(feature="python", pyo3(get_all,set_all))]
-#[cfg_attr(feature="wasm", wasm_bindgen(inspectable))]
+#[cfg_attr(feature="wasm", wasm_bindgen(inspectable,getter_with_clone))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Config {
     /// The configuration of the regular expressions.
@@ -35,7 +35,6 @@ pub struct Config {
     pub engine_config: EngineConfig,
     /// The start nonterminal of the grammar.
     /// The default is `start`.
-    #[cfg_attr(feature="wasm", wasm_bindgen(getter_with_clone))]
     pub start_nonterminal: String,
     /// The length of the expected output in bytes.
     /// This is used to determine the index type used in EngineBase.

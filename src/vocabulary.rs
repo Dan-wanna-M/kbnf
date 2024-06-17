@@ -4,16 +4,14 @@ use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::{NonMaxU32, NonMaxU8};
 #[cfg(feature = "python")]
-use pyo3::pyclass;
-#[cfg(feature = "python")]
-use pyo3::pymethods;
+use pyo3::prelude::*;
 use serde::Deserialize;
 use std::array;
 use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use tinyvec::ArrayVec;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 const TOKEN_SEPARATOR: u8 = 0xFF;
 const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one additional index.
@@ -21,8 +19,8 @@ const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation r
 /// A wrapper struct that represents a token in bytes in a language model's vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 #[repr(transparent)]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
-#[cfg_attr(feature="wasm", pyclass)]
+#[cfg_attr(feature="wasm", wasm_bindgen(getter_with_clone))]
+#[cfg_attr(feature="python", pyclass)]
 pub struct Token(pub Box<[u8]>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct FirstBytes([u32; BYTES_NUM]);
@@ -45,7 +43,7 @@ impl tinyvec::Array for FirstBytes {
 /// The struct represents a language model's vocabulary.
 #[derive(Clone)]
 #[cfg_attr(feature="wasm", wasm_bindgen)]
-#[cfg_attr(feature="wasm", pyclass)]
+#[cfg_attr(feature="python", pyclass)]
 pub struct Vocabulary {
     pub(crate) token_to_id: AHashMap<Token, u32>,
     pub(crate) id_to_token: AHashMap<u32, Token>,
@@ -222,8 +220,6 @@ impl Vocabulary {
             .map(|(x, y)| (*x, y))
     }
 }
-#[cfg_attr(feature="python", pymethods)]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
 impl Vocabulary {
     /// Retrieves the token ID associated with the given token.
     ///
@@ -235,14 +231,10 @@ impl Vocabulary {
     ///
     /// * `Some(u32)` - The token ID if it exists.
     /// * `None` - If the token does not exist in the vocabulary.
-    #[cfg_attr(feature="python", pyo3(name = "get_token_id"))]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getTokenId))]
     pub fn token_id(&self, token: &Token) -> Option<u32> {
         self.token_to_id.get(token).copied()
     }
     /// Retrieves the size of the vocabulary.
-    #[cfg_attr(feature="python", pyo3(name = "get_vocab_size"))]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getVocabSize))]
     pub fn vocab_size(&self) -> usize {
         self.id_to_token
             .keys()

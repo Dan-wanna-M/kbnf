@@ -68,10 +68,10 @@ pub enum CreateVocabularyErrorJs {
     Error(#[from] serde_wasm_bindgen::Error),
 }
 #[cfg(feature = "wasm")]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[wasm_bindgen]
 impl Token {
     /// Creates a new instance of [`Token`].
-    #[cfg_attr(feature="wasm", wasm_bindgen(constructor))]
+    #[wasm_bindgen(constructor)]
     pub fn new_js(value: Box<[u8]>) -> Token {
         Token(value)
     }
@@ -119,9 +119,32 @@ impl Vocabulary {
     }
 }
 #[cfg(feature = "wasm")]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
-#[pymethods]
+#[wasm_bindgen]
 impl Vocabulary {
+    /// Retrieves the token ID associated with the given token.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The token to retrieve the ID for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u32)` - The token ID if it exists.
+    /// * `None` - If the token does not exist in the vocabulary.
+    #[wasm_bindgen(js_name = getTokenId)]
+    pub fn token_id_js(&self, token: &Token) -> Option<u32> {
+        self.token_to_id.get(token).copied()
+    }
+    /// Retrieves the size of the vocabulary.
+    #[wasm_bindgen(js_name = getVocabSize)]
+    pub fn vocab_size_js(&self) -> usize {
+        self.id_to_token
+            .keys()
+            .copied()
+            .max()
+            .map(|x| x + 1)
+            .unwrap_or(0) as usize
+    }
     /// Retrieves the token string associated with the given token ID.
     ///
     /// # Arguments
@@ -132,8 +155,7 @@ impl Vocabulary {
     ///
     /// * `Some(String)` - The token string if it exists.
     /// * `None` - If the token ID is out of range.
-    #[pyo3(name = "get_token_string")]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getTokenString))]
+    #[wasm_bindgen(js_name = getTokenString)]
     pub fn token_string_js(&self, token_id: u32) -> Option<String> {
         self.id_to_token_string.get(&token_id).cloned()
     }
@@ -148,15 +170,71 @@ impl Vocabulary {
     ///
     /// * `Some(Token)` - The token if it exists.
     /// * `None` - If the token ID is out of range.
-    #[pyo3(name = "get_token")]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getToken))]
+    #[wasm_bindgen(js_name = getToken)]
     pub fn token_js(&self, token_id: u32) -> Option<Token> {
         self.id_to_token.get(&token_id).cloned()
     }
 }
-#[cfg(feature = "wasm")]
+
+#[cfg(feature = "python")]
 #[pymethods]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+impl Vocabulary {
+    /// Retrieves the token ID associated with the given token.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The token to retrieve the ID for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u32)` - The token ID if it exists.
+    /// * `None` - If the token does not exist in the vocabulary.
+    #[pyo3(name = "get_token_id")]
+    pub fn token_id_py(&self, token: &Token) -> Option<u32> {
+        self.token_to_id.get(token).copied()
+    }
+    /// Retrieves the size of the vocabulary.
+    #[pyo3(name = "get_vocab_size")]
+    pub fn vocab_size_py(&self) -> usize {
+        self.id_to_token
+            .keys()
+            .copied()
+            .max()
+            .map(|x| x + 1)
+            .unwrap_or(0) as usize
+    }
+    /// Retrieves the token string associated with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to retrieve the string for.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(String)` - The token string if it exists.
+    /// * `None` - If the token ID is out of range.
+    #[pyo3(name = "get_token_string")]
+    pub fn token_string_py(&self, token_id: u32) -> Option<String> {
+        self.id_to_token_string.get(&token_id).cloned()
+    }
+
+    /// Retrieves the token associated with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Token)` - The token if it exists.
+    /// * `None` - If the token ID is out of range.
+    #[pyo3(name = "get_token")]
+    pub fn token_py(&self, token_id: u32) -> Option<Token> {
+        self.id_to_token.get(&token_id).cloned()
+    }
+}
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
 impl Engine {
     /// Tries to accept a new token with the given token ID.
     ///
@@ -172,8 +250,8 @@ impl Engine {
     ///
     /// Returns an [`AcceptTokenError`] when a token is not accepted. Check the error type docs for more details.
     /// The [`EngineLike`] internal states are not updated in this case.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = tryAcceptNewToken))]
-    pub fn try_accept_new_token(
+    #[wasm_bindgen(js_name = tryAcceptNewToken)]
+    pub fn try_accept_new_token_js(
         &mut self,
         token_id: u32,
     ) -> Result<AcceptTokenResult, AcceptTokenError> {
@@ -181,8 +259,8 @@ impl Engine {
     }
 
     /// Computes the allowed token IDs based on current states.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = computeAllowedTokenIds))]
-    pub fn compute_allowed_token_ids(&mut self) {
+    #[wasm_bindgen(js_name = computeAllowedTokenIds)]
+    pub fn compute_allowed_token_ids_js(&mut self) {
         EngineLike::compute_allowed_token_ids(self)
     }
 
@@ -190,33 +268,27 @@ impl Engine {
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
     ///
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
-    #[pyo3(name = "get_allowed_token_ids_from_last_computation")]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getAllowedTokenIdsFromLastComputation))]
-    pub fn allowed_token_ids_from_last_computation(&self) -> Vec<usize> {
+    #[wasm_bindgen(js_name = getAllowedTokenIdsFromLastComputation)]
+    pub fn allowed_token_ids_from_last_computation_js(&self) -> Vec<usize> {
         EngineLike::allowed_token_ids_from_last_computation(self)
             .ones()
             .collect()
     }
     /// Checks if the engine is finished.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = isFinished))]
-    pub fn is_finished(&self) -> bool {
+    #[wasm_bindgen(js_name = isFinished)]
+    pub fn is_finished_js(&self) -> bool {
         EngineLike::is_finished(self)
     }
     /// Resets the engine to its initial state. Notably, the cache is preserved.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = reset))]
-    pub fn reset(&mut self) {
+    #[wasm_bindgen(js_name = reset)]
+    pub fn reset_js(&mut self) {
         EngineLike::reset(self)
     }
     /// Gets the vocabulary of the engine.
-    #[pyo3(name = "get_vocab")]
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = getVocab))]
-    pub fn vocab(&self) -> Vocabulary {
+    #[wasm_bindgen(js_name = getVocab)]
+    pub fn vocab_js(&self) -> Vocabulary {
         EngineLike::vocab(self).as_ref().clone()
     }
-}
-#[cfg(feature = "wasm")]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
-impl Engine {
     /// Masks the logits based on last computed token IDs.
     /// These token IDs can also be obtained from [`EngineLike::allowed_token_ids_from_last_computation`].
     ///
@@ -231,8 +303,8 @@ impl Engine {
     ///
     /// Returns a [`MaskLogitsError`] when the input logits array is not of the expected length according to the vocabulary.
     /// The logits array is not updated in this case.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = maskLogits))]
-    pub fn mask_logits(&self, logits: &mut [f32]) -> Result<(), MaskLogitsError> {
+    #[wasm_bindgen(js_name = maskLogits)]
+    pub fn mask_logits_js(&self, logits: &mut [f32]) -> Result<(), MaskLogitsError> {
         EngineLike::mask_logits(self, logits)
     }
 
@@ -252,8 +324,8 @@ impl Engine {
     /// Returns an [`UpdateLogitsError`] when the logits is not updated. Check the error type docs for more details.
     /// The [`EngineLike`] internal states are not updated in this case.
     /// The logits array is not updated as well.
-    #[cfg_attr(feature="wasm", wasm_bindgen(js_name = updateLogits))]
-    pub fn update_logits(
+    #[wasm_bindgen(js_name = updateLogits)]
+    pub fn update_logits_js(
         &mut self,
         token_id: u32,
         logits: &mut [f32],
@@ -261,11 +333,130 @@ impl Engine {
         EngineLike::update_logits(self, token_id, logits)
     }
 }
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Engine {
+    /// Tries to accept a new token with the given token ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token to be accepted.
+    ///
+    /// # Returns
+    ///
+    /// * [`AcceptTokenResult`] - The result of accepting the token.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`AcceptTokenError`] when a token is not accepted. Check the error type docs for more details.
+    /// The [`EngineLike`] internal states are not updated in this case.
+    #[pyo3(name = "try_accept_new_token")]
+    pub fn try_accept_new_token_py(
+        &mut self,
+        token_id: u32,
+    ) -> Result<AcceptTokenResult, AcceptTokenError> {
+        EngineLike::try_accept_new_token(self, token_id)
+    }
+
+    /// Computes the allowed token IDs based on current states.
+    #[pyo3(name = "compute_allowed_token_ids")]
+    pub fn compute_allowed_token_ids_py(&mut self) {
+        EngineLike::compute_allowed_token_ids(self)
+    }
+
+    /// Gets the allowed token IDs since last computation.
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    ///
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    #[pyo3(name = "get_allowed_token_ids_from_last_computation")]
+    pub fn allowed_token_ids_from_last_computation_py(&self) -> Vec<usize> {
+        EngineLike::allowed_token_ids_from_last_computation(self)
+            .ones()
+            .collect()
+    }
+    /// Checks if the engine is finished.
+    #[pyo3(name = "is_finished")]
+    pub fn is_finished_py(&self) -> bool {
+        EngineLike::is_finished(self)
+    }
+    /// Resets the engine to its initial state. Notably, the cache is preserved.
+    #[pyo3(name = "reset")]
+    pub fn reset_py(&mut self) {
+        EngineLike::reset(self)
+    }
+    /// Gets the vocabulary of the engine.
+    #[pyo3(name = "get_vocab")]
+    pub fn vocab_py(&self) -> Vocabulary {
+        EngineLike::vocab(self).as_ref().clone()
+    }
+    /// Masks the logits based on last computed token IDs.
+    /// These token IDs can also be obtained from [`EngineLike::allowed_token_ids_from_last_computation`].
+    ///
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect the masking!
+    ///
+    /// # Arguments
+    ///
+    /// * `data_ptr` - The pointer to the logits array.
+    /// * `length` - The length of the logits array.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`MaskLogitsError`] when the input logits array is not of the expected length according to the vocabulary.
+    /// The logits array is not updated in this case.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the pointer is on CPU, points to readable,aligned memory that contains float32 and the length is correct.
+    #[pyo3(name = "mask_logits")]
+    pub unsafe fn mask_logits_py(
+        &self,
+        logits_ptr: usize,
+        length: usize,
+    ) -> Result<(), MaskLogitsError> {
+        let logits = std::slice::from_raw_parts_mut(logits_ptr as *mut f32, length);
+        EngineLike::mask_logits(self, logits)
+    }
+
+    /// Try to accept the token ID and if succeeds, update the given logits array.
+    ///
+    /// # Arguments
+    ///
+    /// * `token_id` - The ID of the token.
+    /// * `logits_ptr` - The pointer to the logits array.
+    /// * `length` - The length of the logits array.
+    ///
+    /// # Returns
+    ///
+    /// * [`AcceptTokenResult`] - The result of accepting the token.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`UpdateLogitsError`] when the logits is not updated. Check the error type docs for more details.
+    /// The [`EngineLike`] internal states are not updated in this case.
+    /// The logits array is not updated as well.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the pointer is on CPU, points to readable,aligned memory that contains float32 and the length is correct.
+    #[pyo3(name = "update_logits")]
+    pub unsafe fn update_logits_py(
+        &mut self,
+        token_id: u32,
+        logits_ptr: usize,
+        length: usize,
+    ) -> Result<AcceptTokenResult, UpdateLogitsError> {
+        let logits = std::slice::from_raw_parts_mut(logits_ptr as *mut f32, length);
+        EngineLike::update_logits(self, token_id, logits)
+    }
+}
+
 #[cfg(feature = "wasm")]
-#[cfg_attr(feature="wasm", wasm_bindgen)]
+#[wasm_bindgen]
 impl Config {
     /// Creates a new instance of [`Config`] with default values.
-    #[cfg_attr(feature="wasm", wasm_bindgen(constructor))]
+    #[wasm_bindgen(constructor)]
     pub fn new_js() -> Config {
         Config::default()
     }
