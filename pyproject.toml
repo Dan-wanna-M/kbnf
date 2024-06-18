@@ -1,5 +1,6 @@
 [build-system]
 requires = ["maturin>=1,<2","cffi"]
+dependencies = ["cffi"]
 build-backend = "maturin"
 
 [project]
