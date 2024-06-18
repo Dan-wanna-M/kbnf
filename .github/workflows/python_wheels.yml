@@ -1,4 +1,4 @@
-name: Python
+name: Python Build
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: universal2-apple-darwin
-          args: --release --out dist -m Cargo.toml
+          args: --release --out dist -m Cargo.toml --features "python"
       - name: Install built wheel - universal2
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -56,7 +56,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -m Cargo.toml
+          args: --release --out dist -m Cargo.toml --features "python"
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -83,7 +83,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: --release --out dist -m Cargo.toml
+        args: --release --out dist -m Cargo.toml --features "python"
     - name: Install built wheel
       if: matrix.target == 'x86_64'
       run: |
@@ -110,7 +110,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: --release --out dist -m Cargo.toml
+        args: --release --out dist -m Cargo.toml --features "python"
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
       with:
@@ -150,7 +150,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: musllinux_1_2
-        args: --release --out dist -m Cargo.toml
+        args: --release --out dist -m Cargo.toml --features "python"
     - name: Install built wheel
       uses: addnab/docker-run-action@v3
       with:
@@ -186,7 +186,7 @@ jobs:
       with:
         target: ${{ matrix.platform.target }}
         manylinux: musllinux_1_2
-        args: --release --out dist -m Cargo.toml
+        args: --release --out dist -m Cargo.toml --features "python"
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
       with:
