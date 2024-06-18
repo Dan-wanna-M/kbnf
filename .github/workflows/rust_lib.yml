@@ -19,7 +19,7 @@ jobs:
       - name: Download insta
         run: cargo install cargo-insta
       - name: Run tests
-        run: cargo insta test --verbose
+        run: cargo insta test
 
   build-windows:
     runs-on: windows-latest
@@ -30,7 +30,7 @@ jobs:
       - name: Download insta
         run: cargo install cargo-insta
       - name: Run tests
-        run: cargo insta test --verbose
+        run: cargo insta test
 
   build-macos:
     runs-on: macos-latest
@@ -41,4 +41,4 @@ jobs:
       - name: Download insta
         run: cargo install cargo-insta
       - name: Run tests
-        run: cargo insta test --verbose
+        run: cargo insta test
