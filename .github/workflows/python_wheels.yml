@@ -23,7 +23,7 @@ jobs:
           args: --release --out dist --sdist -m Cargo.toml
       - name: Install built wheel - ARM64
         run: |
-          pip install kbnf --no-index --find-links dist --force-reinstall
+          pip install kbnf --find-links dist --force-reinstall
           python -c "import kbnf"
       - name: Build wheels - universal2
         uses: PyO3/maturin-action@v1
@@ -32,7 +32,7 @@ jobs:
           args: --release --out dist -m Cargo.toml
       - name: Install built wheel - universal2
         run: |
-          pip install kbnf --no-index --find-links dist --force-reinstall
+          pip install kbnf --find-links dist --force-reinstall
           python -c "import kbnf"
       - name: Upload wheels
         uses: actions/upload-artifact@v3
@@ -59,7 +59,7 @@ jobs:
           args: --release --out dist -m Cargo.toml
       - name: Install built wheel
         run: |
-          pip install kbnf --no-index --find-links dist --force-reinstall
+          pip install kbnf --find-links dist --force-reinstall
           python -c "import kbnf"
       - name: Upload wheels
         uses: actions/upload-artifact@v3
@@ -87,7 +87,6 @@ jobs:
     - name: Install built wheel
       if: matrix.target == 'x86_64'
       run: |
-        pip install cffi
         pip install kbnf --find-links dist --force-reinstall
         python -c "import kbnf"
     - name: Upload wheels
@@ -138,7 +137,6 @@ jobs:
     strategy:
       matrix:
         target:
-          - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
     - uses: actions/checkout@v4
@@ -178,6 +176,7 @@ jobs:
             arch: aarch64
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
+          - target: x86_64-unknown-linux-musl
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -196,7 +195,7 @@ jobs:
         distro: alpine_latest
         githubToken: ${{ github.token }}
         install: |
-          apk add --break-system-packages py3-pip
+          apk add py3-pip
           pip3 install -U pip
         run: |
           pip3 install kbnf --find-links dist/ --force-reinstall
