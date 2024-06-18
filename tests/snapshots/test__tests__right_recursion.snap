@@ -8,60 +8,6 @@ Engine {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
                 rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \"c\"[1]C[1] | \"c\"[1];\n",
-                interned_strings: InternedStrings {
-                    nonterminals: StringInterner {
-                        dedup: {
-                            SymbolU32 {
-                                value: 2,
-                            }: (),
-                            SymbolU32 {
-                                value: 1,
-                            }: (),
-                        },
-                        backend: StringBackend {
-                            ends: [
-                                5,
-                                6,
-                            ],
-                            buffer: "startC",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    terminals: StringInterner {
-                        dedup: {
-                            SymbolU32 {
-                                value: 2,
-                            }: (),
-                            SymbolU32 {
-                                value: 1,
-                            }: (),
-                        },
-                        backend: StringBackend {
-                            ends: [
-                                1,
-                                2,
-                            ],
-                            buffer: "\nc",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    regex_strings: StringInterner {
-                        dedup: {},
-                        backend: StringBackend {
-                            ends: [],
-                            buffer: "",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    excepteds: StringInterner {
-                        dedup: {},
-                        backend: StringBackend {
-                            ends: [],
-                            buffer: "",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                },
                 id_to_regexes: {},
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},

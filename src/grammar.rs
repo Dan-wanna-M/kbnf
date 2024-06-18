@@ -302,7 +302,6 @@ where
                 }
                 &lines.into_boxed_str()
             })
-            .field("interned_strings", &self.interned_strings)
             .field(
                 "id_to_regexes",
                 &utils::fill_debug_form_of_id_to_x(self.id_to_regexes.iter(), |x| {

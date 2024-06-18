@@ -8,52 +8,6 @@ Engine {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
                 rules: "start[0] ::= start[0]\"bb\"[0] | \"bb\"[0];\n",
-                interned_strings: InternedStrings {
-                    nonterminals: StringInterner {
-                        dedup: {
-                            SymbolU32 {
-                                value: 1,
-                            }: (),
-                        },
-                        backend: StringBackend {
-                            ends: [
-                                5,
-                            ],
-                            buffer: "start",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    terminals: StringInterner {
-                        dedup: {
-                            SymbolU32 {
-                                value: 1,
-                            }: (),
-                        },
-                        backend: StringBackend {
-                            ends: [
-                                2,
-                            ],
-                            buffer: "bb",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    regex_strings: StringInterner {
-                        dedup: {},
-                        backend: StringBackend {
-                            ends: [],
-                            buffer: "",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                    excepteds: StringInterner {
-                        dedup: {},
-                        backend: StringBackend {
-                            ends: [],
-                            buffer: "",
-                            marker: PhantomData<fn() -> string_interner::symbol::SymbolU32>,
-                        },
-                    },
-                },
                 id_to_regexes: {},
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},
