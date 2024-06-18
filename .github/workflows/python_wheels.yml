@@ -112,7 +112,6 @@ jobs:
         manylinux: auto
         args: --release --out dist -m Cargo.toml
     - uses: uraimo/run-on-arch-action@v2.7.2
-      if: matrix.target != 'ppc64'
       name: Install built wheel
       with:
         arch: ${{ matrix.target }}
@@ -120,7 +119,7 @@ jobs:
         githubToken: ${{ github.token }}
         install: |
           apt-get update
-          apt-get install build-essential
+          apt-get install -y build-essential
           apt-get install -y --no-install-recommends python3 python3-pip
           pip3 install -U pip
         run: |
@@ -177,6 +176,7 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
           - target: x86_64-unknown-linux-musl
+            arch: x64
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
