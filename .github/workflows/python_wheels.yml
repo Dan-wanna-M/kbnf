@@ -14,14 +14,14 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9
-          architecture: x64
+          architecture: arm64
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build wheels - x86_64
+      - name: Build wheels - ARM64
         uses: PyO3/maturin-action@v1
         with:
-          target: x86_64
+          target: aarch64-apple-darwin
           args: --release --out dist --sdist -m Cargo.toml
-      - name: Install built wheel - x86_64
+      - name: Install built wheel - ARM64
         run: |
           pip install kbnf --no-index --find-links dist --force-reinstall
           python -c "import kbnf"
@@ -39,7 +39,7 @@ jobs:
         with:
           name: wheels
           path: dist
-
+          
   windows:
     runs-on: windows-latest
     strategy:
@@ -186,7 +186,7 @@ jobs:
       with:
         target: ${{ matrix.platform.target }}
         manylinux: musllinux_1_2
-        args: --release --out dist -m python/Cargo.toml
+        args: --release --out dist -m Cargo.toml
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
       with:
