@@ -159,7 +159,7 @@ jobs:
         image: alpine:latest
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
-          apk --break-system-packages add py3-pip
+          apk add --break-system-packages py3-pip
           pip3 install -U pip
           pip3 install kbnf --find-links /io/dist/ --force-reinstall
           python3 -c "import kbnf"
@@ -196,7 +196,7 @@ jobs:
         distro: alpine_latest
         githubToken: ${{ github.token }}
         install: |
-          apk --break-system-packages add py3-pip
+          apk add --break-system-packages py3-pip
           pip3 install -U pip
         run: |
           pip3 install kbnf --find-links dist/ --force-reinstall
