@@ -156,8 +156,8 @@ jobs:
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
           apk add py3-pip
-          pip3 install -U pip
-          pip3 install kbnf --find-links /io/dist/ --force-reinstall
+          pip3 install -U pip --break-system-packages
+          pip3 install kbnf --find-links /io/dist/ --force-reinstall --break-system-packages
           python3 -c "import kbnf"
     - name: Upload wheels
       uses: actions/upload-artifact@v3
@@ -174,8 +174,6 @@ jobs:
             arch: aarch64
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
-          - target: x86_64-unknown-linux-musl
-            arch: x64
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -195,9 +193,9 @@ jobs:
         githubToken: ${{ github.token }}
         install: |
           apk add py3-pip
-          pip3 install -U pip
+          pip3 install -U pip --break-system-packages
         run: |
-          pip3 install kbnf --find-links dist/ --force-reinstall
+          pip3 install kbnf --find-links dist/ --force-reinstall --break-system-packages
           python3 -c "import kbnf"
     - name: Upload wheels
       uses: actions/upload-artifact@v3
