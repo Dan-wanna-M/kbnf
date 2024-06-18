@@ -197,7 +197,7 @@ jobs:
           apk update
           apk add alpine-sdk
           apk add python3-dev
-          apt add libffi-dev
+          apk add libffi-dev
           apk add py3-pip
           pip3 install -U pip --break-system-packages
         run: |
