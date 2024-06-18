@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [aarch64, armv7, s390x, ppc64le, ppc64]
+        target: [aarch64, armv7, s390x, ppc64le]
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -136,7 +136,7 @@ jobs:
     strategy:
       matrix:
         target:
-          - i686-unknown-linux-musl
+          - x86_64-unknown-linux-musl
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -150,13 +150,12 @@ jobs:
         manylinux: musllinux_1_2
         args: --release --out dist -m Cargo.toml
     - name: Install built wheel
-      if: matrix.target == 'x86_64-unknown-linux-musl'
       uses: addnab/docker-run-action@v3
       with:
         image: alpine:latest
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
-          apk add --break-system-packages py3-pip
+          apk add py3-pip
           pip3 install -U pip
           pip3 install kbnf --find-links /io/dist/ --force-reinstall
           python3 -c "import kbnf"
