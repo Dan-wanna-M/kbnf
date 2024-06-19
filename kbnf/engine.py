@@ -1,5 +1,5 @@
 import types
-from . import InternalEngine, AcceptTokenResult
+from kbnf import InternalEngine, AcceptTokenResult
 import typing
 _slice_converters = []
 
