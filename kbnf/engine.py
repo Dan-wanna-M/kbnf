@@ -1,5 +1,5 @@
 import types
-from .kbnf import InternalEngine
+from .kbnf import InternalEngine, AcceptTokenResult
 import typing
 _slice_converters = []
 
@@ -47,11 +47,53 @@ def _convert_logits_to_slice(logits:typing.Any)->typing.Tuple[typing.Any,int,int
 
 class Engine(InternalEngine):
     def mask_logits(self, logits):
+        """
+Masks the logits based on last computed token IDs.
+These token IDs can also be obtained from [`EngineLike::allowed_token_ids_from_last_computation`].
+
+Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs
+and hence DOES NOT affect the masking!
+
+# Arguments
+
+* `logits`: The logits to be masked. `numpy.ndarray` is supported by default.
+`torch.Tensor` is supported if PyTorch is installed. The shape of the logits should be `(1, n)` or `(n,)`.
+The logits will be updated in-place if:
+    * The logits data type is `float32`.
+    * The underlying data buffer are contiguous AND on CPU.
+    * The data pointer is aligned to 4 bytes.
+
+# Returns
+
+The masked logits. The shape of the returned logits is the same as the input logits. 
+The returned logits is the same object as the input logits if the input logits is updated in-place.
+Otherwise, a new object with the same type as the input logits is returned.
+        """
         logits, ptr, size = _convert_logits_to_slice(logits)
-        result = super().mask_logits(ptr, size)
-        return logits, result
+        super().mask_logits(ptr, size)
+        return logits
     
-    def update_logits(self, token_id:int, logits):
+    def update_logits(self, token_id:int, logits)->typing.Tuple[typing.Any,AcceptTokenResult]:
+        """
+Try to accept the token ID and if succeeds, update the given logits array.
+
+# Arguments
+
+* `token_id`: The token ID to be accepted.
+* `logits`: The logits to be updated. `numpy.ndarray` is supported by default.
+`torch.Tensor` is supported if PyTorch is installed. The shape of the logits should be `(1, n)` or `(n,)`.
+The logits will be updated in-place if:
+    * The logits data type is `float32`.
+    * The underlying data buffer are contiguous AND on CPU.
+    * The data pointer is aligned to 4 bytes.
+
+# Returns
+
+    a tuple (logits, result). The logits is the same object as the input logits if the input logits is updated in-place.
+    Otherwise, a new object with the same type as the input logits is returned. 
+    The `result` is the result of accepting the token ID.
+"""
         logits, ptr, size = _convert_logits_to_slice(logits)
         result = super().update_logits(token_id,ptr, size)
         return logits,result
