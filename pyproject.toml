@@ -1,15 +1,21 @@
 [build-system]
-requires = ["maturin>=1,<2","cffi"]
+requires = ["maturin>=1,<2"]
 build-backend = "maturin"
 
 [project]
 name = "kbnf"
+version = "0.1.0"
 dependencies = ["cffi","numpy"]
 requires-python = ">=3.7"
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 [project.optional-dependencies]
 torch = ["torch"]
