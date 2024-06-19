@@ -25,6 +25,19 @@ def _torch_slice_converter(module:types.ModuleType):
         return None
     return convert_slice
 
+def _numpy_slice_converter(module:types.ModuleType):
+    def convert_slice(array:typing.Any)->typing.Optional[typing.Tuple[typing.Any,int,int]]:
+        if isinstance(array, module.ndarray):
+            assert array.ndim == 1 or array.ndim == 2 and array.shape[0] == 1,\
+            f"Only array with shape (n) or (1,n) are supported, while the actual array shape is {array.shape}"
+            if (array.dtype != module.float32 or not array.flags["CARRAY"]):
+                array = array.astype(module.float32, order="C")
+            ptr = array.ctypes.data
+            assert ptr % 4 == 0, f"The tensor data pointer which points to {ptr} is not aligned to 4 bytes"
+            return array, ptr, array.shape[-1]
+        return None
+    return convert_slice
+
 def _convert_logits_to_slice(logits:typing.Any)->typing.Tuple[typing.Any,int,int]:
     for converter in _slice_converters:
         converted = converter(logits)
@@ -44,3 +57,4 @@ class Engine(InternalEngine):
         return logits,result
 
 _try_register_slice_converter("torch", _torch_slice_converter)
+_try_register_slice_converter("numpy", _numpy_slice_converter)
