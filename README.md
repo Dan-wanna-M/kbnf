@@ -2,6 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/kbnf)](https://crates.io/crates/kbnf)
 [![docs.rs](https://docs.rs/kbnf/badge.svg)](https://docs.rs/kbnf)
+[![PyPI Version](https://img.shields.io/pypi/v/kbnf.svg)](https://pypi.python.org/pypi/kbnf)
 ![Python Build](https://github.com/Dan-wanna-M/kbnf/actions/workflows/python_wheels.yml/badge.svg)
 ![Rust Build](https://github.com/github/docs/actions/workflows/rust_lib.yml/badge.svg)
 
