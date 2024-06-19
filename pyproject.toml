@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1,<2","cffi"]
+requires = ["maturin>=1,<2"]
 build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
@@ -7,7 +7,7 @@ features = ["python"]
 [project]
 name = "kbnf"
 version = "0.1.0"
-dependencies = ["cffi","numpy"]
+dependencies = ["numpy"]
 requires-python = ">=3.7"
 classifiers = [
     "Development Status :: 4 - Beta",
