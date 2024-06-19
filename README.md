@@ -2,6 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/kbnf)](https://crates.io/crates/kbnf)
 [![docs.rs](https://docs.rs/kbnf/badge.svg)](https://docs.rs/kbnf)
+![Python Build](https://github.com/Dan-wanna-M/kbnf/actions/workflows/python_wheels.yml/badge.svg)
+![Rust Build](https://github.com/github/docs/actions/workflows/rust_lib.yml/badge.svg)
 
 This crate provides a constrained decoding engine which ensures that a language model's output adheres strictly to the format defined by KBNF (Koishi's BNF), an enhanced variant of EBNF. KBNF includes features that enhance usability, notably embeddable regular expressions and more flexible exceptions.
 
