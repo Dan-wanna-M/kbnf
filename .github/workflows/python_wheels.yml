@@ -2,9 +2,9 @@ name: Python Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "github-actions" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "github-actions" ]
 
 jobs:
   macos:
@@ -119,6 +119,8 @@ jobs:
         githubToken: ${{ github.token }}
         install: |
           apt-get update
+          apt-get install -y build-essential
+          apt-get install -y python3-dev
           apt-get install -y --no-install-recommends python3 python3-pip
           pip3 install -U pip
         run: |
@@ -192,8 +194,10 @@ jobs:
         githubToken: ${{ github.token }}
         install: |
           apk update
+          apk add alpine-sdk
           apk add py3-pip
           apk add cmake
+          apk add python3-dev
           pip3 install -U pip --break-system-packages
         run: |
           pip3 install kbnf --find-links dist/ --force-reinstall --break-system-packages
