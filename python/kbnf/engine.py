@@ -1,5 +1,6 @@
 import types
 import typing
+from .kbnf import InternalEngine, AcceptTokenResult
 _slice_converters = []
 
 def _try_register_slice_converter(module_name:str,

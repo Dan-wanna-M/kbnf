@@ -1,7 +1,8 @@
 [build-system]
 requires = ["maturin>=1,<2","cffi"]
 build-backend = "maturin"
-
+[tool.maturin]
+python-source = "python"
 [project]
 name = "kbnf"
 version = "0.1.0"
