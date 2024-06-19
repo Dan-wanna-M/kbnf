@@ -20,7 +20,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: aarch64-apple-darwin
-          args: --release --out dist --sdist -m Cargo.toml
+          args: --release --out dist --sdist -m Cargo.toml --features "python"
       - name: Install built wheel - ARM64
         run: |
           pip install kbnf --find-links dist --force-reinstall
