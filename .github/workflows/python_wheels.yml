@@ -1,4 +1,4 @@
-name: Python Upload
+name: Python Release
 
 on:
   push:
