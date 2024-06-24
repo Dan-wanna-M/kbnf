@@ -475,6 +475,8 @@ pub use engine_like::EngineLike;
 pub use grammar::Grammar;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use mimalloc::MiMalloc;
 pub use vocabulary::Token;
 pub use vocabulary::Vocabulary;
 
@@ -484,18 +486,15 @@ pub use vocabulary::Vocabulary;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-/// Formats the sum of two numbers as string.
+
 #[cfg(feature = "python")]
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[cfg(feature = "python")]
 #[pymodule]
 #[pyo3(name = "kbnf")]
 fn kbnf(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
     m.add_class::<Config>()?;
     m.add_class::<config::CompressionConfig>()?;
     m.add_class::<config::Fsa>()?;

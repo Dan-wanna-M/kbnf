@@ -31,7 +31,8 @@ displaydoc = "0.2.4"
 wasm-bindgen = {version="0.2.92",optional = true}
 serde-wasm-bindgen = {version="0.6.5",optional = true}
 js-sys = {version="0.3.69",optional=true}
-pyo3 = {version="0.21.2",features=["multiple-pymethods", "extension-module","abi3-py37"], optional=true}
+pyo3 = {version="0.21.2",features=["multiple-pymethods", "extension-module"], optional=true}
+mimalloc = {version="0.1.43",optional=true}
 [dev-dependencies]
 insta = { version = "1.26.0"}
 serde_json = "1.0.48"
@@ -39,7 +40,7 @@ criterion = "0.5.1"
 [features]
 default = []
 wasm = ["getrandom/js","wasm-bindgen","serde-wasm-bindgen","js-sys"]
-python = ["pyo3"]
+python = ["pyo3","mimalloc"]
 [[bench]]
 name = "simple"
 harness = false
