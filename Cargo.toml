@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 ahash = {version="0.8.11",features=["serde"]}
 getrandom = { version = "0.2"}
 thiserror = "1.0.61"
-kbnf-syntax = "0.1.0"
+kbnf-syntax = "0.1.1"
 num = "0.4.3"
 jaggedarray = "0.2.11"
 string-interner = "0.17.0"
@@ -31,7 +31,7 @@ displaydoc = "0.2.4"
 wasm-bindgen = {version="0.2.92",optional = true}
 serde-wasm-bindgen = {version="0.6.5",optional = true}
 js-sys = {version="0.3.69",optional=true}
-pyo3 = {version="0.21.2",features=["multiple-pymethods", "extension-module"], optional=true}
+pyo3 = {version="0.22.0",features=["multiple-pymethods", "extension-module","abi3-py37"], optional=true}
 mimalloc = {version="0.1.43",optional=true}
 [dev-dependencies]
 insta = { version = "1.26.0"}
