@@ -377,7 +377,8 @@ A UTF-8 string enclosed in `#""` is a regular expression. The escaped characters
 ```ebnf
 start ::= #".+A";
 (*
-The engine will constrain the output to be a sequence of any characters followed by exactly one A.
+The engine will constrain the output to be
+a sequence of any characters followed by exactly one A.
 This is equivalent to:
 start ::= #".+" "A";
 *)
