@@ -40,7 +40,7 @@ criterion = "0.5.1"
 [features]
 default = []
 wasm = ["getrandom/js","wasm-bindgen","serde-wasm-bindgen","js-sys"]
-python = ["pyo3","mimalloc"]
+python = ["pyo3"]
 [[bench]]
 name = "simple"
 harness = false
