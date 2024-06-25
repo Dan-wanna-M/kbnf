@@ -3,7 +3,7 @@ name: Python Release
 on:
   push:
     tags:
-      - v*
+      - v*-python
 
 jobs:
   macos:
