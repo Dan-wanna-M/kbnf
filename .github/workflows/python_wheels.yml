@@ -19,7 +19,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: aarch64-apple-darwin
-          args: --release --out dist --sdist -m Cargo.toml --features 'python mimalloc'
+          args: "--release --out dist --sdist -m Cargo.toml --features 'python mimalloc'"
       - name: Install built wheel - ARM64
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -28,7 +28,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: universal2-apple-darwin
-          args: --release --out dist -m Cargo.toml --features 'python mimalloc'
+          args: "--release --out dist -m Cargo.toml --features 'python mimalloc'"
       - name: Install built wheel - universal2
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -55,7 +55,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -m Cargo.toml --features 'python mimalloc'
+          args: "--release --out dist -m Cargo.toml --features 'python mimalloc'"
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -82,7 +82,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: --release --out dist -m Cargo.toml --features 'python mimalloc'
+        args: "--release --out dist -m Cargo.toml --features 'python mimalloc'"
     - name: Install built wheel
       run: |
         pip install kbnf --find-links dist --force-reinstall
@@ -108,7 +108,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: --release --out dist -m Cargo.toml --features 'python mimalloc'
+        args: "--release --out dist -m Cargo.toml --features 'python mimalloc'"
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
       with:
