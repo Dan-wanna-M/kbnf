@@ -7,7 +7,7 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \"c\"[1]C[1] | \"c\"[1];\n",
+                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \" \"[1]C[1] | \" \"[1];\n",
                 id_to_regexes: {},
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: {},
@@ -20,9 +20,9 @@ Engine {
                         ],
                     ),
                     (
-                        "\"c\"[1]",
+                        "\" \"[1]",
                         [
-                            99,
+                            32,
                         ],
                     ),
                 ],
@@ -37,12 +37,12 @@ Engine {
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]C[1]",
+                        dotted_rule: "C[1] -> .\" \"[1]C[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        dotted_rule: "C[1] -> .\" \"[1]",
                         start_position: 0,
                         state: "[0]",
                     },

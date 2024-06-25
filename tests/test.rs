@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn right_recursion() {
-        let input = "start::=C'\n';C::='c'|'c' C;";
+        let input = "start::=C'\n';C::='\\u0020'|#'\\u0020' C;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let config = kbnf::config::Config {
@@ -159,7 +159,7 @@ mod tests {
             let result = engine
                 .try_accept_new_token(
                     vocab
-                        .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                        .token_id(&Token("\u{0020}".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap(),
                 )
                 .unwrap();
