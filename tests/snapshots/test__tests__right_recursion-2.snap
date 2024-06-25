@@ -7,10 +7,43 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= \" \"[1]C[1] | \" \"[1];\n",
-                id_to_regexes: {},
+                rules: "start[0] ::= C[1]\"\n\"[0] | ;\nC[1] ::= #\"c\"[0]C[1] | \"c\"[1];\n",
+                id_to_regexes: {
+                    "#\"c\"[0]": Dfa(
+                        dense::DFA(
+                        D 000000: 
+                        Q 000004: 
+                         *000008: 
+                          000012: \x01 => 16
+                          000016: \x00-\x02 => 8, EOI => 8
+                        
+                        START-GROUP(unanchored)
+                          NonWordByte => 000000
+                          WordByte => 000000
+                          Text => 000000
+                          LineLF => 000000
+                          LineCR => 000000
+                          CustomLineTerminator => 000000
+                        START-GROUP(anchored)
+                          NonWordByte => 000012
+                          WordByte => 000012
+                          Text => 000012
+                          LineLF => 000012
+                          LineCR => 000012
+                          CustomLineTerminator => 000012
+                        state length: 5
+                        pattern length: 1
+                        flags: Flags { has_empty: false, is_utf8: true, is_always_start_anchored: false }
+                        )
+                        ,
+                    ),
+                },
                 id_to_excepteds: {},
-                id_to_regex_first_bytes: {},
+                id_to_regex_first_bytes: {
+                    "#\"c\"[0]": [
+                        99,
+                    ],
+                },
                 id_to_excepted_first_bytes: {},
                 id_to_terminals: [
                     (
@@ -20,9 +53,9 @@ Engine {
                         ],
                     ),
                     (
-                        "\" \"[1]",
+                        "\"c\"[1]",
                         [
-                            32,
+                            99,
                         ],
                     ),
                 ],
@@ -37,17 +70,145 @@ Engine {
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\" \"[1]C[1]",
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
                         start_position: 0,
-                        state: "[0]",
+                        state: "[3(InProgress)]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .\" \"[1]",
+                        dotted_rule: "C[1] -> .\"c\"[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                 ],
-                [],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[2(InProgress)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> #\"c\"[0].C[1]",
+                        start_position: 0,
+                        state: "",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[4(Accept)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> C[1].\"\n\"[0]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 1,
+                        state: "[3(InProgress)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .\"c\"[1]",
+                        start_position: 1,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[0(Reject)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 0,
+                        state: "[2(InProgress)]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "C[1] -> .#\"c\"[0]C[1]",
+                        start_position: 1,
+                        state: "[0(Reject)]",
+                    },
+                ],
             ],
             cache: [],
             to_be_completed_items: [],
@@ -67,6 +228,19 @@ Engine {
                                 state: "",
                             },
                         ],
+                    ),
+                ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "C[1]",
+                        column: 1,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "C[1] -> #\"c\"[0].C[1]",
+                            start_position: 0,
+                            state: "",
+                        },
                     ),
                 ),
             ],

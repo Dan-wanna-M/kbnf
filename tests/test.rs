@@ -144,7 +144,43 @@ mod tests {
 
     #[test]
     fn right_recursion() {
-        let input = "start::=C'\n';C::='\\u0020'|#'\\u0020' C;";
+        let input = "start::=C'\n';C::='c'|#'c' C;";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.vocab_size()];
+        let config = kbnf::config::Config {
+            engine_config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            ..Default::default()
+        };
+        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(), config).unwrap();
+        for i in 0..10 {
+            let result = engine
+                .try_accept_new_token(
+                    vocab
+                        .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                        .unwrap(),
+                )
+                .unwrap();
+            assert_eq!(result, AcceptTokenResult::Ongoing);
+            // engine.compute_allowed_token_ids();
+        }
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Finished);
+        assert_snapshot!(format!("{:#?}", engine));
+    }
+
+    #[test]
+    fn escaped_character() {
+        let input = "start::=C'\n';C::='\\u0020'| #'\\u0020' C;";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let config = kbnf::config::Config {
