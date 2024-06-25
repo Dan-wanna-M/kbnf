@@ -104,6 +104,10 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: 3.9
+    - name: Install gcc4.9
+      run: |
+        apt-get update
+        apt-get install -y gcc-4.9
     - name: Build wheels
       uses: PyO3/maturin-action@v1
       with:
