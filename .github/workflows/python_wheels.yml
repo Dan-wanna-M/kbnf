@@ -82,7 +82,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: "--release --out dist -m Cargo.toml --features \\'python mimalloc\\'"
+        args: "--release --out dist -m Cargo.toml --features \"python mimalloc\""
     - name: Install built wheel
       run: |
         pip install kbnf --find-links dist --force-reinstall
@@ -108,7 +108,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: "--release --out dist -m Cargo.toml --features \\'python mimalloc\\'"
+        args: "--release --out dist -m Cargo.toml --features \"python mimalloc\""
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
       with:
