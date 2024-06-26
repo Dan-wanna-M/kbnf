@@ -46,7 +46,7 @@ pub struct Config {
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(eq, eq_int))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub enum Fsa {

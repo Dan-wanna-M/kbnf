@@ -476,7 +476,7 @@ pub use engine_like::EngineLike;
 pub use grammar::Grammar;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-#[cfg(feature = "python")]
+#[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 pub use vocabulary::Token;
 pub use vocabulary::Vocabulary;
@@ -488,7 +488,7 @@ pub use vocabulary::Vocabulary;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
-#[cfg(feature = "python")]
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
