@@ -110,9 +110,10 @@ jobs:
         target: ${{ matrix.target }}
         manylinux: auto
         before-script-linux: |
-          sudo apt-get update
-          echo something is happening
-          sudo apt-get install -y gcc-4.9
+          sudo apt update
+          gcc --version
+          sudo apt install -y gcc-4.9
+          gcc --version
         args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
