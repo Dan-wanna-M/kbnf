@@ -104,15 +104,14 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: 3.9
-    - name: Install gcc4.9
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-4.9
     - name: Build wheels
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ matrix.target }}
         manylinux: auto
+        before-script-linux: |
+          apt-get update
+          apt-get install -y gcc-4.9
         args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
@@ -125,7 +124,6 @@ jobs:
           apt-get install -y build-essential
           apt-get install -y python3-dev
           apt-get install -y --no-install-recommends python3 python3-pip
-          apt-get install -y gcc-4.9
           pip3 install -U pip
         run: |
           pip3 install kbnf --find-links dist/ --force-reinstall
