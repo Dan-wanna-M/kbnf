@@ -109,11 +109,6 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        before-script-linux: |
-          sudo apt-get update
-          sudo apt-get upgrade -y
-          sudo apt-get install -y gcc-powerpc64le-linux-gnu g++-powerpc64le-linux-gnu
-          sudo apt-get install -y libc6-dev-powerpc64le-cross
         args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
     - uses: uraimo/run-on-arch-action@v2.7.2
       name: Install built wheel
