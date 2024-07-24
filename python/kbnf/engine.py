@@ -1,5 +1,6 @@
 import types
 import typing
+import importlib
 from .kbnf import InternalEngine, AcceptTokenResult
 _slice_converters = []
 
@@ -8,7 +9,7 @@ def _try_register_slice_converter(module_name:str,
                                                         typing.Callable[[typing.Any],
                                                                         typing.Optional[typing.Tuple[typing.Any,int,int]]]]):
     try:
-        module = __import__(module_name)
+        module = importlib.import_module(module_name)
         _slice_converters.append(obtain_converter(module))
     except ImportError:
         pass
