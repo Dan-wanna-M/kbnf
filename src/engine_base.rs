@@ -893,16 +893,18 @@ where
                         ));
                 }
                 HIRNode::EXCEPT(excepted_id, _) => {
-                    self.allowed_first_bytes
-                        .union_with(self.grammar.first_bytes_from_excepted(
+                    self.allowed_first_bytes.union_with(
+                        self.grammar.first_bytes_from_excepted(
                             excepted_id,
                             Self::from_state_id_to_dfa_state_id_with_r(
                                 item.state_id,
                                 match self.grammar.excepted(excepted_id) {
                                     FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
                                 },
-                            ).0,
-                        ));
+                            )
+                            .0,
+                        ),
+                    );
                 }
                 _ => {}
             }
@@ -1134,6 +1136,7 @@ where
                                 reject=>{},
                                 in_progress=>
                                 {
+                                    println!("state_id: {:?}, {}", state_id, byte);
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
@@ -1666,6 +1669,7 @@ where
             as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         if self.config.compaction_enabled {
             for byte in token.0.iter().copied() {
+                
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1717,6 +1721,7 @@ where
             }
         } else {
             for byte in token.0.iter().copied() {
+                println!("{}", self.earley_sets.len());
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,

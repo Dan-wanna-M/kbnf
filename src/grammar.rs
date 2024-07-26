@@ -496,10 +496,10 @@ where
     ) -> Result<AHashMap<(usize, StateID), ByteSet>, CreateGrammarError> {
         let mut id_to_regex_first_bytes = AHashMap::default();
         for (i, regex) in id_to_regexes.iter().enumerate() {
-            let mut set = ByteSet::with_capacity(256);
             match regex {
                 FiniteStateAutomaton::Dfa(dfa) => {
                     for state in dfa.states() {
+                        let mut set = ByteSet::with_capacity(256);
                         let state_id = state.id();
                         for byte in 0..u8::MAX {
                             let next_state = dfa.next_state(state_id, byte);
@@ -508,13 +508,13 @@ where
                                     dfa,
                                     accept=>{condition = !negated},
                                     reject=>{condition = negated},
-                                    in_progress=>{condition = !negated}
+                                    in_progress=>{condition = true}
                             );
                             if condition {
                                 set.insert(byte as usize);
                             }
                         }
-                        id_to_regex_first_bytes.insert((i, state_id), set.clone());
+                        id_to_regex_first_bytes.insert((i, state_id), set);
                     }
                 }
             }

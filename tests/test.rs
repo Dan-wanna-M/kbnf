@@ -62,8 +62,7 @@ mod tests {
         vocab.token_id(&Token(token.as_bytes().to_vec().into_boxed_slice()))
     }
     #[test]
-    fn single_terminal()
-    {
+    fn single_terminal() {
         let input = "start::='Hello, World!\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
@@ -91,12 +90,14 @@ mod tests {
                 == AcceptTokenResult::Ongoing,
             "Failed to accept token"
         );
-        assert!(!engine.allowed_token_ids_from_last_computation().is_empty(), "allowed token ids are not updated correctly!");
+        assert!(
+            !engine.allowed_token_ids_from_last_computation().is_empty(),
+            "allowed token ids are not updated correctly!"
+        );
     }
 
     #[test]
-    fn single_regex()
-    {
+    fn single_regex() {
         let input = "start::=#'Hello, World!\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
@@ -124,7 +125,50 @@ mod tests {
                 == AcceptTokenResult::Ongoing,
             "Failed to accept token"
         );
-        assert!(!engine.allowed_token_ids_from_last_computation().is_empty(), "allowed token ids are not updated correctly!");
+        assert!(
+            !engine.allowed_token_ids_from_last_computation().is_empty(),
+            "allowed token ids are not updated correctly!"
+        );
+    }
+    #[test]
+    fn single_regex2() {
+        let input = "start::=#'^[0-9]+$''\\n';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let config = kbnf::config::Config {
+            engine_config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: false,
+            },
+            ..Default::default()
+        };
+        let logits = vec![0.0; vocab.vocab_size()];
+        let mut engine = kbnf::engine::Engine::with_config(input, vocab.clone(), config).unwrap();
+        assert!(
+            engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
+                == Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "This should not be accepted"
+        );
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        assert!(
+            engine
+                .try_accept_new_token(get_token_id_from_str(&vocab, "1").unwrap())
+                .unwrap()
+                == AcceptTokenResult::Ongoing,
+            "Failed to accept token"
+        );
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine.try_accept_new_token(get_token_id_from_str(&vocab, ",").unwrap());
+        assert_snapshot!(format!("{:#?}", engine));
+        assert!(
+            result == Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Token should not be accepted"
+        );
+        assert!(
+            !engine.allowed_token_ids_from_last_computation().is_empty(),
+            "allowed token ids are not updated correctly!"
+        );
     }
 
     #[test]
@@ -206,7 +250,6 @@ mod tests {
         assert_snapshot!(format!("{:#?}", engine));
         assert_eq!(result, AcceptTokenResult::Finished);
     }
-    
 
     #[test]
     fn right_recursion() {
