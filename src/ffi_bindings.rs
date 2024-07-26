@@ -613,6 +613,14 @@ impl Engine {
         let logits = std::slice::from_raw_parts_mut(logits_ptr as *mut f32, length);
         EngineLike::update_logits(self, token_id, logits)
     }
+
+    fn __repr__(&self) -> String {
+        format!("Engine({:#?})", self)
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
 }
 
 #[cfg(feature = "wasm")]
@@ -621,6 +629,16 @@ impl Config {
     /// Creates a new instance of [`Config`] with default values.
     #[wasm_bindgen(constructor)]
     pub fn new_js() -> Config {
+        Config::default()
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Config {
+    /// Creates a new instance of [`Config`] with default values.
+    #[new]
+    pub fn new_py() -> Config {
         Config::default()
     }
 }
