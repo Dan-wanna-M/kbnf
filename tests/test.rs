@@ -132,7 +132,7 @@ mod tests {
     }
     #[test]
     fn single_regex2() {
-        let input = "start::=#'^[0-9]+$''\\n';";
+        let input = "start::=#'[0-9]+''\\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let config = kbnf::config::Config {
             engine_config: EngineConfig {

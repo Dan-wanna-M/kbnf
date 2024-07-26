@@ -7,28 +7,29 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= #\"Hello, World!\n\"[0];\n",
+                rules: "start[0] ::= #\"\\AHello, World!\n\\z\"[0];\n",
                 id_to_regexes: {
-                    "#\"Hello, World!\n\"[0]": Dfa(
+                    "#\"\\AHello, World!\n\\z\"[0]": Dfa(
                         dense::DFA(
                         D 000000: 
                         Q 000032: 
                          *000064: 
-                          000096: \x08 => 544
-                          000128: \x0F => 160
+                          000096: \x08 => 576
+                          000128: 
                           000160: \x0F => 192
-                          000192: \x11 => 224
-                          000224: \x06 => 256
-                          000256: \x03 => 288
-                          000288: \n => 320
-                          000320: \x11 => 352
-                          000352: \x13 => 384
-                          000384: \x0F => 416
-                          000416: \x0C => 448
-                          000448: \x04 => 480
-                          000480: \x01 => 512
-                          000512: \x00-\x14 => 64, EOI => 64
-                          000544: \r => 128
+                          000192: \x0F => 224
+                          000224: \x11 => 256
+                          000256: \x06 => 288
+                          000288: \x03 => 320
+                          000320: \n => 352
+                          000352: \x11 => 384
+                          000384: \x13 => 416
+                          000416: \x0F => 448
+                          000448: \x0C => 480
+                          000480: \x04 => 512
+                          000512: \x01 => 544
+                          000544: EOI => 64
+                          000576: \r => 160
                         
                         START-GROUP(unanchored)
                           NonWordByte => 000000
@@ -38,15 +39,15 @@ Engine {
                           LineCR => 000000
                           CustomLineTerminator => 000000
                         START-GROUP(anchored)
-                          NonWordByte => 000096
-                          WordByte => 000096
+                          NonWordByte => 000128
+                          WordByte => 000128
                           Text => 000096
-                          LineLF => 000096
-                          LineCR => 000096
-                          CustomLineTerminator => 000096
-                        state length: 18
+                          LineLF => 000128
+                          LineCR => 000128
+                          CustomLineTerminator => 000128
+                        state length: 19
                         pattern length: 1
-                        flags: Flags { has_empty: false, is_utf8: true, is_always_start_anchored: false }
+                        flags: Flags { has_empty: false, is_utf8: true, is_always_start_anchored: true }
                         )
                         ,
                     ),
@@ -54,28 +55,28 @@ Engine {
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: [
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             0,
                         ),
                         [],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             32,
                         ),
                         [],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             64,
                         ),
                         [],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             96,
                         ),
@@ -84,16 +85,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             128,
                         ),
-                        [
-                            108,
-                        ],
+                        [],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             160,
                         ),
@@ -102,362 +101,115 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             192,
+                        ),
+                        [
+                            108,
+                        ],
+                    ),
+                    (
+                        "#\"\\AHello, World!\n\\z\"[0]",
+                        StateID(
+                            224,
                         ),
                         [
                             111,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
-                        StateID(
-                            224,
-                        ),
-                        [
-                            44,
-                        ],
-                    ),
-                    (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             256,
                         ),
                         [
-                            32,
+                            44,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             288,
                         ),
                         [
-                            87,
+                            32,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             320,
                         ),
                         [
-                            111,
+                            87,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             352,
                         ),
                         [
-                            114,
+                            111,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             384,
                         ),
                         [
-                            108,
+                            114,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             416,
                         ),
                         [
-                            100,
+                            108,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             448,
                         ),
                         [
-                            33,
+                            100,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             480,
                         ),
                         [
-                            10,
+                            33,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             512,
                         ),
                         [
-                            0,
-                            1,
-                            2,
-                            3,
-                            4,
-                            5,
-                            6,
-                            7,
-                            8,
-                            9,
                             10,
-                            11,
-                            12,
-                            13,
-                            14,
-                            15,
-                            16,
-                            17,
-                            18,
-                            19,
-                            20,
-                            21,
-                            22,
-                            23,
-                            24,
-                            25,
-                            26,
-                            27,
-                            28,
-                            29,
-                            30,
-                            31,
-                            32,
-                            33,
-                            34,
-                            35,
-                            36,
-                            37,
-                            38,
-                            39,
-                            40,
-                            41,
-                            42,
-                            43,
-                            44,
-                            45,
-                            46,
-                            47,
-                            48,
-                            49,
-                            50,
-                            51,
-                            52,
-                            53,
-                            54,
-                            55,
-                            56,
-                            57,
-                            58,
-                            59,
-                            60,
-                            61,
-                            62,
-                            63,
-                            64,
-                            65,
-                            66,
-                            67,
-                            68,
-                            69,
-                            70,
-                            71,
-                            72,
-                            73,
-                            74,
-                            75,
-                            76,
-                            77,
-                            78,
-                            79,
-                            80,
-                            81,
-                            82,
-                            83,
-                            84,
-                            85,
-                            86,
-                            87,
-                            88,
-                            89,
-                            90,
-                            91,
-                            92,
-                            93,
-                            94,
-                            95,
-                            96,
-                            97,
-                            98,
-                            99,
-                            100,
-                            101,
-                            102,
-                            103,
-                            104,
-                            105,
-                            106,
-                            107,
-                            108,
-                            109,
-                            110,
-                            111,
-                            112,
-                            113,
-                            114,
-                            115,
-                            116,
-                            117,
-                            118,
-                            119,
-                            120,
-                            121,
-                            122,
-                            123,
-                            124,
-                            125,
-                            126,
-                            127,
-                            128,
-                            129,
-                            130,
-                            131,
-                            132,
-                            133,
-                            134,
-                            135,
-                            136,
-                            137,
-                            138,
-                            139,
-                            140,
-                            141,
-                            142,
-                            143,
-                            144,
-                            145,
-                            146,
-                            147,
-                            148,
-                            149,
-                            150,
-                            151,
-                            152,
-                            153,
-                            154,
-                            155,
-                            156,
-                            157,
-                            158,
-                            159,
-                            160,
-                            161,
-                            162,
-                            163,
-                            164,
-                            165,
-                            166,
-                            167,
-                            168,
-                            169,
-                            170,
-                            171,
-                            172,
-                            173,
-                            174,
-                            175,
-                            176,
-                            177,
-                            178,
-                            179,
-                            180,
-                            181,
-                            182,
-                            183,
-                            184,
-                            185,
-                            186,
-                            187,
-                            188,
-                            189,
-                            190,
-                            191,
-                            192,
-                            193,
-                            194,
-                            195,
-                            196,
-                            197,
-                            198,
-                            199,
-                            200,
-                            201,
-                            202,
-                            203,
-                            204,
-                            205,
-                            206,
-                            207,
-                            208,
-                            209,
-                            210,
-                            211,
-                            212,
-                            213,
-                            214,
-                            215,
-                            216,
-                            217,
-                            218,
-                            219,
-                            220,
-                            221,
-                            222,
-                            223,
-                            224,
-                            225,
-                            226,
-                            227,
-                            228,
-                            229,
-                            230,
-                            231,
-                            232,
-                            233,
-                            234,
-                            235,
-                            236,
-                            237,
-                            238,
-                            239,
-                            240,
-                            241,
-                            242,
-                            243,
-                            244,
-                            245,
-                            246,
-                            247,
-                            248,
-                            249,
-                            250,
-                            251,
-                            252,
-                            253,
-                            254,
                         ],
                     ),
                     (
-                        "#\"Hello, World!\n\"[0]",
+                        "#\"\\AHello, World!\n\\z\"[0]",
                         StateID(
                             544,
+                        ),
+                        [],
+                    ),
+                    (
+                        "#\"\\AHello, World!\n\\z\"[0]",
+                        StateID(
+                            576,
                         ),
                         [
                             101,
@@ -480,7 +232,7 @@ Engine {
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .#\"Hello, World!\n\"[0]",
+                        dotted_rule: "start[0] -> .#\"\\AHello, World!\n\\z\"[0]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },
@@ -491,7 +243,7 @@ Engine {
                     [
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .#\"Hello, World!\n\"[0]",
+                                dotted_rule: "start[0] -> .#\"\\AHello, World!\n\\z\"[0]",
                                 start_position: 0,
                                 state: "[3(InProgress)]",
                             },
