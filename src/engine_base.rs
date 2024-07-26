@@ -1136,7 +1136,6 @@ where
                                 reject=>{},
                                 in_progress=>
                                 {
-                                    println!("state_id: {:?}, {}", state_id, byte);
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
@@ -1721,7 +1720,6 @@ where
             }
         } else {
             for byte in token.0.iter().copied() {
-                println!("{}", self.earley_sets.len());
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
