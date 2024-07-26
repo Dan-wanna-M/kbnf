@@ -317,23 +317,32 @@ where
             )
             .field(
                 "id_to_regex_first_bytes",
-                &self.id_to_regex_first_bytes.iter().map(|(k, v)| {
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &self.id_to_regex_first_bytes,
+                    |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
+                ).iter().map(|(k, v)| {
                     (
                         RegexID(k.0.as_()).to_display_form(self),
                         k.1,
-                        utils::get_display_form_from_bitset_on_stack(v),
+                        v,
                     )
                 }).collect::<Vec<_>>(),
             )
             .field(
                 "id_to_excepted_first_bytes",
-                &self.id_to_excepted_first_bytes.iter().map(|(k, v)| {
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &self.id_to_excepted_first_bytes,
+                    |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
+                )
+                .iter()
+                .map(|(k, v)| {
                     (
                         ExceptedID(k.0.as_()).to_display_form(self, TE::ZERO),
                         k.1,
-                        utils::get_display_form_from_bitset_on_stack(v),
+                        v,
                     )
-                }).collect::<Vec<_>>(),
+                })
+                .collect::<Vec<_>>(),
             )
             .field(
                 "id_to_terminals",
@@ -459,10 +468,8 @@ where
         }
         let id_to_regexes = grammar.id_to_regex;
         let id_to_excepteds = grammar.id_to_excepted;
-        let id_to_regex_first_bytes =
-            Self::construct_regex_first_bytes(&id_to_regexes, false)?;
-        let id_to_excepted_first_bytes =
-            Self::construct_regex_first_bytes(&id_to_excepteds, true)?;
+        let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes, false)?;
+        let id_to_excepted_first_bytes = Self::construct_regex_first_bytes(&id_to_excepteds, true)?;
         Ok(Self {
             start_nonterminal_id: NonterminalID(
                 grammar.start_symbol.to_usize().try_into().map_err(|_| {
