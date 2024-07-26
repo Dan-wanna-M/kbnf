@@ -878,15 +878,31 @@ where
             match node {
                 HIRNode::Terminal(terminal_id) => {
                     self.allowed_first_bytes
-                        .insert(self.grammar.terminal(terminal_id)[0].as_());
+                        .insert(self.grammar.terminal(terminal_id)[item.state_id.as_()].as_());
                 }
                 HIRNode::RegexString(regex_id) => {
                     self.allowed_first_bytes
-                        .union_with(self.grammar.first_bytes_from_regex(regex_id));
+                        .union_with(self.grammar.first_bytes_from_regex(
+                            regex_id,
+                            Self::from_state_id_to_dfa_state_id(
+                                item.state_id,
+                                match self.grammar.regex(regex_id) {
+                                    FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+                                },
+                            ),
+                        ));
                 }
                 HIRNode::EXCEPT(excepted_id, _) => {
                     self.allowed_first_bytes
-                        .union_with(self.grammar.first_bytes_from_excepted(excepted_id));
+                        .union_with(self.grammar.first_bytes_from_excepted(
+                            excepted_id,
+                            Self::from_state_id_to_dfa_state_id_with_r(
+                                item.state_id,
+                                match self.grammar.excepted(excepted_id) {
+                                    FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+                                },
+                            ).0,
+                        ));
                 }
                 _ => {}
             }

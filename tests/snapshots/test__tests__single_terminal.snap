@@ -7,42 +7,49 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= \"aaa\"[0];\n",
+                rules: "start[0] ::= \"Hello, World!\n\"[0];\n",
                 id_to_regexes: {},
                 id_to_excepteds: {},
                 id_to_regex_first_bytes: [],
                 id_to_excepted_first_bytes: [],
                 id_to_terminals: [
                     (
-                        "\"aaa\"[0]",
+                        "\"Hello, World!\n\"[0]",
                         [
-                            97,
-                            97,
-                            97,
+                            72,
+                            101,
+                            108,
+                            108,
+                            111,
+                            44,
+                            32,
+                            87,
+                            111,
+                            114,
+                            108,
+                            100,
+                            33,
+                            10,
                         ],
                     ),
                 ],
             },
             allowed_first_bytes: [
-                97,
+                72,
             ],
             allowed_token_ids: [
-                "a[98]",
-                "aa[1733]",
+                "H[73]",
+                "He[1095]",
+                "Hel[6003]",
+                "Hell[23725]",
+                "Hello[33155]",
             ],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
+                        dotted_rule: "start[0] -> .\"Hello, World!\n\"[0]",
                         start_position: 0,
                         state: "[0]",
-                    },
-                ],
-                [
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"aaa\"[0]",
-                        start_position: 0,
-                        state: "[1]",
                     },
                 ],
             ],
@@ -51,38 +58,18 @@ Engine {
                     [
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
+                                dotted_rule: "start[0] -> .\"Hello, World!\n\"[0]",
                                 start_position: 0,
                                 state: "[0]",
                             },
                         ],
                     ],
                     [
-                        "a[98]",
-                        "aa[1733]",
-                        "aaa[6885]",
-                    ],
-                ),
-                (
-                    [
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[0]",
-                            },
-                        ],
-                        [
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .\"aaa\"[0]",
-                                start_position: 0,
-                                state: "[1]",
-                            },
-                        ],
-                    ],
-                    [
-                        "a[98]",
-                        "aa[1733]",
+                        "H[73]",
+                        "He[1095]",
+                        "Hel[6003]",
+                        "Hell[23725]",
+                        "Hello[33155]",
                     ],
                 ),
             ],

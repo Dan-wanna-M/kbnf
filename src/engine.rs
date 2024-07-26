@@ -170,7 +170,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u16::max_value().into()
+            && max_r <= u16::MAX.into()
             && td <= u8::MAX.into()
             && tp <= u8::MAX.into()
             && tsp <= u8::MAX.into()
@@ -200,7 +200,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u8::max_value().into()
+            && max_r <= u8::MAX.into()
             && td <= u8::MAX.into()
             && tp <= u8::MAX.into()
             && tsp <= u8::MAX.into()
@@ -215,7 +215,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u8::max_value().into()
+            && max_r <= u8::MAX.into()
             && td <= u8::MAX.into()
             && tp <= u16::MAX.into()
             && tsp <= u16::MAX.into()
@@ -230,7 +230,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= u8::max_value().into()
+            && max_r <= u8::MAX.into()
             && td <= u16::MAX.into()
             && tp <= u32::MAX as usize
             && tsp <= u32::MAX as usize
@@ -245,7 +245,7 @@ impl Engine {
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= u16::max_value().into()
+            && max_r <= u16::MAX.into()
             && td <= u16::MAX.into()
             && tp <= u32::MAX as usize
             && tsp <= u32::MAX as usize

@@ -10,8 +10,8 @@ Engine {
                 rules: "start[0] ::= \"aaa\"[0];\n",
                 id_to_regexes: {},
                 id_to_excepteds: {},
-                id_to_regex_first_bytes: {},
-                id_to_excepted_first_bytes: {},
+                id_to_regex_first_bytes: [],
+                id_to_excepted_first_bytes: [],
                 id_to_terminals: [
                     (
                         "\"aaa\"[0]",

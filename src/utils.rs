@@ -126,7 +126,7 @@ macro_rules! dispatch_by_dfa_state_status {
     ($dfa_state:ident, $dfa:ident , accept=>$accept:block , reject=>$reject:block ,in_progress=>$in_progress:block) => {
         if $dfa.is_special_state($dfa_state) && ($dfa.is_dead_state($dfa_state)||$dfa.is_quit_state($dfa_state))
             $reject
-        if $dfa.is_match_state($dfa.next_eoi_state($dfa_state))
+        else if $dfa.is_match_state($dfa.next_eoi_state($dfa_state))
             $accept
         else
             $in_progress

@@ -10,8 +10,8 @@ Engine {
                 rules: "start[0] ::= A[1]\"\n\"[0] | ;\nA[1] ::= \"x\"[1]B[2] | \"x\"[1];\nB[2] ::= \"y\"[2]A[1] | \"y\"[2];\n",
                 id_to_regexes: {},
                 id_to_excepteds: {},
-                id_to_regex_first_bytes: {},
-                id_to_excepted_first_bytes: {},
+                id_to_regex_first_bytes: [],
+                id_to_excepted_first_bytes: [],
                 id_to_terminals: [
                     (
                         "\"\n\"[0]",

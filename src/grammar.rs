@@ -1,11 +1,12 @@
 //! The grammar module that contains the grammar struct in HIR form and its related functions and structs.
 use std::fmt::Debug;
 
-use crate::utils::{self, ByteSet};
+use crate::utils::{self, dispatch_by_dfa_state_status, ByteSet};
+use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use kbnf_regex_automata::dfa::Automaton;
-use kbnf_regex_automata::Anchored;
+use kbnf_regex_automata::util::primitives::StateID;
 use kbnf_syntax::node::{FinalNode, FinalRhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use kbnf_syntax::InternedStrings;
@@ -221,8 +222,8 @@ where
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
     id_to_excepteds: Vec<FiniteStateAutomaton>,
-    id_to_regex_first_bytes: Vec<ByteSet>,
-    id_to_excepted_first_bytes: Vec<ByteSet>,
+    id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
+    id_to_excepted_first_bytes: AHashMap<(usize, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
 }
 
@@ -316,21 +317,23 @@ where
             )
             .field(
                 "id_to_regex_first_bytes",
-                &utils::fill_debug_form_of_id_to_x(
-                    self.id_to_regex_first_bytes
-                        .iter()
-                        .map(utils::get_display_form_from_bitset_on_stack),
-                    |x| RegexID(x.as_()).to_display_form(self),
-                ),
+                &self.id_to_regex_first_bytes.iter().map(|(k, v)| {
+                    (
+                        RegexID(k.0.as_()).to_display_form(self),
+                        k.1,
+                        utils::get_display_form_from_bitset_on_stack(v),
+                    )
+                }).collect::<Vec<_>>(),
             )
             .field(
                 "id_to_excepted_first_bytes",
-                &utils::fill_debug_form_of_id_to_x(
-                    self.id_to_excepted_first_bytes
-                        .iter()
-                        .map(|x| x.ones().collect::<Vec<_>>()),
-                    |x| ExceptedID(x.as_()).to_display_form(self, INVALID_REPETITION.as_()),
-                ),
+                &self.id_to_excepted_first_bytes.iter().map(|(k, v)| {
+                    (
+                        ExceptedID(k.0.as_()).to_display_form(self, TE::ZERO),
+                        k.1,
+                        utils::get_display_form_from_bitset_on_stack(v),
+                    )
+                }).collect::<Vec<_>>(),
             )
             .field(
                 "id_to_terminals",
@@ -456,11 +459,10 @@ where
         }
         let id_to_regexes = grammar.id_to_regex;
         let id_to_excepteds = grammar.id_to_excepted;
-        let config = kbnf_regex_automata::util::start::Config::new().anchored(Anchored::Yes);
         let id_to_regex_first_bytes =
-            Self::construct_regex_first_bytes(&id_to_regexes, &config, false)?;
+            Self::construct_regex_first_bytes(&id_to_regexes, false)?;
         let id_to_excepted_first_bytes =
-            Self::construct_regex_first_bytes(&id_to_excepteds, &config, true)?;
+            Self::construct_regex_first_bytes(&id_to_excepteds, true)?;
         Ok(Self {
             start_nonterminal_id: NonterminalID(
                 grammar.start_symbol.to_usize().try_into().map_err(|_| {
@@ -483,29 +485,32 @@ where
 
     fn construct_regex_first_bytes(
         id_to_regexes: &[FiniteStateAutomaton],
-        config: &kbnf_regex_automata::util::start::Config,
         negated: bool,
-    ) -> Result<Vec<ByteSet>, CreateGrammarError> {
-        let mut id_to_regex_first_bytes = vec![];
-        for regex in id_to_regexes.iter() {
+    ) -> Result<AHashMap<(usize, StateID), ByteSet>, CreateGrammarError> {
+        let mut id_to_regex_first_bytes = AHashMap::default();
+        for (i, regex) in id_to_regexes.iter().enumerate() {
             let mut set = ByteSet::with_capacity(256);
             match regex {
                 FiniteStateAutomaton::Dfa(dfa) => {
-                    for byte in 0..u8::MAX {
-                        let start_state = dfa.start_state(config)?;
-                        let next_state = dfa.next_state(start_state, byte);
-                        let condition = if !negated {
-                            dfa.is_dead_state(next_state) || dfa.is_quit_state(next_state)
-                        } else {
-                            dfa.is_match_state(dfa.next_eoi_state(next_state))
-                        };
-                        if !condition {
-                            set.insert(byte as usize);
+                    for state in dfa.states() {
+                        let state_id = state.id();
+                        for byte in 0..u8::MAX {
+                            let next_state = dfa.next_state(state_id, byte);
+                            let condition;
+                            dispatch_by_dfa_state_status!(next_state,
+                                    dfa,
+                                    accept=>{condition = !negated},
+                                    reject=>{condition = negated},
+                                    in_progress=>{condition = !negated}
+                            );
+                            if condition {
+                                set.insert(byte as usize);
+                            }
                         }
+                        id_to_regex_first_bytes.insert((i, state_id), set.clone());
                     }
                 }
             }
-            id_to_regex_first_bytes.push(set);
         }
         Ok(id_to_regex_first_bytes)
     }
@@ -649,12 +654,20 @@ where
         self.interned_strings.nonterminals.len()
     }
     #[inline]
-    pub(crate) fn first_bytes_from_regex(&self, regex_id: RegexID<TI>) -> &ByteSet {
-        &self.id_to_regex_first_bytes[regex_id.0.as_()]
+    pub(crate) fn first_bytes_from_regex(
+        &self,
+        regex_id: RegexID<TI>,
+        state_id: StateID,
+    ) -> &ByteSet {
+        &self.id_to_regex_first_bytes[&(regex_id.0.as_(), state_id)]
     }
     #[inline]
-    pub(crate) fn first_bytes_from_excepted(&self, excepted_id: ExceptedID<TI>) -> &ByteSet {
-        &self.id_to_excepted_first_bytes[excepted_id.0.as_()]
+    pub(crate) fn first_bytes_from_excepted(
+        &self,
+        excepted_id: ExceptedID<TI>,
+        state_id: StateID,
+    ) -> &ByteSet {
+        &self.id_to_excepted_first_bytes[&(excepted_id.0.as_(), state_id)]
     }
     #[inline]
     pub(crate) unsafe fn dotted_productions(
