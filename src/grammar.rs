@@ -284,7 +284,7 @@ where
                         NonterminalID(nonterminal_id.as_()).to_display_form(self)
                     ));
                     let view = self.rules.view::<1, 2>([nonterminal_id]);
-                    let mut productions: Vec<Vec<String>> = vec![Default::default(); view.len()];
+                    let mut productions: Vec<Vec<String>> = vec![Default::default(); view.view::<1,1>([0]).len()];
                     for dot_position in 0..view.len() {
                         let view = view.view::<1, 1>([dot_position]);
                         for production_id in 0..view.len() {

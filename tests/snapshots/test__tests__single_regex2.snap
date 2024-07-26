@@ -7,7 +7,7 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= #\"\\A[0-9]+\\z\"[0]\"\n\"[0] | ;\n",
+                rules: "start[0] ::= #\"\\A[0-9]+\\z\"[0]\"\n\"[0];\n",
                 id_to_regexes: {
                     "#\"\\A[0-9]+\\z\"[0]": Dfa(
                         dense::DFA(
