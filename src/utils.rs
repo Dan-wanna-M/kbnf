@@ -18,7 +18,7 @@ pub(crate) enum FsaStateStatus {
     Reject,
     InProgress,
 }
-/// Helper function to construct a simplified grammar from an EBNF grammar string.
+/// Helper function to construct a simplified grammar from an KBNF grammar string.
 pub fn construct_kbnf_syntax_grammar(
     input: &str,
     config: InternalConfig,
@@ -49,7 +49,7 @@ pub fn construct_kbnf_syntax_grammar(
     );
     Ok(grammar)
 }
-/// Helper function to find the maximum repetition from an EBNF grammar.
+/// Helper function to find the maximum repetition from an KBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TI).
 pub fn find_max_repetition_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_repetition = 0;
@@ -64,7 +64,7 @@ pub fn find_max_repetition_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar)
     }
     max_repetition
 }
-/// Helper function to find the maximum state ID from an EBNF grammar.
+/// Helper function to find the maximum state ID from an KBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TS).
 pub fn find_max_state_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_state_id = 0;
@@ -86,7 +86,7 @@ pub fn find_max_state_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -
     }
     max_state_id
 }
-/// Helper function to find the maximum dotted position from an EBNF grammar.
+/// Helper function to find the maximum dotted position from an KBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TD).
 pub fn find_max_dotted_position_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_dotted_position = 0;
@@ -97,7 +97,7 @@ pub fn find_max_dotted_position_from_kbnf_syntax_grammar(grammar: &SimplifiedGra
     }
     max_dotted_position
 }
-/// Helper function to find the maximum production ID from an EBNF grammar.
+/// Helper function to find the maximum production ID from an KBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TP).
 pub fn find_max_production_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
     let mut max_production_id = 0;

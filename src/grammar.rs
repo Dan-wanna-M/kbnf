@@ -230,11 +230,11 @@ where
 #[derive(Debug, thiserror::Error)]
 /// The error type for errors in Grammar creation.
 pub enum CreateGrammarError {
-    #[error("EBNF parsing error: {0}")]
-    /// Error due to parsing the EBNF grammar.
+    #[error("KBNF parsing error: {0}")]
+    /// Error due to parsing the KBNF grammar.
     ParsingError(#[from] nom::Err<nom::error::VerboseError<String>>), // We have to clone the str to remove lifetime so pyo3 works later
-    #[error("EBNF semantics error: {0}")]
-    /// Error due to semantic errors in the EBNF grammar.
+    #[error("KBNF semantics error: {0}")]
+    /// Error due to semantic errors in the KBNF grammar.
     SemanticError(#[from] Box<kbnf_syntax::semantic_error::SemanticError>),
     #[error("The number of {0}, which is {1}, exceeds the maximum value {2}.")]
     /// Error due to the number of a certain type exceeding the maximum value specified in the generic parameter.
@@ -380,11 +380,11 @@ where
         + num::Bounded,
     usize: num::traits::AsPrimitive<TE>,
 {
-    /// Create a new grammar from a simplified EBNF grammar.
+    /// Create a new grammar from a simplified KBNF grammar.
     ///
     /// # Arguments
     ///
-    /// * `grammar` - The simplified EBNF grammar.
+    /// * `grammar` - The simplified KBNF grammar.
     ///
     /// # Returns
     ///

@@ -268,11 +268,11 @@ impl Vocabulary {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl Engine {
-    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
+    /// Create a new [`Engine`] from an KBNF grammar string and a [`Vocabulary`].
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     ///
     /// * `vocabulary` - The [`Vocabulary`] object.
     ///
@@ -290,11 +290,11 @@ impl Engine {
     ) -> Result<Engine, CreateEngineError> {
         Self::new(kbnf_syntax_grammar_str, vocabulary)
     }
-    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
+    /// Create a new [`Engine`] from an KBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     /// * `vocabulary` - The [`Vocabulary`] object.
     /// * `config` - The [`Config`] object.
     ///
@@ -414,7 +414,7 @@ impl Engine {
 #[cfg(feature = "python")]
 #[pymethods]
 impl Engine {
-    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
+    /// Create a new [`Engine`] from an KBNF grammar string and a [`Vocabulary`].
     ///
     /// # Signature
     ///
@@ -422,7 +422,7 @@ impl Engine {
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     ///
     /// * `vocabulary` - The [`Vocabulary`] object.
     ///
@@ -440,7 +440,7 @@ impl Engine {
     ) -> Result<Engine, CreateEngineError> {
         Self::new(kbnf_syntax_grammar_str, vocabulary)
     }
-    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
+    /// Create a new [`Engine`] from an KBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
     /// # Signature
     ///
@@ -448,7 +448,7 @@ impl Engine {
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     /// * `vocabulary` - The [`Vocabulary`] object.
     /// * `config` - The [`Config`] object.
     ///

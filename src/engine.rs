@@ -80,11 +80,11 @@ pub enum CreateEngineError {
 }
 
 impl Engine {
-    /// Create a new [`Engine`] from an EBNF grammar string and a [`Vocabulary`].
+    /// Create a new [`Engine`] from an KBNF grammar string and a [`Vocabulary`].
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     ///
     /// * `vocabulary` - The [`Vocabulary`] object.
     ///
@@ -108,11 +108,11 @@ impl Engine {
             && grammar.interned_strings.nonterminals.len() <= value
             && grammar.interned_strings.excepteds.len() <= value
     }
-    /// Create a new [`Engine`] from an EBNF grammar string, a [`Vocabulary`], and a [`Config`].
+    /// Create a new [`Engine`] from an KBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
     /// # Arguments
     ///
-    /// * `kbnf_syntax_grammar_str` - The EBNF grammar string.
+    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
     /// * `vocabulary` - The [`Vocabulary`] object.
     /// * `config` - The [`Config`] object.
     ///
