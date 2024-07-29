@@ -1,7 +1,7 @@
 use crate::engine::CreateEngineError;
 use crate::engine_like::{AcceptTokenError, MaskLogitsError, UpdateLogitsError};
 use crate::vocabulary::{CreateVocabularyError, Vocabulary};
-use crate::{AcceptTokenResult, Config, Engine, EngineLike, Token};
+use crate::{config, AcceptTokenResult, Config, Engine, EngineLike, Token};
 #[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
@@ -414,32 +414,6 @@ impl Engine {
 #[cfg(feature = "python")]
 #[pymethods]
 impl Engine {
-    /// Create a new [`Engine`] from an KBNF grammar string and a [`Vocabulary`].
-    ///
-    /// # Signature
-    ///
-    /// (kbnf_syntax_grammar_str: str, vocabulary: Vocabulary) -> Engine
-    ///
-    /// # Arguments
-    ///
-    /// * `kbnf_syntax_grammar_str` - The KBNF grammar string.
-    ///
-    /// * `vocabulary` - The [`Vocabulary`] object.
-    ///
-    /// # Returns
-    ///
-    /// * [`Engine`] - The new [`Engine`] object.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    #[new]
-    pub fn new_py(
-        kbnf_syntax_grammar_str: &str,
-        vocabulary: Vocabulary,
-    ) -> Result<Engine, CreateEngineError> {
-        Self::new(kbnf_syntax_grammar_str, vocabulary)
-    }
     /// Create a new [`Engine`] from an KBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
     /// # Signature
@@ -459,14 +433,17 @@ impl Engine {
     /// # Errors
     ///
     /// Returns an [`CreateEngineError`] when the grammar is empty or the grammar and/or config's value range is not supported by the Engine.
-    #[staticmethod]
-    #[pyo3(name = "with_config")]
-    pub fn with_config_py(
+    #[pyo3(signature = (kbnf_syntax_grammar_str, vocabulary, config=None))]
+    #[new]
+    pub fn new_py(
         kbnf_syntax_grammar_str: &str,
         vocabulary: Vocabulary,
-        config: Config,
+        config: Option<Config>,
     ) -> Result<Engine, CreateEngineError> {
-        Self::with_config(kbnf_syntax_grammar_str, vocabulary, config)
+        match config {
+            Some(config) => Self::with_config(kbnf_syntax_grammar_str, vocabulary, config),
+            None => Self::new(kbnf_syntax_grammar_str, vocabulary),
+        }
     }
     /// Tries to accept a new token with the given token ID.
     ///

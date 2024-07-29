@@ -47,26 +47,6 @@ def _convert_logits_to_slice(logits:typing.Any)->typing.Tuple[typing.Any,int,int
     raise TypeError(f"Unsupported type of logits: {type(logits)}")
 
 class Engine(InternalEngine):
-    @staticmethod
-    def with_config(kbnf_grammar_str:str, vocab:Vocabulary, config:Config=None)->"Engine":
-        """
-Creates a new engine with the given KBnF grammar string, vocabulary and configuration.
-
-# Arguments
-
-* `kbnf_grammar_str`: The KBnF grammar string.
-* `vocab`: The vocabulary.
-* `config`: The configuration. If `None`, the default configuration is used.
-
-# Returns
-
-The new engine.
-        """
-        if config is None:
-            config = Config()
-        result = InternalEngine.with_config(kbnf_grammar_str, vocab, config)
-        result.__class__ = Engine # This hack works because we are not adding any new fields to `Engine`
-        return result
     def mask_logits(self, logits):
         """
 Masks the logits based on last computed token IDs.
