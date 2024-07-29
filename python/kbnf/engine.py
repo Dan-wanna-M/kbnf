@@ -64,7 +64,7 @@ The new engine.
         """
         if config is None:
             config = Config()
-        return super.with_config(kbnf_grammar_str, vocab, config)
+        return InternalEngine.with_config(kbnf_grammar_str, vocab, config)
     def mask_logits(self, logits):
         """
 Masks the logits based on last computed token IDs.
