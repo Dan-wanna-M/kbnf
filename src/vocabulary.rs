@@ -185,10 +185,11 @@ impl Vocabulary {
         check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 32, 126);
         if !not_existing_bytes.is_empty() {
             log::warn!(
-                "The following printable ASCII characters are not used as the first byte of any token: {:?}. 
-                This likely indicates that the vocabulary loading code is wrong or the tokenizer is doing some creepy processing.
-                Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider
-                 processing the vocab like the tokenizer.",
+                "\
+The following printable ASCII characters are not used as the first byte of any token: {:?}. \
+This likely indicates that the vocabulary loading code is wrong or the tokenizer is doing some creepy processing. \
+Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider \
+processing the vocab like the tokenizer.",
                 utils::get_display_form_from_bitset_on_stack(&not_existing_bytes)
                 .into_iter()
                 .map(|x|char::from(x as u8))
@@ -199,11 +200,12 @@ impl Vocabulary {
         check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 127, 253); // 254 and 255 will not exist anyway
         if !not_existing_bytes.is_empty() {
             log::warn!(
-                "The following UTF-8 bytes are not used as the first byte of any token: {:?}. 
-                This likely indicates that the vocabulary loading code is wrong, the tokenizer is doing some creepy processing
-                or the tokenizer is not UTF-8 compatible.
-                Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider
-                 processing the vocab like the tokenizer.",
+                "\
+The following UTF-8 bytes are not used as the first byte of any token: {:?}. \
+This likely indicates that the vocabulary loading code is wrong, the tokenizer is doing some creepy processing \
+or the tokenizer is not UTF-8 compatible. \
+Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider \
+processing the vocab like the tokenizer.",
                 utils::get_display_form_from_bitset_on_stack(&not_existing_bytes)
             );
         }
