@@ -481,12 +481,6 @@ use mimalloc::MiMalloc;
 pub use vocabulary::Token;
 pub use vocabulary::Vocabulary;
 
-// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
-// allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -496,6 +490,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[pymodule]
 #[pyo3(name = "kbnf")]
 fn kbnf(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    pyo3_log::init();
     m.add_class::<Config>()?;
     m.add_class::<config::CompressionConfig>()?;
     m.add_class::<config::Fsa>()?;
