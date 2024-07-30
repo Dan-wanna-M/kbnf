@@ -14,7 +14,7 @@ keywords = [
 license = "MIT OR Apache-2.0"
 name = "kbnf"
 repository = "https://github.com/Dan-Wanna-M/kbnf"
-version = "0.1.12"
+version = "0.2.0"
 [lib]
 name = "kbnf"
 crate-type = ["cdylib", "rlib"]
@@ -43,6 +43,7 @@ pyo3 = { version = "0.22.0", features = [
     "abi3-py37",
 ], optional = true }
 mimalloc = { version = "0.1.43", optional = true }
+log = "0.4.22"
 [dev-dependencies]
 insta = { version = "1.26.0" }
 serde_json = "1.0.48"

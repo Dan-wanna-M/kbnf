@@ -1668,7 +1668,6 @@ where
             as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         if self.config.compaction_enabled {
             for byte in token.0.iter().copied() {
-                
                 Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,

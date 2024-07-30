@@ -13,6 +13,9 @@ use tinyvec::ArrayVec;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+use crate::utils;
+use crate::utils::ByteSet;
+
 const TOKEN_SEPARATOR: u8 = 0xFF;
 const BYTES_NUM: usize = 257; // 256 + 1 because jagged array's implementation requires one additional index.
 
@@ -88,9 +91,6 @@ impl Debug for Vocabulary {
 #[derive(Debug, thiserror::Error)]
 /// The error type for [Vocabulary] creation.
 pub enum CreateVocabularyError {
-    /// The token ID and token ID corresponds to the same token.
-    #[error("Token ID {0} and token ID {1} corresponds to the same token.")]
-    DuplicateToken(u32, u32),
     /// The vocabulary size exceeds the maximum supported size.
     #[error("The vocabulary size is {0}, while the maximum supported is {1}.")]
     VocabularyTooLarge(u32, u32),
@@ -119,10 +119,15 @@ impl Vocabulary {
         for (&token_id, token) in id_to_token.iter() {
             match token_to_id.entry(token.clone()) {
                 Entry::Occupied(entry) => {
-                    return Err(CreateVocabularyError::DuplicateToken(
-                        token_id,
-                        *entry.get(),
-                    ));
+                    log::warn!(
+                        "Token ID {} and token ID {} corresponds to the same token. 
+                        The second token ID will be ignored when matching tokens to ids. 
+                        While matching tokens to ids is only used for debugging, 
+                        seeing this warning likely indicates either input parameters are not created correctly 
+                        or you are using a very creepy vocabulary.",
+                        entry.get(),
+                        token_id
+                    );
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(token_id);
@@ -152,6 +157,7 @@ impl Vocabulary {
                 first_byte_to_token.extend_last_row(buffer.into_iter());
             }
         }
+        Self::check_vocabulary_utf8_support(&first_byte_to_token);
         Ok(Self {
             token_to_id,
             id_to_token,
@@ -159,6 +165,48 @@ impl Vocabulary {
             first_byte_to_normal_tokens: first_byte_to_token,
             tokens_containing_separators,
         })
+    }
+
+    fn check_vocabulary_utf8_support(first_bytes: &JaggedArray<u8, ArrayVec<FirstBytes>, 2>) {
+        let mut not_existing_bytes = ByteSet::with_capacity(256);
+        fn check_non_existing_byte_in_range(
+            first_bytes: &JaggedArray<u8, ArrayVec<FirstBytes>, 2>,
+            not_existing_bytes: &mut ByteSet,
+            start: u8,
+            end: u8,
+        ) {
+            for first_byte in start..=end {
+                let view = first_bytes.view::<1, 1>([first_byte as usize]);
+                if view.is_empty() {
+                    not_existing_bytes.insert(first_byte as usize);
+                }
+            }
+        }
+        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 32, 126);
+        if !not_existing_bytes.is_empty() {
+            log::warn!(
+                "The following printable ASCII characters are not used as the first byte of any token: {:?}. 
+                This likely indicates that the vocabulary loading code is wrong or the tokenizer is doing some creepy processing.
+                Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider
+                 processing the vocab like the tokenizer.",
+                utils::get_display_form_from_bitset_on_stack(&not_existing_bytes)
+                .into_iter()
+                .map(|x|char::from(x as u8))
+                .collect::<Vec<char>>()
+            );
+        }
+        not_existing_bytes.clear();
+        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 127, 253); // 254 and 255 will not exist anyway
+        if !not_existing_bytes.is_empty() {
+            log::warn!(
+                "The following UTF-8 bytes are not used as the first byte of any token: {:?}. 
+                This likely indicates that the vocabulary loading code is wrong, the tokenizer is doing some creepy processing
+                or the tokenizer is not UTF-8 compatible.
+                Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider
+                 processing the vocab like the tokenizer.",
+                utils::get_display_form_from_bitset_on_stack(&not_existing_bytes)
+            );
+        }
     }
 
     /// Retrieves the token associated with the given token ID.
