@@ -598,6 +598,10 @@ impl Engine {
     fn __str__(&self) -> String {
         self.__repr__()
     }
+
+    fn __copy__(&self) -> Engine {
+        self.clone()
+    }
 }
 
 #[cfg(feature = "wasm")]

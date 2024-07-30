@@ -98,6 +98,9 @@ The logits will be updated in-place if:
         logits, ptr, size = _convert_logits_to_slice(logits)
         result = super().update_logits(token_id,ptr, size)
         return logits,result
+    
+    def __copy__(self):
+        return super().__copy__()
 
 _try_register_slice_converter("torch", _torch_slice_converter)
 _try_register_slice_converter("numpy", _numpy_slice_converter)
