@@ -470,6 +470,26 @@ impl Engine {
     ) -> Result<AcceptTokenResult, AcceptTokenError> {
         EngineLike::try_accept_new_token(self, token_id)
     }
+    /// Tries to accept new bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - The bytes to be accepted.
+    ///
+    /// # Returns
+    ///
+    /// * [`AcceptTokenResult`] - The result of accepting the bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`AcceptTokenError`] when the bytes are not accepted. Check the error type docs for more details.
+    #[pyo3(name = "try_accept_new_bytes")]
+    pub fn try_accept_new_bytes_py(
+        &self,
+        bytes: &[u8],
+    ) -> Result<AcceptTokenResult, AcceptTokenError> {
+        EngineLike::try_accept_new_bytes(self, bytes)
+    }
 
     /// Computes the allowed token IDs based on current states.
     ///

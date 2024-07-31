@@ -1463,8 +1463,8 @@ where
         added_postdot_items.clear();
     }
     #[inline]
-    fn commit_change(&mut self) {
-        self.postdot_items_since_last_commit.clear();
+    fn commit_change(postdot_items_since_last_commit: &mut AHashSet<Dotted<TI, TSP>>) {
+        postdot_items_since_last_commit.clear();
     }
     #[inline]
     fn is_rejected(
@@ -1617,6 +1617,111 @@ where
         ); // update postdot items for the next Earley set
         Ok(())
     }
+
+    fn accept_bytes(
+        grammar: &Grammar<TI, TE>,
+        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
+        leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
+        leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
+        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        already_predicted_nonterminals: &mut FixedBitSet,
+        deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
+        column_to_postdot_nonterminals: &mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
+        config: &EngineConfig,
+        regex_start_config: &kbnf_regex_automata::util::start::Config,
+        excepted_start_config: &kbnf_regex_automata::util::start::Config,
+        finished: &mut bool,
+        bytes: impl Iterator<Item = u8>,
+    ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
+        let len = earley_sets.len();
+        let column_to_postdot_nonterminals_ptr =
+            column_to_postdot_nonterminals as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
+        if config.compaction_enabled {
+            for byte in bytes {
+                Self::accept_byte(
+                    grammar,
+                    earley_sets,
+                    to_be_completed_items,
+                    to_be_completed_items_buffer,
+                    leo_items,
+                    leo_items_buffer,
+                    postdot_items,
+                    added_postdot_items,
+                    |column| {
+                        column_to_postdot_nonterminals.remove(&column);
+                    },
+                    |dotted| {
+                        // SAFETY: this closure will only be called in `update_postdot_items`
+                        // and never run simultaneously with the other closures there
+                        // and the column is guaranteed to be in the set
+                        unsafe { &mut *column_to_postdot_nonterminals_ptr }
+                            .get_mut(&dotted.column)
+                            .unwrap()
+                            .insert(dotted.postdot_nonterminal_id);
+                    },
+                    |dotted| {
+                        // SAFETY: this closure will only be called in `update_postdot_items`
+                        // and never run simultaneously with the other closures there
+                        unsafe { &mut *column_to_postdot_nonterminals_ptr }.insert(
+                            dotted.column,
+                            {
+                                let mut set = AHashSet::new();
+                                set.insert(dotted.postdot_nonterminal_id);
+                                set
+                            },
+                        );
+                    },
+                    already_predicted_nonterminals,
+                    deduplication_buffer,
+                    &regex_start_config,
+                    &excepted_start_config,
+                    len,
+                    finished,
+                    |earley_sets, leo_items, postdot_items| {
+                        // SAFETY: this closure will only be called in `accept_byte`
+                        // and never run simultaneously with the closures above
+                        Self::compact(earley_sets, leo_items, postdot_items, unsafe {
+                            &mut *column_to_postdot_nonterminals_ptr
+                        })
+                    },
+                    byte,
+                )?;
+            }
+        } else {
+            for byte in bytes {
+                Self::accept_byte(
+                    &grammar,
+                    earley_sets,
+                    to_be_completed_items,
+                    to_be_completed_items_buffer,
+                    leo_items,
+                    leo_items_buffer,
+                    postdot_items,
+                    added_postdot_items,
+                    |_| {},
+                    |_| {},
+                    |_| {},
+                    already_predicted_nonterminals,
+                    deduplication_buffer,
+                    regex_start_config,
+                    excepted_start_config,
+                    len,
+                    finished,
+                    |_, _, _| {},
+                    byte,
+                )?;
+            }
+        }
+        Self::commit_change(added_postdot_items);
+        if *finished {
+            Ok(crate::engine_like::AcceptTokenResult::Finished)
+        } else {
+            Ok(crate::engine_like::AcceptTokenResult::Ongoing)
+        }
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -1663,91 +1768,52 @@ where
             Some(token) => token,
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
-        let len = self.earley_sets.len();
-        let column_to_postdot_nonterminals_ptr = &mut self.column_to_postdot_nonterminals
-            as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
-        if self.config.compaction_enabled {
-            for byte in token.0.iter().copied() {
-                Self::accept_byte(
-                    &self.grammar,
-                    &mut self.earley_sets,
-                    &mut self.to_be_completed_items,
-                    &mut self.to_be_completed_items_buffer,
-                    &mut self.leo_items,
-                    &mut self.leo_items_buffer,
-                    &mut self.postdot_items,
-                    &mut self.postdot_items_since_last_commit,
-                    |column| {
-                        self.column_to_postdot_nonterminals.remove(&column);
-                    },
-                    |dotted| {
-                        // SAFETY: this closure will only be called in `update_postdot_items`
-                        // and never run simultaneously with the other closures there
-                        // and the column is guaranteed to be in the set
-                        unsafe { &mut *column_to_postdot_nonterminals_ptr }
-                            .get_mut(&dotted.column)
-                            .unwrap()
-                            .insert(dotted.postdot_nonterminal_id);
-                    },
-                    |dotted| {
-                        // SAFETY: this closure will only be called in `update_postdot_items`
-                        // and never run simultaneously with the other closures there
-                        unsafe { &mut *column_to_postdot_nonterminals_ptr }.insert(
-                            dotted.column,
-                            {
-                                let mut set = AHashSet::new();
-                                set.insert(dotted.postdot_nonterminal_id);
-                                set
-                            },
-                        );
-                    },
-                    &mut self.already_predicted_nonterminals,
-                    &mut self.deduplication_buffer,
-                    &self.regex_start_config,
-                    &self.excepted_start_config,
-                    len,
-                    &mut self.finished,
-                    |earley_sets, leo_items, postdot_items| {
-                        // SAFETY: this closure will only be called in `accept_byte`
-                        // and never run simultaneously with the closures above
-                        Self::compact(earley_sets, leo_items, postdot_items, unsafe {
-                            &mut *column_to_postdot_nonterminals_ptr
-                        })
-                    },
-                    byte,
-                )?;
-            }
-        } else {
-            for byte in token.0.iter().copied() {
-                Self::accept_byte(
-                    &self.grammar,
-                    &mut self.earley_sets,
-                    &mut self.to_be_completed_items,
-                    &mut self.to_be_completed_items_buffer,
-                    &mut self.leo_items,
-                    &mut self.leo_items_buffer,
-                    &mut self.postdot_items,
-                    &mut self.postdot_items_since_last_commit,
-                    |_| {},
-                    |_| {},
-                    |_| {},
-                    &mut self.already_predicted_nonterminals,
-                    &mut self.deduplication_buffer,
-                    &self.regex_start_config,
-                    &self.excepted_start_config,
-                    len,
-                    &mut self.finished,
-                    |_, _, _| {},
-                    byte,
-                )?;
-            }
-        }
-        self.commit_change();
+        let token_iter = token.0.iter().copied();
+        Self::accept_bytes(
+            &self.grammar,
+            &mut self.earley_sets,
+            &mut self.to_be_completed_items,
+            &mut self.to_be_completed_items_buffer,
+            &mut self.leo_items,
+            &mut self.leo_items_buffer,
+            &mut self.postdot_items,
+            &mut self.postdot_items_since_last_commit,
+            &mut self.already_predicted_nonterminals,
+            &mut self.deduplication_buffer,
+            &mut self.column_to_postdot_nonterminals,
+            &self.config,
+            &self.regex_start_config,
+            &self.excepted_start_config,
+            &mut self.finished,
+            token_iter,
+        )
+    }
+
+    fn try_accept_new_bytes(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<AcceptTokenResult, crate::engine_like::AcceptTokenError> {
         if self.is_finished() {
-            Ok(crate::engine_like::AcceptTokenResult::Finished)
-        } else {
-            Ok(crate::engine_like::AcceptTokenResult::Ongoing)
+            return Err(crate::engine_like::AcceptTokenError::Finished);
         }
+        Self::accept_bytes(
+            &self.grammar,
+            &mut self.earley_sets,
+            &mut self.to_be_completed_items,
+            &mut self.to_be_completed_items_buffer,
+            &mut self.leo_items,
+            &mut self.leo_items_buffer,
+            &mut self.postdot_items,
+            &mut self.postdot_items_since_last_commit,
+            &mut self.already_predicted_nonterminals,
+            &mut self.deduplication_buffer,
+            &mut self.column_to_postdot_nonterminals,
+            &self.config,
+            &self.regex_start_config,
+            &self.excepted_start_config,
+            &mut self.finished,
+            bytes.iter().copied(),
+        )
     }
 
     fn compute_allowed_token_ids(&mut self) {
@@ -1892,7 +1958,7 @@ where
                 );
             }
         }
-        self.commit_change();
+        Self::commit_change(&mut self.postdot_items_since_last_commit);
         if self.config.cache_enabled {
             self.cache
                 .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());

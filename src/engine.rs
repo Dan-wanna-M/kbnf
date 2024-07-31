@@ -52,7 +52,7 @@ pub(crate) enum EngineUnion {
     U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
 }
 #[cfg_attr(feature = "python", pyclass(subclass))]
-#[cfg_attr(feature = "python", pyo3(name="InternalEngine"))]
+#[cfg_attr(feature = "python", pyo3(name = "InternalEngine"))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Clone)]
 /// The main struct that wraps the [`EngineBase`] so the user do not have to specify the generic type every time for common cases.
@@ -287,6 +287,13 @@ impl EngineLike for Engine {
         token_id: u32,
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
         match_engine_union!(EngineLike::try_accept_new_token[&mut self.union, token_id])
+    }
+
+    fn try_accept_new_bytes(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<crate::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
+        match_engine_union!(EngineLike::try_accept_new_bytes[&mut self.union, bytes])
     }
 
     fn compute_allowed_token_ids(&mut self) {

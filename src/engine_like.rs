@@ -76,6 +76,21 @@ pub trait EngineLike {
         token_id: u32,
     ) -> Result<AcceptTokenResult, AcceptTokenError>;
 
+    /// Tries to accept new bytes.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `bytes` - The bytes to be accepted.
+    /// 
+    /// # Returns
+    /// 
+    /// * [`AcceptTokenResult`] - The result of accepting the bytes.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an [`AcceptTokenError`] when the bytes are not accepted. Check the error type docs for more details.
+    fn try_accept_new_bytes(&mut self, bytes: &[u8]) -> Result<AcceptTokenResult, AcceptTokenError>;
+
     /// Computes the allowed token IDs based on current states.
     fn compute_allowed_token_ids(&mut self);
 
