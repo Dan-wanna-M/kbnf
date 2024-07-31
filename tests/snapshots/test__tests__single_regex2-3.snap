@@ -242,6 +242,9 @@ Engine {
                 "98[718]",
                 "99[719]",
             ],
+            token_ids_to_finish: [
+                "\n[11]",
+            ],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {

@@ -30,6 +30,9 @@ Engine {
                 "a[98]",
                 "aa[1733]",
             ],
+            token_ids_to_finish: [
+                "aa[1733]",
+            ],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {

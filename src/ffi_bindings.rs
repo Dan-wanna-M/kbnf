@@ -472,6 +472,10 @@ impl Engine {
     }
     /// Tries to accept new bytes.
     ///
+    /// # Signature
+    /// 
+    /// (self, bytes: bytes) -> AcceptTokenResult
+    /// 
     /// # Arguments
     ///
     /// * `bytes` - The bytes to be accepted.
@@ -512,6 +516,21 @@ impl Engine {
     #[pyo3(name = "get_allowed_token_ids_from_last_computation")]
     pub fn allowed_token_ids_from_last_computation_py(&self) -> Vec<usize> {
         EngineLike::allowed_token_ids_from_last_computation(self)
+            .ones()
+            .collect()
+    }
+    /// Gets the token IDs that, if passed to [`EngineLike::try_accept_new_token`], will finish the engine based on states from last computation.
+    /// These token IDs are a subset of allowed token IDs.
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    ///
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    ///
+    /// # Signature
+    ///
+    /// (self) -> List[int]
+    #[pyo3(name = "get_token_ids_to_finish_from_last_computation")]
+    pub fn token_ids_to_finish_from_last_computation_py(&self) -> Vec<usize> {
+        EngineLike::token_ids_to_finish_from_last_computation(self)
             .ones()
             .collect()
     }

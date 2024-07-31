@@ -410,6 +410,7 @@ where
     grammar: Arc<Grammar<TI, TE>>,
     allowed_first_bytes: ByteSet,
     allowed_token_ids: FixedBitSet,
+    token_ids_to_finish: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -473,6 +474,9 @@ where
             )
             .field("allowed_token_ids", {
                 &self.get_display_form_from_token_ids(&self.allowed_token_ids)
+            })
+            .field("token_ids_to_finish", {
+                &self.get_display_form_from_token_ids(&self.token_ids_to_finish)
             })
             .field(
                 "earley_sets",
@@ -621,6 +625,7 @@ where
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
+        let token_ids_to_finish = FixedBitSet::with_capacity(vocabulary.vocab_size());
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
@@ -632,6 +637,7 @@ where
             grammar,
             allowed_first_bytes,
             allowed_token_ids,
+            token_ids_to_finish,
             earley_sets,
             cache,
             to_be_completed_items,
@@ -1676,8 +1682,8 @@ where
                     },
                     already_predicted_nonterminals,
                     deduplication_buffer,
-                    &regex_start_config,
-                    &excepted_start_config,
+                    regex_start_config,
+                    excepted_start_config,
                     len,
                     finished,
                     |earley_sets, leo_items, postdot_items| {
@@ -1693,7 +1699,7 @@ where
         } else {
             for byte in bytes {
                 Self::accept_byte(
-                    &grammar,
+                    grammar,
                     earley_sets,
                     to_be_completed_items,
                     to_be_completed_items_buffer,
@@ -1818,6 +1824,7 @@ where
 
     fn compute_allowed_token_ids(&mut self) {
         self.allowed_token_ids.clear();
+        self.token_ids_to_finish.clear();
         if self.is_finished() {
             return;
         }
@@ -1881,6 +1888,7 @@ where
                         }
                         TokenIterItem::NewToken => {
                             // The token is accepted
+                            let finished = self.is_finished();
                             Self::revert_change(
                                 &mut self.earley_sets,
                                 &mut self.postdot_items,
@@ -1891,6 +1899,9 @@ where
                                 &mut self.finished,
                             );
                             if let Some(token_id) = current_token_id {
+                                if finished {
+                                    self.token_ids_to_finish.insert(token_id.get() as usize);
+                                }
                                 self.allowed_token_ids.insert(token_id.get() as usize);
                             }
                             current_token_id = token_iter.current_token_id();
@@ -2007,6 +2018,9 @@ where
 
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
         &self.allowed_token_ids
+    }
+    fn token_ids_to_finish_from_last_computation(&self) -> &FixedBitSet {
+        &self.token_ids_to_finish
     }
 
     fn is_finished(&self) -> bool {

@@ -316,6 +316,10 @@ impl EngineLike for Engine {
         match_engine_union!(EngineLike::allowed_token_ids_from_last_computation[&self.union])
     }
 
+    fn token_ids_to_finish_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
+        match_engine_union!(EngineLike::token_ids_to_finish_from_last_computation[&self.union])
+    }
+
     fn is_finished(&self) -> bool {
         match_engine_union!(EngineLike::is_finished[&self.union])
     }

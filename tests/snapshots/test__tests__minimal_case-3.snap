@@ -27,6 +27,7 @@ Engine {
                 97,
             ],
             allowed_token_ids: [],
+            token_ids_to_finish: [],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
