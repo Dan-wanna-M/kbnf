@@ -489,7 +489,7 @@ impl Engine {
     /// Returns an [`AcceptTokenError`] when the bytes are not accepted. Check the error type docs for more details.
     #[pyo3(name = "try_accept_new_bytes")]
     pub fn try_accept_new_bytes_py(
-        &self,
+        &mut self,
         bytes: &[u8],
     ) -> Result<AcceptTokenResult, AcceptTokenError> {
         EngineLike::try_accept_new_bytes(self, bytes)
