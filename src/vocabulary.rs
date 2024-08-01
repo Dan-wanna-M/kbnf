@@ -138,6 +138,11 @@ impl Vocabulary {
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
         for (&token_id, token) in id_to_token.iter() {
             if token.0.is_empty() {
+                log::warn!(
+                    "Token ID {} corresponds to an empty token. 
+                    The token will be ignored. ",
+                    token_id
+                );
                 continue;
             }
             let first_byte = token.0[0];
@@ -183,7 +188,7 @@ impl Vocabulary {
             }
         }
         check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 32, 126);
-        if !not_existing_bytes.is_empty() {
+        if !not_existing_bytes.is_clear() {
             log::warn!(
                 "\
 The following printable ASCII characters are not used as the first byte of any token: {:?}. \
@@ -197,8 +202,8 @@ processing the vocab like the tokenizer.",
             );
         }
         not_existing_bytes.clear();
-        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 127, 253); // 254 and 255 will not exist anyway
-        if !not_existing_bytes.is_empty() {
+        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 194, 247);
+        if !not_existing_bytes.is_clear() {
             log::warn!(
                 "\
 The following UTF-8 bytes are not used as the first byte of any token: {:?}. \

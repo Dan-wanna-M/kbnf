@@ -1,9 +1,11 @@
 use crate::engine::CreateEngineError;
 use crate::engine_like::{AcceptTokenError, MaskLogitsError, UpdateLogitsError};
 use crate::vocabulary::{CreateVocabularyError, Vocabulary};
-use crate::{config, AcceptTokenResult, Config, Engine, EngineLike, Token};
+use crate::{AcceptTokenResult, Config, Engine, EngineLike, Token};
 #[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
+use pyo3::types::PyDict;
 #[cfg(feature = "python")]
 use pyo3::{pymethods, PyErr};
 #[cfg(feature = "wasm")]
@@ -639,6 +641,9 @@ impl Engine {
     }
 
     fn __copy__(&self) -> Engine {
+        self.clone()
+    }
+    fn __deepcopy__(&self, _memo:pyo3::Bound<'_,PyDict>) -> Engine {
         self.clone()
     }
 }
