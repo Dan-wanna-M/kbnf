@@ -1977,7 +1977,7 @@ where
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
-        if logits.len() != self.vocabulary.vocab_size() {
+        if logits.len() < self.vocabulary.vocab_size() {
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
         for (token_id, logit) in logits.iter_mut().enumerate() {
