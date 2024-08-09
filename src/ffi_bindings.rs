@@ -521,6 +521,13 @@ impl Engine {
             .ones()
             .collect()
     }
+
+    #[pyo3(name = "get_disallowed_token_ids_from_last_computation")]
+    pub fn disallowed_token_ids_from_last_computation_py(&self) -> Vec<usize> {
+        EngineLike::allowed_token_ids_from_last_computation(self)
+            .zeroes()
+            .collect()
+    }
     /// Gets the token IDs that, if passed to [`EngineLike::try_accept_new_token`], will finish the engine based on states from last computation.
     /// These token IDs are a subset of allowed token IDs.
     /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
