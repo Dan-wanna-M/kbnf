@@ -53,10 +53,11 @@ pub fn read_rwkv_world_vocab(path: impl AsRef<Path>) -> Result<Vocabulary, ReadR
     Ok(Vocabulary::new(id_to_token, id_to_token_string).unwrap())
 }
 
-fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32) {
+fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits:&mut [f32]) {
     for _ in 0..iteration {
         let _ = engine.try_accept_new_token(token_id).unwrap();
         engine.compute_allowed_token_ids();
+        engine.mask_logits(logits).unwrap();
     }
     engine.reset(); // reset the engine to its initial state while not deallocate memory
 }
@@ -65,9 +66,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut c = c.benchmark_group("Simple");
     c.measurement_time(Duration::from_secs(10)).sample_size(100);
     let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+    let mut logits = vec![0.0f32; 65536];
     let mut engine = Engine::new("start::=('{'start'}')?;", vocab.clone()).unwrap();
     c.bench_function("unmarked middle recursion 100 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
     });
     let no_cache_config = kbnf::config::Config {
         engine_config: EngineConfig {
@@ -83,19 +85,19 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("right recursion 100 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
     });
     c.bench_function("right recursion 50 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 50, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 50, 124,&mut logits))
     });
     c.bench_function("right recursion 25 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 25, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 25, 124,&mut logits))
     });
     c.bench_function("right recursion 10 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124,&mut logits))
     });
     c.bench_function("right recursion 5 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 5, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 5, 124,&mut logits))
     });
     let mut engine = Engine::with_config(
         "start::=C'\n';C::=C'{'|'{';",
@@ -104,11 +106,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("left recursion 100 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
     });
     let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
     let mut engine = Engine::with_config(
         "start::=#\".+\"'\n';",
@@ -117,15 +119,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("always match regex 3 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
     let mut engine = Engine::new("start::=except!('\n\n')'\n\n';", vocab.clone()).unwrap();
     c.bench_function("simple except! 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
     let mut engine = Engine::new("start::=except!('\n\n',5)'\n\n';", vocab.clone()).unwrap();
     c.bench_function("simple except! with repetition 5 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
 }
 

@@ -412,7 +412,7 @@ where
     allowed_token_ids: FixedBitSet,
     token_ids_to_finish: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
-    cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
+    cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, (FixedBitSet, FixedBitSet)>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -487,7 +487,8 @@ where
                 &utils::get_deterministic_display_form_from_hash_map(&self.cache, |(k, v)| {
                     (
                         self.get_display_form_from_earley_sets(k),
-                        self.get_display_form_from_token_ids(v),
+                        (self.get_display_form_from_token_ids(&v.0),
+                        self.get_display_form_from_token_ids(&v.1)),
                     )
                 }),
             )
@@ -1829,8 +1830,9 @@ where
             return;
         }
         if self.config.cache_enabled {
-            if let Some(ids) = self.cache.get(&self.earley_sets) {
-                self.allowed_token_ids.union_with(ids);
+            if let Some((allowed_ids, token_to_finish)) = self.cache.get(&self.earley_sets) {
+                self.allowed_token_ids.union_with(allowed_ids);
+                self.token_ids_to_finish.union_with(token_to_finish);
                 return;
             }
         }
@@ -1958,6 +1960,9 @@ where
             }
             if accepted {
                 self.allowed_token_ids.insert(token_id as usize);
+                if self.finished {
+                    self.token_ids_to_finish.insert(token_id as usize);
+                }
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,
@@ -1972,7 +1977,7 @@ where
         Self::commit_change(&mut self.postdot_items_since_last_commit);
         if self.config.cache_enabled {
             self.cache
-                .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
+                .insert(self.earley_sets.clone(), (self.allowed_token_ids.clone(), self.token_ids_to_finish.clone()));
         }
     }
 
@@ -1981,9 +1986,10 @@ where
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
         for (token_id, logit) in logits.iter_mut().enumerate() {
-            if !self.allowed_token_ids.contains(token_id) {
-                *logit = f32::NEG_INFINITY;
+            if self.allowed_token_ids.contains(token_id) {
+                continue;
             }
+            *logit = f32::NEG_INFINITY;
         }
         Ok(())
     }
@@ -2040,6 +2046,7 @@ where
         self.already_predicted_nonterminals.clear();
         self.finished = false;
         self.allowed_token_ids.clear();
+        self.token_ids_to_finish.clear();
         self.allowed_first_bytes.clear();
         self.earley_sets.new_row::<0>();
         Self::predict_nonterminal(

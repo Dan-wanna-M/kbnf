@@ -214,24 +214,32 @@ mod tests {
 
     #[test]
     fn escaped_literal() {
-        let input = "start::='\\n\\n';";
+
+        let input = "start::=#'(\\n\\n)+';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        assert!(
-            engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
-                == Err(kbnf::engine_like::AcceptTokenError::Rejected),
-            "This should not be accepted"
-        );
-        engine.compute_allowed_token_ids();
-        assert!(
-            engine
-                .try_accept_new_token(get_token_id_from_str(&vocab, "\n\n").unwrap())
-                .unwrap()
-                == AcceptTokenResult::Finished,
-            "Failed to accept token"
-        );
-        engine.compute_allowed_token_ids();
+        for i in 0..10
+        {
+            engine.compute_allowed_token_ids();
+            assert!(!engine.allowed_token_ids_from_last_computation().is_empty(), "Allowed token ids are not updated correctly!");
+            assert!(
+                engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
+                    == Err(kbnf::engine_like::AcceptTokenError::Rejected),
+                "This should not be accepted"
+            );
+            engine.compute_allowed_token_ids();
+            assert!(
+                engine
+                    .try_accept_new_token(get_token_id_from_str(&vocab, "\n\n").unwrap())
+                    .unwrap()
+                    == AcceptTokenResult::Finished,
+                "Failed to accept token"
+            );
+            engine.compute_allowed_token_ids();
+            engine.reset();
+        }
+
     }
 
     #[test]
