@@ -521,7 +521,14 @@ impl Engine {
             .ones()
             .collect()
     }
-
+    /// Gets the disallowed token IDs since last computation.
+    /// Last computation is the last [`EngineLike::compute_allowed_token_ids`] or [`EngineLike::update_logits`] called.
+    ///
+    /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
+    ///
+    /// # Signature
+    ///
+    /// (self) -> List[int]
     #[pyo3(name = "get_disallowed_token_ids_from_last_computation")]
     pub fn disallowed_token_ids_from_last_computation_py(&self) -> Vec<usize> {
         EngineLike::allowed_token_ids_from_last_computation(self)
