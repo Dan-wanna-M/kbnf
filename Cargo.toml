@@ -14,7 +14,7 @@ keywords = [
 license = "MIT OR Apache-2.0"
 name = "kbnf"
 repository = "https://github.com/Dan-Wanna-M/kbnf"
-version = "0.3.5"
+version = "0.3.6"
 [lib]
 name = "kbnf"
 crate-type = ["cdylib", "rlib"]
@@ -22,7 +22,7 @@ crate-type = ["cdylib", "rlib"]
 ahash = { version = "0.8.11", features = ["serde"] }
 getrandom = { version = "0.2" }
 thiserror = "1.0.61"
-kbnf-syntax = "0.1.8"
+kbnf-syntax = "0.1.9"
 num = "0.4.3"
 jaggedarray = "0.2.11"
 string-interner = "0.17.0"
