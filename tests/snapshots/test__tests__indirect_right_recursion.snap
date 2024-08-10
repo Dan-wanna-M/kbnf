@@ -111,6 +111,14 @@ Engine {
                     ),
                 ),
             ],
+            column_to_postdot_items: [
+                (
+                    1,
+                    [
+                        "A[1]",
+                    ],
+                ),
+            ],
             postdot_items_since_last_commit: [],
             leo_items: [
                 (

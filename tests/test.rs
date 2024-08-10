@@ -214,15 +214,16 @@ mod tests {
 
     #[test]
     fn escaped_literal() {
-
         let input = "start::=#'(\\n\\n)+';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        for i in 0..10
-        {
+        for i in 0..10 {
             engine.compute_allowed_token_ids();
-            assert!(!engine.allowed_token_ids_from_last_computation().is_empty(), "Allowed token ids are not updated correctly!");
+            assert!(
+                !engine.allowed_token_ids_from_last_computation().is_empty(),
+                "Allowed token ids are not updated correctly!"
+            );
             assert!(
                 engine.try_accept_new_token(get_token_id_from_str(&vocab, "b").unwrap())
                     == Err(kbnf::engine_like::AcceptTokenError::Rejected),
@@ -239,7 +240,6 @@ mod tests {
             engine.compute_allowed_token_ids();
             engine.reset();
         }
-
     }
 
     #[test]
@@ -552,5 +552,36 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result, AcceptTokenResult::Finished);
+    }
+    #[test]
+    fn linked_list() {
+        let grammar_str = r#"__schema_json_1_next_0 ::= __schema_json_1;
+
+start ::= "```json\n"__schema_json_1"```\n";
+
+__schema_json_1 ::= 
+    #"\\A\\{( |\n|\r|\t)*\\z" 
+    "\"value\""
+    #"\\A( |\n|\r|\t)*:( |\n|\r|\t)*\\z" 
+    #"\\A-?(0|[1-9]\\d*)\\z" 
+    #"\\A( |\n|\r|\t)*,( |\n|\r|\t)*\\z" 
+    "\"next\"" 
+    #"\\A( |\n|\r|\t)*:( |\n|\r|\t)*\\z" 
+    __schema_json_1_next
+    #"\\A( |\n|\r|\t)*\\}\\z";
+
+__schema_json_1_next ::= 
+    "null"
+    | __schema_json_1_next_0;
+"#;
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let mut logits = vec![0.0; vocab.vocab_size()];
+        let mut engine = kbnf::engine::Engine::new(grammar_str, vocab.clone()).unwrap();
+        engine
+            .try_accept_new_bytes("```json\n{\"value\": 2, \"next\":".as_bytes())
+            .unwrap();
+        engine
+            .try_accept_new_bytes(" {\"value\": 3, \"next\":null}".as_bytes())
+            .unwrap();
     }
 }

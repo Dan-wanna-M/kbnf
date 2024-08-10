@@ -487,8 +487,10 @@ where
                 &utils::get_deterministic_display_form_from_hash_map(&self.cache, |(k, v)| {
                     (
                         self.get_display_form_from_earley_sets(k),
-                        (self.get_display_form_from_token_ids(&v.0),
-                        self.get_display_form_from_token_ids(&v.1)),
+                        (
+                            self.get_display_form_from_token_ids(&v.0),
+                            self.get_display_form_from_token_ids(&v.1),
+                        ),
                     )
                 }),
             )
@@ -516,6 +518,20 @@ where
                     |(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)),
                 )
             })
+            .field(
+                "column_to_postdot_items",
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &self.column_to_postdot_nonterminals,
+                    |(k, v)| {
+                        (
+                            k.as_(),
+                            utils::get_deterministic_display_form_from_hash_set(v, |x| {
+                                x.to_display_form(&self.grammar)
+                            }),
+                        )
+                    },
+                ),
+            )
             .field("postdot_items_since_last_commit", {
                 &utils::get_deterministic_display_form_from_hash_set(
                     &self.postdot_items_since_last_commit,
@@ -1525,7 +1541,7 @@ where
         for index in max_start_position + 1..earley_set_index {
             if let Some(nonterminals) = column_to_postdot_nonterminals.remove(&index.as_()) {
                 for nonterminal in nonterminals.into_iter() {
-                    let dotted = Dotted {
+                    let dotted: Dotted<TI, TSP> = Dotted {
                         postdot_nonterminal_id: nonterminal,
                         column: index.as_(),
                     };
@@ -1636,7 +1652,7 @@ where
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
-        column_to_postdot_nonterminals: &mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
+        column_to_postdot_nonterminals: *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
         config: &EngineConfig,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
         excepted_start_config: &kbnf_regex_automata::util::start::Config,
@@ -1644,8 +1660,6 @@ where
         bytes: impl Iterator<Item = u8>,
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
         let len = earley_sets.len();
-        let column_to_postdot_nonterminals_ptr =
-            column_to_postdot_nonterminals as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         if config.compaction_enabled {
             for byte in bytes {
                 Self::accept_byte(
@@ -1658,13 +1672,13 @@ where
                     postdot_items,
                     added_postdot_items,
                     |column| {
-                        column_to_postdot_nonterminals.remove(&column);
+                        unsafe { &mut *column_to_postdot_nonterminals }.remove(&column);
                     },
                     |dotted| {
                         // SAFETY: this closure will only be called in `update_postdot_items`
                         // and never run simultaneously with the other closures there
                         // and the column is guaranteed to be in the set
-                        unsafe { &mut *column_to_postdot_nonterminals_ptr }
+                        unsafe { &mut *column_to_postdot_nonterminals }
                             .get_mut(&dotted.column)
                             .unwrap()
                             .insert(dotted.postdot_nonterminal_id);
@@ -1672,14 +1686,14 @@ where
                     |dotted| {
                         // SAFETY: this closure will only be called in `update_postdot_items`
                         // and never run simultaneously with the other closures there
-                        unsafe { &mut *column_to_postdot_nonterminals_ptr }.insert(
-                            dotted.column,
-                            {
-                                let mut set = AHashSet::new();
-                                set.insert(dotted.postdot_nonterminal_id);
-                                set
+                        match unsafe { &mut *column_to_postdot_nonterminals }.entry(dotted.column) {
+                            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                                entry.get_mut().insert(dotted.postdot_nonterminal_id);
                             },
-                        );
+                            std::collections::hash_map::Entry::Vacant(entry) => {
+                                entry.insert(AHashSet::new()).insert(dotted.postdot_nonterminal_id);
+                            }
+                        };
                     },
                     already_predicted_nonterminals,
                     deduplication_buffer,
@@ -1691,7 +1705,7 @@ where
                         // SAFETY: this closure will only be called in `accept_byte`
                         // and never run simultaneously with the closures above
                         Self::compact(earley_sets, leo_items, postdot_items, unsafe {
-                            &mut *column_to_postdot_nonterminals_ptr
+                            &mut *column_to_postdot_nonterminals
                         })
                     },
                     byte,
@@ -1776,6 +1790,7 @@ where
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
         let token_iter = token.0.iter().copied();
+        let ptr = &mut self.column_to_postdot_nonterminals as *mut _;
         Self::accept_bytes(
             &self.grammar,
             &mut self.earley_sets,
@@ -1787,7 +1802,7 @@ where
             &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.deduplication_buffer,
-            &mut self.column_to_postdot_nonterminals,
+            ptr,
             &self.config,
             &self.regex_start_config,
             &self.excepted_start_config,
@@ -1803,6 +1818,8 @@ where
         if self.is_finished() {
             return Err(crate::engine_like::AcceptTokenError::Finished);
         }
+        let ptr = &mut self.column_to_postdot_nonterminals
+            as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         Self::accept_bytes(
             &self.grammar,
             &mut self.earley_sets,
@@ -1814,7 +1831,7 @@ where
             &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.deduplication_buffer,
-            &mut self.column_to_postdot_nonterminals,
+            ptr,
             &self.config,
             &self.regex_start_config,
             &self.excepted_start_config,
@@ -1976,8 +1993,13 @@ where
         }
         Self::commit_change(&mut self.postdot_items_since_last_commit);
         if self.config.cache_enabled {
-            self.cache
-                .insert(self.earley_sets.clone(), (self.allowed_token_ids.clone(), self.token_ids_to_finish.clone()));
+            self.cache.insert(
+                self.earley_sets.clone(),
+                (
+                    self.allowed_token_ids.clone(),
+                    self.token_ids_to_finish.clone(),
+                ),
+            );
         }
     }
 
