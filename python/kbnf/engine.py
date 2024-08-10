@@ -3,6 +3,7 @@ import typing
 import importlib
 from .kbnf import InternalEngine, AcceptTokenResult, Vocabulary,Config
 _slice_converters = []
+_fast_mask_logits = []
 
 def _try_register_slice_converter(module_name:str,
                         obtain_converter:typing.Callable[[types.ModuleType],
@@ -11,6 +12,16 @@ def _try_register_slice_converter(module_name:str,
     try:
         module = importlib.import_module(module_name)
         _slice_converters.append(obtain_converter(module))
+    except ImportError:
+        pass
+
+def _try_register_fast_mask_logits(module_name:str,
+                        fast_mask_logits:typing.Callable[[types.ModuleType],
+                                                        typing.Callable[[typing.Any, "Engine"],
+                                                                        typing.Optional[typing.Any]]]):
+    try:
+        module = importlib.import_module(module_name)
+        _fast_mask_logits.append(fast_mask_logits(module))
     except ImportError:
         pass
 
@@ -25,6 +36,15 @@ def _torch_slice_converter(module:types.ModuleType):
             return tensor, ptr, tensor.shape[-1]
         return None
     return convert_slice
+
+def _torch_fast_mask_logits(module:types.ModuleType):
+    def mask_logits_fast(tensor:typing.Any, engine:"Engine")->typing.Optional[typing.Any]:
+        if isinstance(tensor, module.Tensor):
+            mask = module.tensor(engine.get_disallowed_token_ids_from_last_computation(),device=tensor.device)
+            tensor[mask] = float("-inf")
+            return tensor
+        return None
+    return mask_logits_fast
 
 def _numpy_slice_converter(module:types.ModuleType):
     def convert_slice(array:typing.Any)->typing.Optional[typing.Tuple[typing.Any,int,int]]:
@@ -45,6 +65,13 @@ def _convert_logits_to_slice(logits:typing.Any)->typing.Tuple[typing.Any,int,int
         if converted is not None:
             return converted
     raise TypeError(f"Unsupported type of logits: {type(logits)}")
+
+def _mask_logits_fast(logits:typing.Any,engine:"Engine")->typing.Optional[typing.Any]:
+    for masker in _fast_mask_logits:
+        masked = masker(logits, engine)
+        if masked is not None:
+            return masked
+    return None
 
 class Engine(InternalEngine):
     def mask_logits(self, logits):
@@ -71,6 +98,9 @@ The masked logits. The shape of the returned logits is the same as the input log
 The returned logits is the same object as the input logits if the input logits is updated in-place.
 Otherwise, a new object with the same type as the input logits is returned.
         """
+        result = _mask_logits_fast(logits, self)
+        if result is not None:
+            return result
         logits, ptr, size = _convert_logits_to_slice(logits)
         super().mask_logits(ptr, size)
         return logits
@@ -104,3 +134,4 @@ The logits will be updated in-place if:
 
 _try_register_slice_converter("torch", _torch_slice_converter)
 _try_register_slice_converter("numpy", _numpy_slice_converter)
+_try_register_fast_mask_logits("torch", _torch_fast_mask_logits)
