@@ -1299,7 +1299,7 @@ where
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
                         entry.insert(PostDotItems::LeoEligible(item));
-                        
+
                         added_postdot_items.insert(postdot);
                     }
                 }
@@ -1678,9 +1678,11 @@ where
                         match unsafe { &mut *column_to_postdot_nonterminals }.entry(dotted.column) {
                             std::collections::hash_map::Entry::Occupied(mut entry) => {
                                 entry.get_mut().insert(dotted.postdot_nonterminal_id);
-                            },
+                            }
                             std::collections::hash_map::Entry::Vacant(entry) => {
-                                entry.insert(AHashSet::new()).insert(dotted.postdot_nonterminal_id);
+                                entry
+                                    .insert(AHashSet::new())
+                                    .insert(dotted.postdot_nonterminal_id);
                             }
                         };
                     },
@@ -1990,14 +1992,17 @@ where
     }
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
-        if logits.len() < self.vocabulary.vocab_size() {
+        let vocab_size = self.vocabulary.vocab_size();
+        if logits.len() < vocab_size {
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
-        for (token_id, logit) in logits.iter_mut().enumerate() {
-            if self.allowed_token_ids.contains(token_id) {
-                continue;
+        for (token_id, logit) in unsafe { logits.get_unchecked_mut(..vocab_size) }
+            .iter_mut()
+            .enumerate()
+        {
+            if !unsafe { self.allowed_token_ids.contains_unchecked(token_id) } {
+                *logit = f32::NEG_INFINITY;
             }
-            *logit = f32::NEG_INFINITY;
         }
         Ok(())
     }
