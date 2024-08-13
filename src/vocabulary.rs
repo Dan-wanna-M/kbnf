@@ -162,7 +162,7 @@ impl Vocabulary {
                 first_byte_to_token.extend_last_row(buffer.into_iter());
             }
         }
-        Self::check_vocabulary_utf8_support(&first_byte_to_token);
+        Self::check_vocabulary_utf8_support(&token_to_id);
         Ok(Self {
             token_to_id,
             id_to_token,
@@ -172,41 +172,34 @@ impl Vocabulary {
         })
     }
 
-    fn check_vocabulary_utf8_support(first_bytes: &JaggedArray<u8, ArrayVec<FirstBytes>, 2>) {
+    fn check_vocabulary_utf8_support(token_to_id: &AHashMap<Token, u32>) {
         let mut not_existing_bytes = ByteSet::with_capacity(256);
         fn check_non_existing_byte_in_range(
-            first_bytes: &JaggedArray<u8, ArrayVec<FirstBytes>, 2>,
+            token_to_id: &AHashMap<Token, u32>,
             not_existing_bytes: &mut ByteSet,
             start: u8,
             end: u8,
         ) {
-            for first_byte in start..=end {
-                let view = first_bytes.view::<1, 1>([first_byte as usize]);
-                if view.is_empty() {
-                    not_existing_bytes.insert(first_byte as usize);
+            
+            for byte in start..=end {
+                // iterate over all tokens and check the presence of the byte
+                let mut found = false;
+                for token in token_to_id.keys() {
+                    if token.0.contains(&byte) {
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    not_existing_bytes.insert(byte as usize);
                 }
             }
         }
-        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 32, 126);
+        check_non_existing_byte_in_range(token_to_id, &mut not_existing_bytes, 0, 247);
         if !not_existing_bytes.is_clear() {
             log::warn!(
                 "\
-The following printable ASCII characters are not used as the first byte of any token: {:?}. \
-This likely indicates that the vocabulary loading code is wrong or the tokenizer is doing some creepy processing. \
-Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider \
-processing the vocab like the tokenizer.",
-                utils::get_display_form_from_bitset_on_stack(&not_existing_bytes)
-                .into_iter()
-                .map(|x|char::from(x as u8))
-                .collect::<Vec<char>>()
-            );
-        }
-        not_existing_bytes.clear();
-        check_non_existing_byte_in_range(first_bytes, &mut not_existing_bytes, 194, 247);
-        if !not_existing_bytes.is_clear() {
-            log::warn!(
-                "\
-The following UTF-8 bytes are not used as the first byte of any token: {:?}. \
+The following bytes are not present in any token: {:?}. \
 This likely indicates that the vocabulary loading code is wrong, the tokenizer is doing some creepy processing \
 or the tokenizer is not UTF-8 compatible. \
 Check the vocabulary loading code and the tokenizer code to fix any bug and/or consider \

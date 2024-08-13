@@ -1996,10 +1996,12 @@ where
         if logits.len() < vocab_size {
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
+        // SAFETY: the length of logits is guaranteed to be at least vocab_size
         for (token_id, logit) in unsafe { logits.get_unchecked_mut(..vocab_size) }
             .iter_mut()
             .enumerate()
         {
+            // SAFETY: token_id is guaranteed to be valid since it is the index of the iterator
             if !unsafe { self.allowed_token_ids.contains_unchecked(token_id) } {
                 *logit = f32::NEG_INFINITY;
             }
