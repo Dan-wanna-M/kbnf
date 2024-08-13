@@ -1993,17 +1993,19 @@ where
 
     fn mask_logits(&self, logits: &mut [f32]) -> Result<(), crate::engine_like::MaskLogitsError> {
         let vocab_size = self.vocabulary.vocab_size();
-        if logits.len() < vocab_size {
+        let logits_len = logits.len();
+        if logits_len < vocab_size {
             return Err(crate::engine_like::MaskLogitsError::InvalidLogitsLength);
         }
-        // SAFETY: the length of logits is guaranteed to be at least vocab_size
-        for (token_id, logit) in unsafe { logits.get_unchecked_mut(..vocab_size) }
-            .iter_mut()
-            .enumerate()
-        {
-            // SAFETY: token_id is guaranteed to be valid since it is the index of the iterator
-            if !unsafe { self.allowed_token_ids.contains_unchecked(token_id) } {
-                *logit = f32::NEG_INFINITY;
+        if self.allowed_token_ids.count_zeroes(..) > logits_len / 2 {
+            let mut mask = vec![f32::NEG_INFINITY; logits_len];
+            for token_id in self.allowed_token_ids.ones() {
+                unsafe { *mask.get_unchecked_mut(token_id) = *logits.get_unchecked(token_id) };
+            }
+            logits.copy_from_slice(&mask);
+        } else {
+            for token_id in self.allowed_token_ids.zeroes() {
+                unsafe { *logits.get_unchecked_mut(token_id) = f32::NEG_INFINITY };
             }
         }
         Ok(())

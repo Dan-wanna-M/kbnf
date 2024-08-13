@@ -108,6 +108,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("left recursion 100 iterations(no cache)", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
     });
+    let mut engine = Engine::new("start::=#\"[a-zA-Z0-9_ ]+\"'\n';", vocab.clone()).unwrap();
+    c.bench_function("alphanumeric 5 iterations", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 5, 76,&mut logits))
+    });
     let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
