@@ -14,7 +14,7 @@ keywords = [
 license = "MIT OR Apache-2.0"
 name = "kbnf"
 repository = "https://github.com/Dan-Wanna-M/kbnf"
-version = "0.3.6"
+version = "0.3.7"
 [lib]
 name = "kbnf"
 crate-type = ["cdylib", "rlib"]
