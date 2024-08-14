@@ -3,7 +3,7 @@ source: tests/test.rs
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
-    union: U16U0U16U32U32U32(
+    union: U16U16U32U32U32(
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
@@ -52,7 +52,6 @@ Engine {
                         ,
                     ),
                 },
-                id_to_excepteds: {},
                 id_to_regex_first_bytes: [
                     (
                         "#\"\\AHello, World!\n\\z\"[0]",
@@ -216,7 +215,6 @@ Engine {
                         ],
                     ),
                 ],
-                id_to_excepted_first_bytes: [],
                 id_to_terminals: [],
             },
             allowed_first_bytes: [
@@ -306,10 +304,6 @@ Engine {
             regex_start_config: Config {
                 look_behind: None,
                 anchored: Yes,
-            },
-            excepted_start_config: Config {
-                look_behind: None,
-                anchored: No,
             },
         },
     ),

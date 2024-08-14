@@ -3,7 +3,6 @@ use ahash::{AHashMap, AHashSet};
 use fixedbitset_stack::on_stack::{get_nblock, FixedBitSet};
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
-use kbnf_syntax::node::FinalNode;
 use kbnf_syntax::regex::FiniteStateAutomaton;
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use nom::error::VerboseError;
@@ -43,26 +42,10 @@ pub fn construct_kbnf_syntax_grammar(
     let grammar = grammar.validate_grammar(&config.start_nonterminal, config.regex_config)?;
     let grammar = grammar.simplify_grammar(
         config.compression_config,
-        config.excepted_config,
         &kbnf_regex_automata::util::start::Config::new()
             .anchored(kbnf_regex_automata::Anchored::Yes),
     );
     Ok(grammar)
-}
-/// Helper function to find the maximum repetition from an KBNF grammar.
-/// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TI).
-pub fn find_max_repetition_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -> usize {
-    let mut max_repetition = 0;
-    for rule in grammar.expressions.iter() {
-        for production in rule.alternations.iter() {
-            for symbol in production.concatenations.iter() {
-                if let &FinalNode::EXCEPT(_, Some(r)) = symbol {
-                    max_repetition = max_repetition.max(r);
-                }
-            }
-        }
-    }
-    max_repetition
 }
 /// Helper function to find the maximum state ID from an KBNF grammar.
 /// This is useful for determining [EngineBase](crate::engine_base::EngineBase) and [Grammar](crate::grammar::Grammar)'s generic parameter(TS).
@@ -74,12 +57,6 @@ pub fn find_max_state_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -
     }
     let regexes = &grammar.id_to_regex;
     for i in regexes {
-        max_state_id = max_state_id.max(match i {
-            FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
-        });
-    }
-    let excepted = &grammar.id_to_excepted;
-    for i in excepted {
         max_state_id = max_state_id.max(match i {
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
         });

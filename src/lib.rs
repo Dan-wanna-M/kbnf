@@ -13,9 +13,9 @@ fn greedy_decode(logits: &[f32])->u32 {
 
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
-let grammar_str = r#"
-start ::= "你好"except!('\n\n')'\n\n';
-"#;
+let grammar_str = r##"
+start ::= "你好" #e"(.|\n)*\n\n";
+"##;
 let mut token_strings: AHashMap<u32, String> = AHashMap::default();
 token_strings.extend(
     [
@@ -30,7 +30,6 @@ let mut tokens = token_strings
     .iter()
     .map(|(k, v)| (*k, Token(v.as_bytes().to_vec().into_boxed_slice())))
     .collect::<AHashMap<u32, _>>();
-tokens.insert(3,Token(Box::new([250])));
 let vocab = Vocabulary::new(tokens, token_strings).unwrap();
 let mut engine = Engine::new(grammar_str, vocab).unwrap();
 let mut token = 1; // the prompt token
@@ -96,9 +95,9 @@ This crate-level documentation is organized as follows:
 ```rust
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
-let grammar_str = r#"
-start ::= except!('\n\n')'\n\n';
-"#;
+let grammar_str = r##"
+start ::= #e"(.|\n)*\n\n";
+"##;
 let mut token_strings: AHashMap<u32, String> = AHashMap::default();
 token_strings.extend(
     [
@@ -132,9 +131,9 @@ assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, -inf, 0.0, 0.0]");
 ```rust
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
-let grammar_str = r#"
-start ::= except!('\n\n')'\n\n';
-"#;
+let grammar_str = r##"
+start ::= #e"(.|\n)*\n\n";
+"##;
 let mut token_strings: AHashMap<u32, String> = AHashMap::default();
 token_strings.extend(
     [
@@ -170,9 +169,9 @@ assert_eq!(&format!("{:?}", logits), "[-inf, 0.0, 0.0, -inf, 0.0, 0.0]");
 ```rust
 use ahash::AHashMap;
 use kbnf::{Engine, EngineLike, Grammar, Token, Vocabulary};
-let grammar_str = r#"
-start ::= except!('\n\n')'\n\n';
-"#;
+let grammar_str = r##"
+start ::= #e"(.|\n)*\n\n";
+"##;
 let mut token_strings: AHashMap<u32, String> = AHashMap::default();
 token_strings.extend(
     [

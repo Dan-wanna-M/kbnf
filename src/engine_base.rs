@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use crate::engine::EngineConfig;
 use crate::engine_like::EngineLike;
-use crate::grammar::INVALID_REPETITION;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
@@ -74,20 +73,7 @@ where
         + num::traits::AsPrimitive<TSP>
         + num::traits::AsPrimitive<TS>,
 {
-    fn to_debug_form<TE>(
-        self,
-        engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
-    ) -> EarleyItemDebugStruct
-    where
-        TE: AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + Num
-            + std::convert::TryFrom<usize>
-            + num::Bounded
-            + NumAssign,
-        usize: num::traits::AsPrimitive<TE>,
-    {
+    fn to_debug_form(self, engine: &EngineBase<TN, TD, TP, TSP, TS>) -> EarleyItemDebugStruct {
         let dotted_productions = unsafe { engine.grammar.dotted_productions(self.nonterminal_id) };
         let mut dotted_rule = format!(
             "{} -> ",
@@ -115,14 +101,14 @@ where
                 self.production_index,
             ) {
                 HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
-                &HIRNode::RegexString(id) => {
+                &HIRNode::RegexString(id) | &HIRNode::EarlyEndRegexString(id) => {
                     match engine.grammar.regex(id) {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             format!(
                             "[{}({})]",
                             self.state_id.as_(),
                             utils::check_dfa_state_status(
-                                EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
+                                EngineBase::<TN, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
                                     self.state_id,
                                     dfa.stride2()
                                 ),
@@ -132,33 +118,6 @@ where
                         }
                     }
                 }
-                &HIRNode::EXCEPT(id, r) => match engine.grammar.excepted(id) {
-                    FiniteStateAutomaton::Dfa(dfa) => match r.as_() {
-                        INVALID_REPETITION => format!(
-                            "[{}({})]",
-                            self.state_id.as_(),
-                            utils::check_dfa_state_status(
-                                EngineBase::<TN, TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id(
-                                    self.state_id,
-                                    dfa.stride2()
-                                ),
-                                dfa
-                            )
-                        ),
-                        _ => {
-                            let (dfa_state_id, r) = EngineBase::<TN,TE, TD, TP, TSP, TS>::from_state_id_to_dfa_state_id_with_r(
-                                self.state_id,
-                                dfa.stride2(),
-                            );
-                            format!(
-                                "[{}({}),R{}]",
-                                self.state_id.as_(),
-                                utils::check_dfa_state_status(dfa_state_id, dfa),
-                                r.as_()
-                            )
-                        }
-                    }
-                },
                 HIRNode::Nonterminal(_) => String::new(),
             }
         };
@@ -204,16 +163,7 @@ where
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TN> + num::traits::AsPrimitive<TSP>,
 {
-    fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> ToBeCompletedItemDebugStruct
-    where
-        TE: AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + Num
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: num::traits::AsPrimitive<TE>,
-    {
+    fn to_debug_form(self, grammar: &Grammar<TN>) -> ToBeCompletedItemDebugStruct {
         ToBeCompletedItemDebugStruct {
             nonterminal: self.nonterminal_id.to_display_form(grammar),
             start_position: self.start_position.as_(),
@@ -253,16 +203,7 @@ where
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TN> + num::traits::AsPrimitive<TSP>,
 {
-    fn to_debug_form<TE>(self, grammar: &Grammar<TN, TE>) -> DottedDebugStruct
-    where
-        TE: AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + Num
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: num::traits::AsPrimitive<TE>,
-    {
+    fn to_debug_form(self, grammar: &Grammar<TN>) -> DottedDebugStruct {
         DottedDebugStruct {
             postdot_nonterminal: self.postdot_nonterminal_id.to_display_form(grammar),
             column: self.column.as_(),
@@ -316,20 +257,7 @@ where
         + num::traits::AsPrimitive<TSP>
         + num::traits::AsPrimitive<TS>,
 {
-    fn to_debug_form<TE>(
-        &self,
-        engine: &EngineBase<TN, TE, TD, TP, TSP, TS>,
-    ) -> PostDotItemsDebugStruct
-    where
-        TE: AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + Num
-            + std::convert::TryFrom<usize>
-            + num::Bounded
-            + NumAssign,
-        usize: num::traits::AsPrimitive<TE>,
-    {
+    fn to_debug_form(&self, engine: &EngineBase<TN, TD, TP, TSP, TS>) -> PostDotItemsDebugStruct {
         match self {
             PostDotItems::LeoEligible(item) => {
                 PostDotItemsDebugStruct::LeoEligible(item.to_debug_form(engine))
@@ -377,7 +305,7 @@ pub enum CreateEngineBaseError {
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
 /// The low-level engine struct that implements the Earley recognizer with Leo optimization and Earley sets compaction.
-pub struct EngineBase<TI, TE, TD, TP, TSP, TS>
+pub struct EngineBase<TI, TD, TP, TSP, TS>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -391,12 +319,6 @@ where
         + num::Bounded
         + std::convert::TryFrom<usize>
         + NumAssign,
-    TE: AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Num
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -407,7 +329,7 @@ where
         + num::traits::AsPrimitive<TSP>,
 {
     vocabulary: Arc<Vocabulary>,
-    grammar: Arc<Grammar<TI, TE>>,
+    grammar: Arc<Grammar<TI>>,
     allowed_first_bytes: ByteSet,
     allowed_token_ids: FixedBitSet,
     token_ids_to_finish: FixedBitSet,
@@ -429,10 +351,9 @@ where
     finished: bool,
     config: EngineConfig,
     regex_start_config: kbnf_regex_automata::util::start::Config,
-    excepted_start_config: kbnf_regex_automata::util::start::Config,
 }
 
-impl<TI, TE, TD, TP, TSP, TS> Debug for EngineBase<TI, TE, TD, TP, TSP, TS>
+impl<TI, TD, TP, TSP, TS> Debug for EngineBase<TI, TD, TP, TSP, TS>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -446,14 +367,6 @@ where
         + num::Bounded
         + std::convert::TryFrom<usize>
         + NumAssign,
-    TE: AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Num
-        + std::convert::TryFrom<usize>
-        + num::Bounded
-        + NumAssign
-        + Debug,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -462,7 +375,6 @@ where
         + num::traits::AsPrimitive<TD>
         + num::traits::AsPrimitive<TP>
         + num::traits::AsPrimitive<TSP>
-        + num::traits::AsPrimitive<TE>
         + num::traits::AsPrimitive<TS>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -561,14 +473,13 @@ where
             .field("finished", &self.finished)
             .field("config", &self.config)
             .field("regex_start_config", &self.regex_start_config)
-            .field("excepted_start_config", &self.excepted_start_config)
             .finish()
     }
 }
 
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-impl<TI, TE, TD, TP, TSP, TS> EngineBase<TI, TE, TD, TP, TSP, TS>
+impl<TI, TD, TP, TSP, TS> EngineBase<TI, TD, TP, TSP, TS>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -582,28 +493,18 @@ where
         + num::Bounded
         + num::traits::NumAssignOps
         + std::convert::TryFrom<usize>,
-    TE: AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Num
-        + std::convert::TryFrom<usize>
-        + num::Bounded
-        + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
-        + num::traits::AsPrimitive<TE>
         + num::traits::AsPrimitive<TD>
         + num::traits::AsPrimitive<TP>
         + num::traits::AsPrimitive<TSP>
         + num::traits::AsPrimitive<TS>,
 {
     const STATE_ID_TYPE_SIZE: usize = std::mem::size_of::<TS>();
-    const EXCEPTED_ID_TYPE_SIZE: usize = std::mem::size_of::<TE>();
     const STATE_ID_TYPE_BIT: u32 = (Self::STATE_ID_TYPE_SIZE * 8) as u32;
-    const EXCEPTED_ID_TYPE_BIT: u32 = (Self::EXCEPTED_ID_TYPE_SIZE * 8) as u32;
     /// Create a new [EngineBase](crate::engine_base::EngineBase).
     ///
     /// # Arguments
@@ -626,7 +527,7 @@ where
     /// Panics if the size of StateID(TS) exceeds the size of usize.
     pub fn new(
         vocabulary: Arc<Vocabulary>,
-        grammar: Arc<Grammar<TI, TE>>,
+        grammar: Arc<Grammar<TI>>,
         config: EngineConfig,
     ) -> Result<Self, CreateEngineBaseError> {
         // Verify necessary conditions
@@ -638,7 +539,6 @@ where
         );
         Self::validate_ts_size_for_terminals(&grammar)?;
         Self::validate_ts_size_for_regexes(&grammar)?;
-        Self::validate_ts_size_for_excepted(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
@@ -662,8 +562,6 @@ where
             config,
             regex_start_config: kbnf_regex_automata::util::start::Config::new()
                 .anchored(kbnf_regex_automata::Anchored::Yes),
-            excepted_start_config: kbnf_regex_automata::util::start::Config::new()
-                .anchored(kbnf_regex_automata::Anchored::No),
             postdot_items,
             leo_items: AHashMap::default(),
             finished: false,
@@ -702,9 +600,7 @@ where
             .collect()
     }
 
-    fn validate_ts_size_for_terminals(
-        grammar: &Grammar<TI, TE>,
-    ) -> Result<(), CreateEngineBaseError> {
+    fn validate_ts_size_for_terminals(grammar: &Grammar<TI>) -> Result<(), CreateEngineBaseError> {
         let terminals = grammar.id_to_terminals();
         let max: usize = 2usize.saturating_pow(Self::STATE_ID_TYPE_BIT) - 1;
         for i in 0..terminals.len() {
@@ -716,9 +612,7 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_regexes(
-        grammar: &Grammar<TI, TE>,
-    ) -> Result<(), CreateEngineBaseError> {
+    fn validate_ts_size_for_regexes(grammar: &Grammar<TI>) -> Result<(), CreateEngineBaseError> {
         let regexes = grammar.id_to_regexes();
         let max: usize = 2usize.saturating_pow(Self::STATE_ID_TYPE_BIT) - 1;
         for fsa in regexes {
@@ -733,45 +627,11 @@ where
         Ok(())
     }
 
-    fn validate_ts_size_for_excepted(
-        grammar: &Grammar<TI, TE>,
-    ) -> Result<(), CreateEngineBaseError> {
-        let rules = grammar.rules();
-        for i in 0..rules.len() {
-            let productions = rules.view::<1, 2>([i]);
-            for j in 0..productions.len() {
-                let column = productions.view::<1, 1>([j]);
-                for k in 0..column.len() {
-                    let node = column[[k]];
-                    if let HIRNode::EXCEPT(id, _) = node {
-                        // repetition is verified in grammar
-                        let fsa = grammar.excepted(id);
-                        let max: usize = 2usize
-                            .saturating_pow(Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)
-                            - 1;
-                        match fsa {
-                            FiniteStateAutomaton::Dfa(dfa) => {
-                                if dfa.state_len() > max {
-                                    return Err(CreateEngineBaseError::ExceptedTooLarge(
-                                        dfa.state_len(),
-                                        max,
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Run prediction stage of Earley algorithm on last Earley set and current `already_predicted_nonterminals` content
     fn predict(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         already_predicted_nonterminals: &mut FixedBitSet,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -794,7 +654,6 @@ where
                     earley_sets,
                     already_predicted_nonterminals,
                     regex_start_config,
-                    excepted_start_config,
                     nonterminal_id,
                     earley_set_index,
                 );
@@ -805,36 +664,18 @@ where
     }
 
     fn initialize_state_id_based_on_node(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
-        node: HIRNode<TI, TE>,
+        node: HIRNode<TI>,
     ) -> TS {
         match node {
-            HIRNode::RegexString(id) => {
+            HIRNode::RegexString(id) | HIRNode::EarlyEndRegexString(id) => {
                 let fsa = grammar.regex(id);
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
                         let start = dfa.start_state(regex_start_config).unwrap();
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
-                    }
-                }
-            }
-            HIRNode::EXCEPT(id, r) => {
-                let fsa = grammar.excepted(id);
-                match fsa {
-                    FiniteStateAutomaton::Dfa(dfa) => {
-                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                        let start = dfa.start_state(excepted_start_config).unwrap();
-                        match r.as_() {
-                            INVALID_REPETITION => {
-                                Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
-                            }
-                            _ => {
-                                Self::from_dfa_state_id_to_state_id_with_r(start, dfa.stride2(), r)
-                            }
-                        }
                     }
                 }
             }
@@ -847,11 +688,10 @@ where
     ///
     /// Returns the number of items added to the Earley set.
     fn predict_nonterminal(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         already_predicted_nonterminals: &mut FixedBitSet,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         nonterminal_id: NonterminalID<TI>,
         earley_set_index: usize,
     ) -> usize {
@@ -875,7 +715,6 @@ where
                     state_id: Self::initialize_state_id_based_on_node(
                         grammar,
                         regex_start_config,
-                        excepted_start_config,
                         node,
                     ),
                 };
@@ -903,7 +742,7 @@ where
                     self.allowed_first_bytes
                         .insert(self.grammar.terminal(terminal_id)[item.state_id.as_()].as_());
                 }
-                HIRNode::RegexString(regex_id) => {
+                HIRNode::RegexString(regex_id) | HIRNode::EarlyEndRegexString(regex_id) => {
                     self.allowed_first_bytes
                         .union_with(self.grammar.first_bytes_from_regex(
                             regex_id,
@@ -915,27 +754,13 @@ where
                             ),
                         ));
                 }
-                HIRNode::EXCEPT(excepted_id, _) => {
-                    self.allowed_first_bytes.union_with(
-                        self.grammar.first_bytes_from_excepted(
-                            excepted_id,
-                            Self::from_state_id_to_dfa_state_id_with_r(
-                                item.state_id,
-                                match self.grammar.excepted(excepted_id) {
-                                    FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
-                                },
-                            )
-                            .0,
-                        ),
-                    );
-                }
                 _ => {}
             }
         }
     }
     #[inline]
     fn item_should_be_completed(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         nonterminal_id: NonterminalID<TI>,
         new_dot_position: TD,
         production_id: TP,
@@ -957,10 +782,9 @@ where
     }
 
     fn advance_item<T>(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         add_to_earley_set: T,
         mut item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) where
@@ -977,7 +801,6 @@ where
             item.state_id = Self::initialize_state_id_based_on_node(
                 grammar,
                 regex_start_config,
-                excepted_start_config,
                 // SAFETY:
                 // nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
                 // dot_position is guaranteed to be valid since we checked it in Self::item_should_be_completed
@@ -1004,18 +827,16 @@ where
     ///
     /// earley_sets must has enough capacity to push one new item.
     unsafe fn advance_item_normal_unchecked(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         item: EarleyItem<TI, TD, TP, TSP, TS>,
     ) {
         Self::advance_item(
             grammar,
             to_be_completed_items,
             regex_start_config,
-            excepted_start_config,
             |new_item| {
                 earley_sets.push_to_last_row_unchecked(new_item);
             },
@@ -1043,39 +864,12 @@ where
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         unsafe { std::mem::transmute((state_id.as_() << stride2) as u32) }
     }
-    #[inline]
-    fn from_dfa_state_id_to_state_id_with_r(state_id: StateID, stride2: usize, r: TE) -> TS {
-        // SAFETY: state_id is a u32 due to #[repr(transparent)] attribute
-        let id: u32 = unsafe { std::mem::transmute(state_id) };
-        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let a = ((id >> stride2) as usize)
-            + (r.as_() << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT));
-        a.as_()
-    }
-    #[inline]
-    fn from_state_id_to_dfa_state_id_with_r(state_id: TS, stride2: usize) -> (StateID, TE) {
-        let id: usize = state_id.as_();
-        if Self::EXCEPTED_ID_TYPE_BIT == 0 {
-            // avoid overflow
-            return (
-                Self::from_state_id_to_dfa_state_id(state_id, stride2),
-                TE::ZERO,
-            );
-        }
-        let r = id >> (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT);
-        // SAFETY: id is guaranteed to be representable as a state_id or an error will be returned in Self::new() method
-        let state_id = ((id - (r << (Self::STATE_ID_TYPE_BIT - Self::EXCEPTED_ID_TYPE_BIT)))
-            << stride2) as u32;
-        // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
-        (unsafe { std::mem::transmute(state_id) }, r.as_())
-    }
 
     fn scan(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         byte: u8,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
@@ -1120,14 +914,13 @@ where
                                     earley_sets,
                                     to_be_completed_items,
                                     regex_start_config,
-                                    excepted_start_config,
                                     item,
                                 )
                             };
                         }
                     }
                 }
-                HIRNode::RegexString(regex_id) => {
+                HIRNode::RegexString(regex_id) | HIRNode::EarlyEndRegexString(regex_id) => {
                     // SAFETY: regex_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
                     let regex = unsafe { grammar.regex_unchecked(regex_id) };
                     match regex {
@@ -1145,16 +938,20 @@ where
                                         earley_sets,
                                         to_be_completed_items,
                                         regex_start_config,
-                                        excepted_start_config,
                                         item,
                                     )};
-                                    let state_id = Self::from_dfa_state_id_to_state_id(
-                                        state_id,
-                                        dfa.stride2(),
-                                    );
-                                    item.state_id = state_id;
-                                    // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                    unsafe{earley_sets.push_to_last_row_unchecked(item)};
+                                    // Only keep for normal regex
+                                    if let HIRNode::RegexString(_) = node
+                                    {
+
+                                        let state_id = Self::from_dfa_state_id_to_state_id(
+                                            state_id,
+                                            dfa.stride2(),
+                                        );
+                                        item.state_id = state_id;
+                                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
+                                        unsafe{earley_sets.push_to_last_row_unchecked(item)};
+                                    }
                                 },
                                 reject=>{},
                                 in_progress=>
@@ -1171,89 +968,12 @@ where
                         }
                     }
                 }
-                HIRNode::EXCEPT(excepted_id, _) => {
-                    let fsa = grammar.excepted(excepted_id);
-                    match fsa {
-                        FiniteStateAutomaton::Dfa(dfa) => {
-                            let (state_id, mut r) = Self::from_state_id_to_dfa_state_id_with_r(
-                                item.state_id,
-                                dfa.stride2(),
-                            );
-                            let state_id = dfa.next_state(state_id, byte);
-                            dispatch_by_dfa_state_status!(
-                                state_id,
-                                dfa,
-                                accept=>{},
-                                reject=>{ unreachable!("Except! should not reject") },
-                                in_progress=>{
-                                    if r == INVALID_REPETITION.as_()
-                                    // repeat 1 or infinite times
-                                    {
-                                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                        unsafe{Self::advance_item_normal_unchecked(
-                                            grammar,
-                                            earley_sets,
-                                            to_be_completed_items,
-                                            regex_start_config,
-                                            excepted_start_config,
-                                            item,
-                                        )};
-                                        let state_id = Self::from_dfa_state_id_to_state_id(
-                                            state_id,
-                                            dfa.stride2(),
-                                        );
-                                        item.state_id = state_id;
-                                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                        unsafe{earley_sets.push_to_last_row_unchecked(item)};
-                                    }
-                                    else{
-                                        r -= TE::ONE;
-                                        match r.as_() {
-                                            INVALID_REPETITION => {
-                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                                unsafe{Self::advance_item_normal_unchecked(
-                                                    grammar,
-                                                    earley_sets,
-                                                    to_be_completed_items,
-                                                    regex_start_config,
-                                                    excepted_start_config,
-                                                    item,
-                                                )};
-                                            }
-                                            _ => {
-                                                // repetition is not exhausted
-                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                                unsafe{Self::advance_item_normal_unchecked(
-                                                    grammar,
-                                                    earley_sets,
-                                                    to_be_completed_items,
-                                                    regex_start_config,
-                                                    excepted_start_config,
-                                                    item,
-                                                )};
-                                                let state_id =
-                                                    Self::from_dfa_state_id_to_state_id_with_r(
-                                                        state_id,
-                                                        dfa.stride2(),
-                                                        r,
-                                                    );
-                                                item.state_id = state_id;
-                                                // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                                unsafe{earley_sets.push_to_last_row_unchecked(item)};
-                                            }
-                                        }
-                                    }
-                                }
-                            );
-                        }
-                    }
-                }
                 HIRNode::Nonterminal(_) => {}
             }
         }
     }
     fn update_postdot_items(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
@@ -1372,10 +1092,9 @@ where
     }
     #[allow(clippy::type_complexity)]
     fn earley_complete_one_item(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         to_be_completed_item: ToBeCompletedItem<TI, TSP>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         postdot_items: &AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1392,7 +1111,6 @@ where
                             grammar,
                             to_be_completed_items_buffer,
                             regex_start_config,
-                            excepted_start_config,
                             |item| {
                                 deduplication_buffer.insert(item);
                             }, // Maybe we do not need to deduplicate in to_be_completed_items_buffer. Profiling is needed.
@@ -1415,10 +1133,9 @@ where
     }
 
     fn complete(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
@@ -1437,7 +1154,6 @@ where
                         grammar,
                         topmost_item,
                         regex_start_config,
-                        excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
                         deduplication_buffer,
@@ -1448,7 +1164,6 @@ where
                         grammar,
                         item,
                         regex_start_config,
-                        excepted_start_config,
                         postdot_items,
                         to_be_completed_items_buffer,
                         deduplication_buffer,
@@ -1553,7 +1268,7 @@ where
     }
 
     fn accept_byte(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -1566,7 +1281,6 @@ where
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         previous_earley_set_length: usize,
         finished: &mut bool,
         compact: impl FnOnce(
@@ -1593,7 +1307,6 @@ where
             earley_sets,
             to_be_completed_items,
             regex_start_config,
-            excepted_start_config,
             byte,
         ); // scan the current Earley set and creates the next Earley set
         if Self::is_rejected(earley_sets, to_be_completed_items) {
@@ -1612,7 +1325,6 @@ where
             grammar,
             earley_sets,
             regex_start_config,
-            excepted_start_config,
             to_be_completed_items,
             to_be_completed_items_buffer,
             leo_items,
@@ -1626,7 +1338,6 @@ where
             grammar,
             earley_sets,
             regex_start_config,
-            excepted_start_config,
             already_predicted_nonterminals,
         ); // predict the next Earley set
         Self::update_postdot_items(
@@ -1640,7 +1351,7 @@ where
     }
 
     fn accept_bytes(
-        grammar: &Grammar<TI, TE>,
+        grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         to_be_completed_items_buffer: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -1653,7 +1364,6 @@ where
         column_to_postdot_nonterminals: *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
         config: &EngineConfig,
         regex_start_config: &kbnf_regex_automata::util::start::Config,
-        excepted_start_config: &kbnf_regex_automata::util::start::Config,
         finished: &mut bool,
         bytes: impl Iterator<Item = u8>,
     ) -> Result<crate::engine_like::AcceptTokenResult, crate::engine_like::AcceptTokenError> {
@@ -1689,7 +1399,6 @@ where
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     regex_start_config,
-                    excepted_start_config,
                     len,
                     finished,
                     |earley_sets, leo_items, postdot_items| {
@@ -1718,7 +1427,6 @@ where
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     regex_start_config,
-                    excepted_start_config,
                     len,
                     finished,
                     |_, _, _| {},
@@ -1737,7 +1445,7 @@ where
 
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-impl<TI, TE, TD, TP, TSP, TS> EngineLike for EngineBase<TI, TE, TD, TP, TSP, TS>
+impl<TI, TD, TP, TSP, TS> EngineLike for EngineBase<TI, TD, TP, TSP, TS>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -1750,19 +1458,11 @@ where
         + std::convert::TryFrom<usize>
         + Debug,
     TI: Eq + std::hash::Hash + PartialEq,
-    TE: AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Num
-        + std::convert::TryFrom<usize>
-        + num::Bounded
-        + NumAssign,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
-        + num::traits::AsPrimitive<TE>
         + num::traits::AsPrimitive<TD>
         + num::traits::AsPrimitive<TP>
         + num::traits::AsPrimitive<TSP>
@@ -1795,7 +1495,6 @@ where
             ptr,
             &self.config,
             &self.regex_start_config,
-            &self.excepted_start_config,
             &mut self.finished,
             token_iter,
         )
@@ -1824,7 +1523,6 @@ where
             ptr,
             &self.config,
             &self.regex_start_config,
-            &self.excepted_start_config,
             &mut self.finished,
             bytes.iter().copied(),
         )
@@ -1867,7 +1565,6 @@ where
                                 &mut self.already_predicted_nonterminals,
                                 &mut self.deduplication_buffer,
                                 &self.regex_start_config,
-                                &self.excepted_start_config,
                                 len,
                                 &mut self.finished,
                                 |_, _, _| {},
@@ -1950,7 +1647,6 @@ where
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     &self.regex_start_config,
-                    &self.excepted_start_config,
                     len,
                     &mut self.finished,
                     |_, _, _| {},
@@ -2071,7 +1767,6 @@ where
             &mut self.earley_sets,
             &mut self.already_predicted_nonterminals,
             &self.regex_start_config,
-            &self.excepted_start_config,
             self.grammar.get_start_nonterminal_id(),
             0,
         ); // init the first Earley set
@@ -2079,7 +1774,6 @@ where
             &self.grammar,
             &mut self.earley_sets,
             &self.regex_start_config,
-            &self.excepted_start_config,
             &mut self.already_predicted_nonterminals,
         ); // run a full prediction for the first earley set
         Self::update_postdot_items(

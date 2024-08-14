@@ -7,12 +7,11 @@ use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
-use kbnf_syntax::node::{FinalNode, FinalRhs};
+use kbnf_syntax::node::{OperatorFlattenedNode, Rhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use kbnf_syntax::InternedStrings;
 use kbnf_syntax::{self, regex::FiniteStateAutomaton};
 use num::traits::{NumAssign, NumOps};
-use num::Bounded;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero},
@@ -20,7 +19,6 @@ use num::{
 };
 use string_interner::symbol::SymbolU32;
 use string_interner::Symbol;
-pub(crate) const INVALID_REPETITION: usize = 0; // We assume that the repetition is always greater than 0
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(transparent)]
 /// The wrapper struct that represents the terminal id in the grammar.
@@ -39,16 +37,7 @@ where
         + std::cmp::PartialOrd,
 {
     /// Get the display form of the terminal id.
-    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
-    where
-        TE: AsPrimitive<usize>
-            + Num
-            + ConstOne
-            + ConstZero
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: AsPrimitive<TE>,
-    {
+    pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
         format!(
             "\"{}\"[{}]",
             grammar.terminal_str(*self).unwrap(),
@@ -74,60 +63,11 @@ where
         + num::Bounded,
 {
     /// Get the display form of the nonterminal id.
-    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
-    where
-        TE: Num
-            + AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: AsPrimitive<TE>,
-    {
+    pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
         format!(
             "{}[{}]",
             grammar.nonterminal_str(*self).unwrap(),
             self.0.as_()
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(transparent)]
-/// The wrapper struct that represents the except! id in the grammar.
-pub struct ExceptedID<T>(pub T)
-where
-    T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
-impl<T> ExceptedID<T>
-where
-    T: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + NumAssign
-        + std::cmp::PartialOrd
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
-{
-    /// Get the display form of the except! id.
-    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>, r: TE) -> String
-    where
-        TE: Num
-            + AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: AsPrimitive<TE>,
-    {
-        format!(
-            "except!({}{})[{}]",
-            grammar.excepted_str(*self).unwrap(),
-            self.0.as_(),
-            if r.as_() != INVALID_REPETITION {
-                r.as_().to_string()
-            } else {
-                "".to_string()
-            }
         )
     }
 }
@@ -149,16 +89,7 @@ where
         + num::Bounded,
 {
     /// Get the display form of the regex id.
-    pub fn to_display_form<TE>(&self, grammar: &Grammar<T, TE>) -> String
-    where
-        TE: Num
-            + AsPrimitive<usize>
-            + ConstOne
-            + ConstZero
-            + std::convert::TryFrom<usize>
-            + num::Bounded,
-        usize: AsPrimitive<TE>,
-    {
+    pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
         format!(
             "#\"{}\"[{}]",
             grammar.regex_str(*self).unwrap(),
@@ -168,10 +99,9 @@ where
 }
 /// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub enum HIRNode<T, TE>
+pub enum HIRNode<T>
 where
     T: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero,
 {
     /// The terminal node.
     Terminal(TerminalID<T>),
@@ -179,11 +109,11 @@ where
     RegexString(RegexID<T>),
     /// The nonterminal node.
     Nonterminal(NonterminalID<T>),
-    /// The except! node.
-    EXCEPT(ExceptedID<T>, TE),
+    /// Early end regex node.
+    EarlyEndRegexString(RegexID<T>),
 }
 
-impl<TI, TE> HIRNode<TI, TE>
+impl<TI> HIRNode<TI>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -193,37 +123,34 @@ where
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + Bounded + std::convert::TryFrom<usize>,
-    usize: num::traits::AsPrimitive<TE>,
 {
     /// Get the display form of the node.
-    pub fn to_display_form(&self, grammar: &Grammar<TI, TE>) -> String {
+    pub fn to_display_form(&self, grammar: &Grammar<TI>) -> String {
         match self {
             HIRNode::Terminal(x) => x.to_display_form(grammar),
             HIRNode::RegexString(x) => {
                 format!("#\"{}\"[{}]", grammar.regex_str(*x).unwrap(), x.0.as_())
             }
             HIRNode::Nonterminal(x) => x.to_display_form(grammar),
-            HIRNode::EXCEPT(x, r) => x.to_display_form(grammar, *r),
+            HIRNode::EarlyEndRegexString(x) => {
+                format!("#e\"{}\"[{}]", grammar.regex_str(*x).unwrap(), x.0.as_())
+            }
         }
     }
 }
 
 /// The grammar struct that stores the grammar in HIR.
 #[derive(Clone)]
-pub struct Grammar<TI, TE>
+pub struct Grammar<TI>
 where
     TI: Num + AsPrimitive<usize> + ConstOne + ConstZero,
-    TE: Num + AsPrimitive<usize> + ConstOne + ConstZero + Bounded,
 {
     start_nonterminal_id: NonterminalID<TI>,
     // Maybe storing the nonterminal id with the node is better. Profiling is needed.
-    rules: JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3>,
+    rules: JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
-    id_to_excepteds: Vec<FiniteStateAutomaton>,
     id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
-    id_to_excepted_first_bytes: AHashMap<(usize, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
 }
 
@@ -249,7 +176,7 @@ pub enum CreateGrammarError {
     /// Error due to inefficient cache usage in a lazy DFA.
     LazyDfaCacheError(#[from] kbnf_regex_automata::hybrid::CacheError),
 }
-impl<TI, TE> Debug for Grammar<TI, TE>
+impl<TI> Debug for Grammar<TI>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -260,14 +187,7 @@ where
         + std::convert::TryFrom<usize>
         + num::Bounded
         + Debug,
-    TE: AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Num
-        + std::convert::TryFrom<usize>
-        + num::Bounded
-        + Debug,
-    usize: num::traits::AsPrimitive<TI> + num::traits::AsPrimitive<TE>,
+    usize: num::traits::AsPrimitive<TI>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Grammar")
@@ -284,7 +204,8 @@ where
                         NonterminalID(nonterminal_id.as_()).to_display_form(self)
                     ));
                     let view = self.rules.view::<1, 2>([nonterminal_id]);
-                    let mut productions: Vec<Vec<String>> = vec![Default::default(); view.view::<1,1>([0]).len()];
+                    let mut productions: Vec<Vec<String>> =
+                        vec![Default::default(); view.view::<1, 1>([0]).len()];
                     for dot_position in 0..view.len() {
                         let view = view.view::<1, 1>([dot_position]);
                         for production_id in 0..view.len() {
@@ -310,38 +231,13 @@ where
                 }),
             )
             .field(
-                "id_to_excepteds",
-                &utils::fill_debug_form_of_id_to_x(self.id_to_excepteds.iter(), |x| {
-                    ExceptedID(x.as_()).to_display_form(self, TE::ZERO)
-                }),
-            )
-            .field(
                 "id_to_regex_first_bytes",
                 &utils::get_deterministic_display_form_from_hash_map(
                     &self.id_to_regex_first_bytes,
                     |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
-                ).iter().map(|(k, v)| {
-                    (
-                        RegexID(k.0.as_()).to_display_form(self),
-                        k.1,
-                        v,
-                    )
-                }).collect::<Vec<_>>(),
-            )
-            .field(
-                "id_to_excepted_first_bytes",
-                &utils::get_deterministic_display_form_from_hash_map(
-                    &self.id_to_excepted_first_bytes,
-                    |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
                 )
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        ExceptedID(k.0.as_()).to_display_form(self, TE::ZERO),
-                        k.1,
-                        v,
-                    )
-                })
+                .map(|(k, v)| (RegexID(k.0.as_()).to_display_form(self), k.1, v))
                 .collect::<Vec<_>>(),
             )
             .field(
@@ -361,7 +257,7 @@ where
     }
 }
 
-impl<TI, TE> Grammar<TI, TE>
+impl<TI> Grammar<TI>
 where
     TI: Num
         + AsPrimitive<usize>
@@ -372,13 +268,6 @@ where
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded,
-    TE: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + std::convert::TryFrom<usize>
-        + num::Bounded,
-    usize: num::traits::AsPrimitive<TE>,
 {
     /// Create a new grammar from a simplified KBNF grammar.
     ///
@@ -401,12 +290,12 @@ where
             id_to_terminals.extend_last_row_from_slice(terminal.as_bytes());
             assert!(id_to_terminals.len() - 1 == id.to_usize());
         }
-        let mut rules = JaggedArray::<HIRNode<TI, TE>, Vec<usize>, 3>::with_capacity([
+        let mut rules = JaggedArray::<HIRNode<TI>, Vec<usize>, 3>::with_capacity([
             grammar.expressions.len(),
             1,
             1,
         ]);
-        for FinalRhs { mut alternations } in grammar.expressions.into_iter() {
+        for Rhs { mut alternations } in grammar.expressions.into_iter() {
             rules.new_row::<0>();
             alternations.sort_unstable_by_key(|x| x.concatenations.len());
             let len = alternations.last().unwrap().concatenations.len(); // Use the maximum length
@@ -415,7 +304,7 @@ where
                 for alt in alternations.iter().rev() {
                     if let Some(node) = alt.concatenations.get(dot) {
                         rules.push_to_last_row(match node {
-                            FinalNode::Terminal(x) => HIRNode::Terminal(TerminalID(
+                            OperatorFlattenedNode::Terminal(x) => HIRNode::Terminal(TerminalID(
                                 x.to_usize().try_into().map_err(|_| {
                                     CreateGrammarError::IntConversionError(
                                         "terminal".to_string(),
@@ -424,7 +313,7 @@ where
                                     )
                                 })?,
                             )),
-                            FinalNode::RegexString(x) => HIRNode::RegexString(RegexID(
+                            OperatorFlattenedNode::RegexString(x) => HIRNode::RegexString(RegexID(
                                 x.to_usize().try_into().map_err(|_| {
                                     CreateGrammarError::IntConversionError(
                                         "regex".to_string(),
@@ -433,43 +322,33 @@ where
                                     )
                                 })?,
                             )),
-                            FinalNode::Nonterminal(x) => HIRNode::Nonterminal(NonterminalID(
-                                x.to_usize().try_into().map_err(|_| {
+                            OperatorFlattenedNode::Nonterminal(x) => HIRNode::Nonterminal(
+                                NonterminalID(x.to_usize().try_into().map_err(|_| {
                                     CreateGrammarError::IntConversionError(
                                         "nonterminal".to_string(),
                                         x.to_usize(),
                                         TI::max_value().as_(),
                                     )
-                                })?,
-                            )),
-                            FinalNode::EXCEPT(x, r) => HIRNode::EXCEPT(
-                                ExceptedID(x.to_usize().try_into().map_err(|_| {
-                                    CreateGrammarError::IntConversionError(
-                                        "excepted".to_string(),
-                                        x.to_usize(),
-                                        TI::max_value().as_(),
-                                    )
                                 })?),
-                                match r {
-                                    Some(r) => r.to_usize().try_into().map_err(|_| {
+                            ),
+                            OperatorFlattenedNode::EarlyEndRegexString(x) => {
+                                HIRNode::EarlyEndRegexString(RegexID(
+                                    x.to_usize().try_into().map_err(|_| {
                                         CreateGrammarError::IntConversionError(
-                                            "repetition".to_string(),
-                                            r.to_usize(),
-                                            TE::max_value().as_(),
+                                            "regex".to_string(),
+                                            x.to_usize(),
+                                            TI::max_value().as_(),
                                         )
                                     })?,
-                                    None => INVALID_REPETITION.as_(),
-                                },
-                            ),
+                                ))
+                            }
                         });
                     }
                 }
             }
         }
         let id_to_regexes = grammar.id_to_regex;
-        let id_to_excepteds = grammar.id_to_excepted;
         let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes, false)?;
-        let id_to_excepted_first_bytes = Self::construct_regex_first_bytes(&id_to_excepteds, true)?;
         Ok(Self {
             start_nonterminal_id: NonterminalID(
                 grammar.start_symbol.to_usize().try_into().map_err(|_| {
@@ -485,8 +364,6 @@ where
             id_to_regexes,
             id_to_terminals,
             id_to_regex_first_bytes,
-            id_to_excepted_first_bytes,
-            id_to_excepteds,
         })
     }
 
@@ -538,7 +415,7 @@ where
         nonterminal_id: NonterminalID<TI>,
         dot_position: TD,
         production_id: TP,
-    ) -> &HIRNode<TI, TE>
+    ) -> &HIRNode<TI>
     where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
@@ -560,7 +437,7 @@ where
         nonterminal_id: NonterminalID<TI>,
         dot_position: TD,
         production_id: TP,
-    ) -> &HIRNode<TI, TE>
+    ) -> &HIRNode<TI>
     where
         TP: Num + AsPrimitive<usize> + ConstOne + ConstZero,
         TD: Num + AsPrimitive<usize> + ConstOne + ConstZero,
@@ -597,13 +474,6 @@ where
             .regex_strings
             .resolve(SymbolU32::try_from_usize(regex_id.0.as_()).unwrap())
     }
-    #[inline]
-    /// Get the excepted string from the grammar.
-    pub fn excepted_str(&self, excepted_id: ExceptedID<TI>) -> Option<&str> {
-        self.interned_strings
-            .excepteds
-            .resolve(SymbolU32::try_from_usize(excepted_id.0.as_()).unwrap())
-    }
 
     #[inline]
     /// Get the regex from the grammar.
@@ -618,11 +488,6 @@ where
     /// The caller must ensure that the regex id is within bounds.
     pub unsafe fn regex_unchecked(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         self.id_to_regexes.get_unchecked(regex_id.0.as_())
-    }
-    #[inline]
-    /// Get the excepted from the grammar.
-    pub fn excepted(&self, excepted_id: ExceptedID<TI>) -> &FiniteStateAutomaton {
-        &self.id_to_excepteds[excepted_id.0.as_()]
     }
     #[inline]
     /// Get the terminal from the grammar.
@@ -651,11 +516,6 @@ where
         &self.id_to_regexes
     }
     #[inline]
-    /// Get the excepteds from the grammar.
-    pub fn id_to_excepteds(&self) -> &[FiniteStateAutomaton] {
-        &self.id_to_excepteds
-    }
-    #[inline]
     /// Get the terminals size.
     pub fn nonterminals_size(&self) -> usize {
         self.interned_strings.nonterminals.len()
@@ -669,22 +529,14 @@ where
         &self.id_to_regex_first_bytes[&(regex_id.0.as_(), state_id)]
     }
     #[inline]
-    pub(crate) fn first_bytes_from_excepted(
-        &self,
-        excepted_id: ExceptedID<TI>,
-        state_id: StateID,
-    ) -> &ByteSet {
-        &self.id_to_excepted_first_bytes[&(excepted_id.0.as_(), state_id)]
-    }
-    #[inline]
     pub(crate) unsafe fn dotted_productions(
         &self,
         nonterminal_id: NonterminalID<TI>,
-    ) -> JaggedArrayView<HIRNode<TI, TE>, usize, 2> {
+    ) -> JaggedArrayView<HIRNode<TI>, usize, 2> {
         unsafe { self.rules.view_unchecked::<1, 2>([nonterminal_id.0.as_()]) }
     }
     #[inline]
-    pub(crate) fn rules(&self) -> &JaggedArray<HIRNode<TI, TE>, Vec<usize>, 3> {
+    pub(crate) fn rules(&self) -> &JaggedArray<HIRNode<TI>, Vec<usize>, 3> {
         &self.rules
     }
 }

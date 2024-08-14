@@ -3,30 +3,28 @@ source: tests/test.rs
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
-    union: U16U0U16U32U32U32(
+    union: U16U16U32U32U32(
         EngineBase {
             grammar: Grammar {
-                start_nonterminal: "start[0]",
-                rules: "start[0] ::= A[1]\"\n\"[0];\nA[1] ::= \"x\"[1]B[2] | \"x\"[1];\nB[2] ::= \"y\"[2]A[1] | \"y\"[2];\n",
+                start_nonterminal: "start[1]",
+                rules: "B[0] ::= \"y\"[0]A[2] | \"y\"[0];\nstart[1] ::= A[2]\"\n\"[1];\nA[2] ::= \"x\"[2]B[0] | \"x\"[2];\n",
                 id_to_regexes: {},
-                id_to_excepteds: {},
                 id_to_regex_first_bytes: [],
-                id_to_excepted_first_bytes: [],
                 id_to_terminals: [
                     (
-                        "\"\n\"[0]",
+                        "\"\n\"[1]",
                         [
                             10,
                         ],
                     ),
                     (
-                        "\"x\"[1]",
+                        "\"x\"[2]",
                         [
                             120,
                         ],
                     ),
                     (
-                        "\"y\"[2]",
+                        "\"y\"[0]",
                         [
                             121,
                         ],
@@ -39,39 +37,39 @@ Engine {
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .A[1]\"\n\"[0]",
+                        dotted_rule: "start[1] -> .A[2]\"\n\"[1]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]B[2]",
+                        dotted_rule: "A[2] -> .\"x\"[2]B[0]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]",
+                        dotted_rule: "A[2] -> .\"x\"[2]",
                         start_position: 0,
                         state: "[0]",
                     },
                 ],
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "B[2] -> \"y\"[2].A[1]",
+                        dotted_rule: "B[0] -> \"y\"[0].A[2]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> A[1].\"\n\"[0]",
+                        dotted_rule: "start[1] -> A[2].\"\n\"[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]B[2]",
+                        dotted_rule: "A[2] -> .\"x\"[2]B[0]",
                         start_position: 1,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "A[1] -> .\"x\"[1]",
+                        dotted_rule: "A[2] -> .\"x\"[2]",
                         start_position: 1,
                         state: "[0]",
                     },
@@ -84,13 +82,13 @@ Engine {
             postdot_items: [
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "A[1]",
+                        postdot_nonterminal: "A[2]",
                         column: 0,
                     },
                     NormalItems(
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .A[1]\"\n\"[0]",
+                                dotted_rule: "start[1] -> .A[2]\"\n\"[1]",
                                 start_position: 0,
                                 state: "",
                             },
@@ -99,12 +97,12 @@ Engine {
                 ),
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "A[1]",
+                        postdot_nonterminal: "A[2]",
                         column: 1,
                     },
                     LeoEligible(
                         EarleyItemDebugStruct {
-                            dotted_rule: "B[2] -> \"y\"[2].A[1]",
+                            dotted_rule: "B[0] -> \"y\"[0].A[2]",
                             start_position: 0,
                             state: "",
                         },
@@ -115,7 +113,7 @@ Engine {
                 (
                     1,
                     [
-                        "A[1]",
+                        "A[2]",
                     ],
                 ),
             ],
@@ -123,11 +121,11 @@ Engine {
             leo_items: [
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "B[2]",
+                        postdot_nonterminal: "B[0]",
                         column: 0,
                     },
                     ToBeCompletedItemDebugStruct {
-                        nonterminal: "A[1]",
+                        nonterminal: "A[2]",
                         start_position: 0,
                     },
                 ),
@@ -142,10 +140,6 @@ Engine {
             regex_start_config: Config {
                 look_behind: None,
                 anchored: Yes,
-            },
-            excepted_start_config: Config {
-                look_behind: None,
-                anchored: No,
             },
         },
     ),

@@ -3,11 +3,11 @@ source: tests/test.rs
 expression: "format!(\"{:#?}\", engine)"
 ---
 Engine {
-    union: U16U0U16U32U32U32(
+    union: U16U16U32U32U32(
         EngineBase {
             grammar: Grammar {
-                start_nonterminal: "start[1]",
-                rules: "C[0] ::= #\"\\Ac\\z\"[0]C[0] | \"c\"[0];\nstart[1] ::= C[0]\"\n\"[1];\n",
+                start_nonterminal: "start[0]",
+                rules: "start[0] ::= C[1]\"\n\"[0];\nC[1] ::= #\"\\Ac\\z\"[0]C[1] | \"c\"[1];\n",
                 id_to_regexes: {
                     "#\"\\Ac\\z\"[0]": Dfa(
                         dense::DFA(
@@ -39,7 +39,6 @@ Engine {
                         ,
                     ),
                 },
-                id_to_excepteds: {},
                 id_to_regex_first_bytes: [
                     (
                         "#\"\\Ac\\z\"[0]",
@@ -86,16 +85,15 @@ Engine {
                         [],
                     ),
                 ],
-                id_to_excepted_first_bytes: [],
                 id_to_terminals: [
                     (
-                        "\"\n\"[1]",
+                        "\"\n\"[0]",
                         [
                             10,
                         ],
                     ),
                     (
-                        "\"c\"[0]",
+                        "\"c\"[1]",
                         [
                             99,
                         ],
@@ -108,44 +106,44 @@ Engine {
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[1] -> .C[0]\"\n\"[1]",
+                        dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> .#\"\\Ac\\z\"[0]C[0]",
+                        dotted_rule: "C[1] -> .#\"\\Ac\\z\"[0]C[1]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> .\"c\"[0]",
+                        dotted_rule: "C[1] -> .\"c\"[1]",
                         start_position: 0,
                         state: "[0]",
                     },
                 ],
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> #\"\\Ac\\z\"[0].C[0]",
+                        dotted_rule: "C[1] -> #\"\\Ac\\z\"[0].C[1]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> .#\"\\Ac\\z\"[0]C[0]",
+                        dotted_rule: "C[1] -> .#\"\\Ac\\z\"[0]C[1]",
                         start_position: 0,
                         state: "[5(Accept)]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[1] -> C[0].\"\n\"[1]",
+                        dotted_rule: "start[0] -> C[1].\"\n\"[0]",
                         start_position: 0,
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> .#\"\\Ac\\z\"[0]C[0]",
+                        dotted_rule: "C[1] -> .#\"\\Ac\\z\"[0]C[1]",
                         start_position: 1,
                         state: "[3(InProgress)]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[0] -> .\"c\"[0]",
+                        dotted_rule: "C[1] -> .\"c\"[1]",
                         start_position: 1,
                         state: "[0]",
                     },
@@ -158,13 +156,13 @@ Engine {
             postdot_items: [
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "C[0]",
+                        postdot_nonterminal: "C[1]",
                         column: 0,
                     },
                     NormalItems(
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[1] -> .C[0]\"\n\"[1]",
+                                dotted_rule: "start[0] -> .C[1]\"\n\"[0]",
                                 start_position: 0,
                                 state: "",
                             },
@@ -173,12 +171,12 @@ Engine {
                 ),
                 (
                     DottedDebugStruct {
-                        postdot_nonterminal: "C[0]",
+                        postdot_nonterminal: "C[1]",
                         column: 1,
                     },
                     LeoEligible(
                         EarleyItemDebugStruct {
-                            dotted_rule: "C[0] -> #\"\\Ac\\z\"[0].C[0]",
+                            dotted_rule: "C[1] -> #\"\\Ac\\z\"[0].C[1]",
                             start_position: 0,
                             state: "",
                         },
@@ -189,7 +187,7 @@ Engine {
                 (
                     1,
                     [
-                        "C[0]",
+                        "C[1]",
                     ],
                 ),
             ],
@@ -205,10 +203,6 @@ Engine {
             regex_start_config: Config {
                 look_behind: None,
                 anchored: Yes,
-            },
-            excepted_start_config: Config {
-                look_behind: None,
-                anchored: No,
             },
         },
     ),

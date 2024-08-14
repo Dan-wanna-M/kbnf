@@ -125,12 +125,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("always match regex 3 iterations(no cache)", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
-    let mut engine = Engine::new("start::=except!('\n\n')'\n\n';", vocab.clone()).unwrap();
+    let mut engine = Engine::new("start::=#e'.+\n\n';", vocab.clone()).unwrap();
     c.bench_function("simple except! 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
-    });
-    let mut engine = Engine::new("start::=except!('\n\n',5)'\n\n';", vocab.clone()).unwrap();
-    c.bench_function("simple except! with repetition 5 3 iterations", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
     });
 }

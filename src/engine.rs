@@ -2,7 +2,6 @@
 use std::sync::Arc;
 
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
-use num::Bounded;
 #[cfg(feature = "python")]
 use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     config::Config, engine_base::EngineBase, engine_like::EngineLike, grammar::Grammar, utils,
-    vocabulary::Vocabulary, zero::Zero,
+    vocabulary::Vocabulary,
 };
 
 /// The specific config of the [`Engine`].
@@ -35,21 +34,11 @@ pub struct EngineConfig {
 /// An enum that represents the common type combinations of [`EngineBase`].
 pub(crate) enum EngineUnion {
     /// Typical simple grammar with complex dfa without any repetition
-    U8U0U8U8U8U32(EngineBase<u8, Zero, u8, u8, u8, u32>),
+    U8U8U8U8U32(EngineBase<u8, u8, u8, u8, u32>),
     /// Typical simple grammar with simple dfa without any repetition
-    U8U0U8U16U16U16(EngineBase<u8, Zero, u8, u16, u16, u16>),
+    U8U8U16U16U16(EngineBase<u8, u8, u16, u16, u16>),
     /// Complex grammar with complex dfa without any repetition
-    U16U0U16U32U32U32(EngineBase<u16, Zero, u16, u32, u32, u32>),
-    /// Typical simple grammar with complex dfa
-    U8U8U8U8U8U32(EngineBase<u8, u8, u8, u8, u8, u32>),
-    /// Typical simple grammar with simple dfa
-    U8U8U8U16U16U16(EngineBase<u8, u8, u8, u16, u16, u16>),
-    /// Complex grammar with complex dfa
-    U16U8U16U32U32U32(EngineBase<u16, u8, u16, u32, u32, u32>),
-    /// Typical simple grammar with simple dfa and unusually large repetitions
-    U8U16U8U8U8U32(EngineBase<u8, u16, u8, u8, u8, u32>),
-    /// Complex grammar with complex dfa and unusually large repetitions
-    U16U16U16U32U32U32(EngineBase<u16, u16, u16, u32, u32, u32>),
+    U16U16U32U32U32(EngineBase<u16, u16, u32, u32, u32>),
 }
 #[cfg_attr(feature = "python", pyclass(subclass))]
 #[cfg_attr(feature = "python", pyo3(name = "InternalEngine"))]
@@ -106,7 +95,6 @@ impl Engine {
     fn check_id_length(grammar: &SimplifiedGrammar, value: usize) -> bool {
         grammar.interned_strings.terminals.len() <= value
             && grammar.interned_strings.nonterminals.len() <= value
-            && grammar.interned_strings.excepteds.len() <= value
     }
     /// Create a new [`Engine`] from an KBNF grammar string, a [`Vocabulary`], and a [`Config`].
     ///
@@ -135,126 +123,47 @@ impl Engine {
         if grammar.is_empty() {
             return Err(CreateEngineError::EmptyGrammarError);
         }
-        let max_r = utils::find_max_repetition_from_kbnf_syntax_grammar(&grammar);
         let td = utils::find_max_dotted_position_from_kbnf_syntax_grammar(&grammar);
         let tp = utils::find_max_production_id_from_kbnf_syntax_grammar(&grammar);
         let ts = utils::find_max_state_id_from_kbnf_syntax_grammar(&grammar);
         let engine = if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= Zero::max_value().into()
             && td <= u8::MAX.into()
             && tp <= u8::MAX.into()
             && tsp <= u8::MAX.into()
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u8, Zero> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U8U0U8U8U8U32(EngineBase::new(
+            EngineUnion::U8U8U8U8U32(EngineBase::new(
                 vocabulary,
                 grammar,
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= Zero::max_value().into()
             && td <= u8::MAX.into()
             && tp <= u16::MAX.into()
             && tsp <= u16::MAX.into()
             && ts <= u16::MAX as usize
         {
-            let grammar: Grammar<u8, Zero> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U8U0U8U16U16U16(EngineBase::new(
-                vocabulary,
-                grammar,
-                internal_config.engine_config,
-            )?)
-        } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u16::MAX.into()
-            && td <= u8::MAX.into()
-            && tp <= u8::MAX.into()
-            && tsp <= u8::MAX.into()
-            && ts <= u32::MAX as usize
-        {
-            let grammar: Grammar<u8, u16> = Grammar::new(grammar)?;
-            let grammar = Arc::new(grammar);
-            let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U8U16U8U8U8U32(EngineBase::new(
+            EngineUnion::U8U8U16U16U16(EngineBase::new(
                 vocabulary,
                 grammar,
                 internal_config.engine_config,
             )?)
         } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= Zero::max_value().into()
             && td <= u16::MAX.into()
             && tp <= u32::MAX as usize
             && tsp <= u32::MAX as usize
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u16, Zero> = Grammar::new(grammar)?;
+            let grammar: Grammar<u16> = Grammar::new(grammar)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U16U0U16U32U32U32(EngineBase::new(
-                vocabulary,
-                grammar,
-                internal_config.engine_config,
-            )?)
-        } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u8::MAX.into()
-            && td <= u8::MAX.into()
-            && tp <= u8::MAX.into()
-            && tsp <= u8::MAX.into()
-            && ts <= u32::MAX as usize
-        {
-            let grammar: Grammar<u8, u8> = Grammar::new(grammar)?;
-            let grammar = Arc::new(grammar);
-            let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U8U8U8U8U8U32(EngineBase::new(
-                vocabulary,
-                grammar,
-                internal_config.engine_config,
-            )?)
-        } else if Self::check_id_length(&grammar, u8::MAX.into())
-            && max_r <= u8::MAX.into()
-            && td <= u8::MAX.into()
-            && tp <= u16::MAX.into()
-            && tsp <= u16::MAX.into()
-            && ts <= u16::MAX as usize
-        {
-            let grammar: Grammar<u8, u8> = Grammar::new(grammar)?;
-            let grammar = Arc::new(grammar);
-            let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U8U8U8U16U16U16(EngineBase::new(
-                vocabulary,
-                grammar,
-                internal_config.engine_config,
-            )?)
-        } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= u8::MAX.into()
-            && td <= u16::MAX.into()
-            && tp <= u32::MAX as usize
-            && tsp <= u32::MAX as usize
-            && ts <= u32::MAX as usize
-        {
-            let grammar: Grammar<u16, u8> = Grammar::new(grammar)?;
-            let grammar = Arc::new(grammar);
-            let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U16U8U16U32U32U32(EngineBase::new(
-                vocabulary,
-                grammar,
-                internal_config.engine_config,
-            )?)
-        } else if Self::check_id_length(&grammar, u16::MAX.into())
-            && max_r <= u16::MAX.into()
-            && td <= u16::MAX.into()
-            && tp <= u32::MAX as usize
-            && tsp <= u32::MAX as usize
-            && ts <= u32::MAX as usize
-        {
-            let grammar: Grammar<u16, u16> = Grammar::new(grammar)?;
-            let grammar = Arc::new(grammar);
-            let vocabulary = Arc::new(vocabulary);
-            EngineUnion::U16U16U16U32U32U32(EngineBase::new(
+            EngineUnion::U16U16U32U32U32(EngineBase::new(
                 vocabulary,
                 grammar,
                 internal_config.engine_config,
@@ -269,14 +178,9 @@ impl Engine {
 macro_rules! match_engine_union {
     ($e:path[$s:expr$(,$p:ident)*]) => {
         match $s {
-            EngineUnion::U8U0U8U8U8U32(engine) => $e(engine, $($p,)*),
-            EngineUnion::U8U0U8U16U16U16(engine) => $e(engine, $($p,)*),
-            EngineUnion::U16U0U16U32U32U32(engine) => $e(engine, $($p,)*),
-            EngineUnion::U8U8U8U8U8U32(engine) => $e(engine, $($p,)*),
-            EngineUnion::U8U8U8U16U16U16(engine) => $e(engine, $($p,)*),
-            EngineUnion::U16U8U16U32U32U32(engine) => $e(engine, $($p,)*),
-            EngineUnion::U8U16U8U8U8U32(engine) => $e(engine, $($p,)*),
-            EngineUnion::U16U16U16U32U32U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U8U8U8U32(engine) => $e(engine, $($p,)*),
+            EngineUnion::U8U8U16U16U16(engine) => $e(engine, $($p,)*),
+            EngineUnion::U16U16U32U32U32(engine) => $e(engine, $($p,)*),
         }
     }
 }

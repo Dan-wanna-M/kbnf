@@ -434,8 +434,8 @@ mod tests {
         }
     }
     #[test]
-    fn excepted_basic() {
-        let input = "start::=except!('\n\n')'\n\n';";
+    fn early_regex() {
+        let input = "start::=#e'(.|\n)+\n\n''a';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
@@ -476,83 +476,28 @@ mod tests {
                     .unwrap(),
             )
             .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        assert_eq!(
+            engine
+                .try_accept_new_token(
+                    vocab
+                        .token_id(&Token("b".as_bytes().to_vec().into_boxed_slice()))
+                        .unwrap()
+                ),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected)
+        );
+        let result = engine
+        .try_accept_new_token(
+            vocab
+                .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(result, AcceptTokenResult::Finished);
         engine.compute_allowed_token_ids();
         engine.reset();
     }
 
-    #[test]
-    fn excepted_basic2() {
-        let input = "start::=except!('\n\n',5)'\n\n';";
-        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let mut logits = vec![0.0; vocab.vocab_size()];
-        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
-        for j in 0..1 {
-            for i in 0..5 {
-                let result = engine
-                    .try_accept_new_token(
-                        vocab
-                            .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
-                            .unwrap(),
-                    )
-                    .unwrap();
-                assert_eq!(result, AcceptTokenResult::Ongoing);
-                engine.compute_allowed_token_ids();
-                engine.mask_logits(logits.as_mut_slice()).unwrap();
-            }
-        }
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(result, AcceptTokenResult::Ongoing);
-        let result = engine.try_accept_new_token(
-            vocab
-                .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        );
-        assert_eq!(result, Err(kbnf::engine_like::AcceptTokenError::Rejected));
-        engine.compute_allowed_token_ids();
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(result, AcceptTokenResult::Finished);
-        engine.compute_allowed_token_ids();
-        engine.reset();
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("imper".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(result, AcceptTokenResult::Ongoing);
-        engine.compute_allowed_token_ids();
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(result, AcceptTokenResult::Ongoing);
-        engine.compute_allowed_token_ids();
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(result, AcceptTokenResult::Finished);
-    }
     #[test]
     fn linked_list() {
         let grammar_str = r#"__schema_json_1_next_0 ::= __schema_json_1;
