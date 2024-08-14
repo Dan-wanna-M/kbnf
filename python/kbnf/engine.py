@@ -40,8 +40,9 @@ def _torch_slice_converter(module:types.ModuleType):
 def _torch_fast_mask_logits(module:types.ModuleType):
     def mask_logits_fast(tensor:typing.Any, engine:"Engine")->typing.Optional[typing.Any]:
         if isinstance(tensor, module.Tensor):
-            mask = module.tensor(engine.get_disallowed_token_ids_from_last_computation(),device=tensor.device)
-            tensor[mask] = float("-inf")
+            assert tensor.dim() == 1, f"Only 1D tensor is supported, while the actual tensor shape is {tensor.shape}"
+            indices = module.tensor(engine.get_disallowed_token_ids_from_last_computation(),device=tensor.device,dtype=module.int64)
+            tensor.index_fill_(0,indices,-float("inf"))
             return tensor
         return None
     return mask_logits_fast
