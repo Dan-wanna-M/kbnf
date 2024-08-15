@@ -943,7 +943,6 @@ where
                                     // Only keep for normal regex
                                     if let HIRNode::RegexString(_) = node
                                     {
-
                                         let state_id = Self::from_dfa_state_id_to_state_id(
                                             state_id,
                                             dfa.stride2(),

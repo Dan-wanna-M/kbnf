@@ -16,8 +16,6 @@ pub struct InternalConfig {
     pub compression_config: kbnf_syntax::config::CompressionConfig,
     /// The configuration of the engine itself.
     pub engine_config: EngineConfig,
-    /// The configuration of except!.
-    pub excepted_config: FiniteStateAutomatonConfig,
     /// The start nonterminal of the grammar.
     pub start_nonterminal: String,
 }
@@ -29,8 +27,6 @@ pub struct InternalConfig {
 pub struct Config {
     /// The configuration of the regular expressions.
     pub regex_config: RegexConfig,
-    /// The configuration of except!.
-    pub excepted_config: RegexConfig,
     /// The configuration of the engine.
     pub engine_config: EngineConfig,
     /// The start nonterminal of the grammar.
@@ -42,7 +38,7 @@ pub struct Config {
     /// you can set a shorter length to save memory and potentially speed up the engine.
     /// The default is `2^32-1`.
     pub expected_output_length: usize,
-    /// The configuration of the compression.
+    /// The configuration of the terminals compression.
     pub compression_config: CompressionConfig,
 }
 /// The type of the Finite State Automaton to be used.
@@ -88,10 +84,6 @@ impl Default for Config {
                 max_memory_usage: None,
                 fsa_type: Fsa::Dfa,
             },
-            excepted_config: RegexConfig {
-                max_memory_usage: None,
-                fsa_type: Fsa::Dfa,
-            },
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
@@ -112,12 +104,6 @@ impl Config {
                     .start_kind(kbnf_regex_automata::dfa::StartKind::Anchored),
             ),
         };
-        let excepted_config = match self.excepted_config.fsa_type {
-            Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
-                kbnf_regex_automata::dfa::dense::Config::new()
-                    .dfa_size_limit(self.excepted_config.max_memory_usage),
-            ),
-        };
         let compression_config = kbnf_syntax::config::CompressionConfig {
             min_terminals: self.compression_config.min_terminals,
             regex_config: FiniteStateAutomatonConfig::Dfa(
@@ -128,7 +114,6 @@ impl Config {
             regex_config,
             compression_config,
             engine_config: self.engine_config,
-            excepted_config,
             start_nonterminal: self.start_nonterminal,
         }
     }
