@@ -57,3 +57,8 @@ python = ["pyo3", "pyo3-log"]
 [[bench]]
 name = "simple"
 harness = false
+[[bench]]
+name = "profiler"
+harness = false
+[profile.bench]
+debug = true

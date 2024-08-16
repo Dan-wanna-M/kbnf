@@ -1576,9 +1576,6 @@ where
             while let Some(token_byte) = token_iter.next() {
                 match token_byte {
                     TokenIterItem::TokenByte(token_byte) => {
-                        if rejected || accepted {
-                            continue;
-                        }
                         if Self::accept_byte(
                             &self.grammar,
                             &mut self.earley_sets,
@@ -1602,6 +1599,7 @@ where
                         // The token is rejected
                         {
                             rejected = true;
+                            token_iter.next_token();
                         }
                     }
                     TokenIterItem::NewToken => {
@@ -1621,6 +1619,9 @@ where
                         current_token_id = token_iter.current_token_id();
                         rejected = false;
                         accepted = eager_cache && self.allowed_token_ids.contains(current_token_id);
+                        if accepted {
+                            token_iter.next_token();
+                        }
                     }
                 }
             }

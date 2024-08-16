@@ -3,6 +3,7 @@ use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use nonmax::NonMaxU8;
+use num::ToPrimitive;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde::Deserialize;
@@ -93,7 +94,10 @@ impl Debug for Vocabulary {
 pub enum CreateVocabularyError {
     /// The vocabulary size exceeds the maximum supported size.
     #[error("The vocabulary size is {0}, while the maximum supported is {1}.")]
-    VocabularyTooLarge(u32, u32),
+    VocabularyTooLarge(usize, usize),
+    /// The token's length exceeds the maximum supported length.
+    #[error("The token's length is {0}, while the maximum supported is {1}.")]
+    TokenTooLong(usize, usize),
 }
 
 impl Vocabulary {
@@ -111,7 +115,7 @@ impl Vocabulary {
     ) -> Result<Vocabulary, CreateVocabularyError> {
         if id_to_token.len() >= 0x1000000 {
             return Err(CreateVocabularyError::VocabularyTooLarge(
-                id_to_token.len() as u32,
+                id_to_token.len(),
                 0x1000000,
             ));
         }
@@ -158,6 +162,16 @@ impl Vocabulary {
                     continue;
                 }
                 buffer.extend(token_id.to_le_bytes().into_iter().take(3));
+                let token_len =
+                    token
+                        .0
+                        .len()
+                        .to_u8()
+                        .ok_or(CreateVocabularyError::TokenTooLong(
+                            token.0.len(),
+                            u8::MAX as usize,
+                        ))?;
+                buffer.push(token_len);
                 buffer.extend(token.0.iter());
                 first_byte_to_token.extend_last_row(buffer.into_iter());
             }
@@ -180,7 +194,6 @@ impl Vocabulary {
             start: u8,
             end: u8,
         ) {
-            
             for byte in start..=end {
                 // iterate over all tokens and check the presence of the byte
                 let mut found = false;
@@ -247,13 +260,17 @@ processing the vocab like the tokenizer.",
     ///
     /// An iterator over the normal tokens with the given first byte.
     pub(crate) fn normal_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {
+        let slice = self
+            .first_byte_to_normal_tokens
+            .view::<1, 1>([first_byte as usize])
+            .as_slice();
         TokensIter {
             current_token_id: usize::MAX,
-            iter: self
-                .first_byte_to_normal_tokens
-                .view::<1, 1>([first_byte as usize])
-                .as_slice()
-                .iter(),
+            current_token_remaining_length: usize::MAX,
+            current: slice.as_ptr(),
+            // SAFETY: the existence of this slice guarantees that this add is safe
+            end: unsafe { slice.as_ptr().add(slice.len()) },
+            placeholder: std::marker::PhantomData,
         }
     }
 
@@ -296,7 +313,10 @@ impl Vocabulary {
 #[derive(Debug, Clone)]
 pub(crate) struct TokensIter<'a> {
     current_token_id: usize,
-    iter: std::slice::Iter<'a, u8>,
+    current_token_remaining_length: usize,
+    current: *const u8,
+    end: *const u8,
+    placeholder: std::marker::PhantomData<&'a u8>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TokenIterItem {
@@ -308,27 +328,49 @@ impl Iterator for TokensIter<'_> {
     type Item = TokenIterItem; // We excludes 0xFF from the token before
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|x| {
-            if *x == TOKEN_SEPARATOR {
-                let buffer = unsafe{[
-                    *self.iter.next().unwrap_unchecked(),
-                    *self.iter.next().unwrap_unchecked(),
-                    *self.iter.next().unwrap_unchecked(),
+        if self.current == self.end {
+            return None;
+        }
+        // SAFETY: We have checked that self.current != self.end
+        let x = unsafe { self.next_unchecked() };
+        if x == TOKEN_SEPARATOR {
+            // SAFETY: TOKEN_SEPARATOR must be followed by 3 bytes of token id and 1 byte of token length
+            let buffer = unsafe {
+                [
+                    self.next_unchecked(),
+                    self.next_unchecked(),
+                    self.next_unchecked(),
                     0x00,
-                ]};
-                self.current_token_id = u32::from_le_bytes(buffer) as usize;
-                TokenIterItem::NewToken
-            } else {
-                // SAFETY: We excludes 0xFF from the token before
-                TokenIterItem::TokenByte(unsafe { NonMaxU8::new_unchecked(*x) })
-            }
-        })
+                ]
+            };
+            self.current_token_remaining_length = unsafe { self.next_unchecked() } as usize;
+            self.current_token_id = u32::from_le_bytes(buffer) as usize;
+            Some(TokenIterItem::NewToken)
+        } else {
+            self.current_token_remaining_length -= 1;
+            // SAFETY: We excludes 0xFF from the token before
+            Some(TokenIterItem::TokenByte(unsafe {
+                NonMaxU8::new_unchecked(x)
+            }))
+        }
     }
 }
 
 impl TokensIter<'_> {
+    /// SAFETY: The caller must ensure that self.current != self.end
+    unsafe fn next_unchecked(&mut self) -> u8 {
+        let value = self.current.read();
+        self.current = self.current.add(1);
+        value
+    }
+
     #[inline]
     pub fn current_token_id(&self) -> usize {
         self.current_token_id
+    }
+    #[inline]
+    pub fn next_token(&mut self) {
+        // SAFETY: current_token_remaining_length<=u8::MAX
+        self.current = unsafe{self.current.add(self.current_token_remaining_length)};
     }
 }
