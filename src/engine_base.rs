@@ -7,7 +7,6 @@ use jaggedarray::JaggedArrayMutViewTrait;
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
 use kbnf_syntax::regex::FiniteStateAutomaton;
-use nonmax::NonMaxU32;
 use num::{
     cast::AsPrimitive,
     traits::{ConstOne, ConstZero, NumAssign, NumOps},
@@ -1569,7 +1568,7 @@ where
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
-            let mut current_token_id: Option<NonMaxU32> = None;
+            let mut current_token_id: usize = usize::MAX;
             let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
             let mut rejected = true;
             let mut accepted = false;
@@ -1617,15 +1616,11 @@ where
                                 len,
                                 &mut self.finished,
                             );
-                            let token_id = current_token_id.unwrap();
-                            self.allowed_token_ids.insert(token_id.get() as usize);
+                            self.allowed_token_ids.insert(current_token_id);
                         }
                         current_token_id = token_iter.current_token_id();
                         rejected = false;
-                        accepted = eager_cache
-                            && self
-                                .allowed_token_ids
-                                .contains(current_token_id.unwrap().get() as usize);
+                        accepted = eager_cache && self.allowed_token_ids.contains(current_token_id);
                     }
                 }
             }
@@ -1640,8 +1635,7 @@ where
                 &mut self.finished,
             );
             if !rejected && !accepted {
-                let token_id = current_token_id.unwrap();
-                self.allowed_token_ids.insert(token_id.get() as usize);
+                self.allowed_token_ids.insert(current_token_id);
             }
         }
         for (token_id, token) in self.vocabulary.tokens_containing_separators() {

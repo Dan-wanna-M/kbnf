@@ -2,17 +2,15 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::config::{InternalConfig, RegexConfig};
+use crate::config::RegexConfig;
 use crate::utils::{self, dispatch_by_dfa_state_status, ByteSet};
-use crate::{Config, Token, Vocabulary};
+use crate::Vocabulary;
 use ahash::AHashMap;
 use fixedbitset_stack::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
-use kbnf_regex_automata::util::start;
-use kbnf_regex_automata::{Anchored, Input};
 use kbnf_syntax::node::{OperatorFlattenedNode, Rhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use kbnf_syntax::InternedStrings;

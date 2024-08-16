@@ -2,7 +2,7 @@
 use ahash::AHashMap;
 use jaggedarray::jagged_array::JaggedArray;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
-use nonmax::{NonMaxU32, NonMaxU8};
+use nonmax::NonMaxU8;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use serde::Deserialize;
@@ -73,7 +73,7 @@ impl Debug for Vocabulary {
                     while let Some(item) = iter.next() {
                         if let TokenIterItem::TokenByte(byte) = item {
                             hash_map
-                                .entry(iter.current_token_id().unwrap())
+                                .entry(iter.current_token_id())
                                 .or_insert_with(Vec::new)
                                 .push(byte.get());
                         }
@@ -103,8 +103,8 @@ impl Vocabulary {
     ///
     /// * `id_to_token` - A map from token IDs to tokens.
     /// * `id_to_token_string` - A map from token IDs to tokens in UTF-8 String representation.
-    /// This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
-    /// vice versa. For example, a token may contain `0xFF` byte.
+    ///     This parameter is necessary because a token's UTF-8 representation may not be equivalent to the UTF-8 string decoded from its bytes,
+    ///     vice versa. For example, a token may contain `0xFF` byte.
     pub fn new(
         id_to_token: AHashMap<u32, Token>,
         id_to_token_string: AHashMap<u32, String>,
@@ -248,7 +248,7 @@ processing the vocab like the tokenizer.",
     /// An iterator over the normal tokens with the given first byte.
     pub(crate) fn normal_tokens_from_first_byte(&self, first_byte: u8) -> TokensIter {
         TokensIter {
-            current_token_id: None,
+            current_token_id: usize::MAX,
             iter: self
                 .first_byte_to_normal_tokens
                 .view::<1, 1>([first_byte as usize])
@@ -295,7 +295,7 @@ impl Vocabulary {
 
 #[derive(Debug, Clone)]
 pub(crate) struct TokensIter<'a> {
-    current_token_id: Option<NonMaxU32>,
+    current_token_id: usize,
     iter: std::slice::Iter<'a, u8>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -306,18 +306,17 @@ pub(crate) enum TokenIterItem {
 
 impl Iterator for TokensIter<'_> {
     type Item = TokenIterItem; // We excludes 0xFF from the token before
-
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| {
             if *x == TOKEN_SEPARATOR {
-                let buffer = [
-                    *self.iter.next().unwrap(),
-                    *self.iter.next().unwrap(),
-                    *self.iter.next().unwrap(),
+                let buffer = unsafe{[
+                    *self.iter.next().unwrap_unchecked(),
+                    *self.iter.next().unwrap_unchecked(),
+                    *self.iter.next().unwrap_unchecked(),
                     0x00,
-                ];
-                self.current_token_id = Some(NonMaxU32::new(u32::from_le_bytes(buffer)).unwrap());
-                self.current_token_id = Some(NonMaxU32::new(u32::from_le_bytes(buffer)).unwrap());
+                ]};
+                self.current_token_id = u32::from_le_bytes(buffer) as usize;
                 TokenIterItem::NewToken
             } else {
                 // SAFETY: We excludes 0xFF from the token before
@@ -328,7 +327,8 @@ impl Iterator for TokensIter<'_> {
 }
 
 impl TokensIter<'_> {
-    pub fn current_token_id(&self) -> Option<NonMaxU32> {
+    #[inline]
+    pub fn current_token_id(&self) -> usize {
         self.current_token_id
     }
 }

@@ -78,7 +78,7 @@ assert_eq!(&format!("{:?}", logits), "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]");
 The primary type in this crate are [EngineLike] and [Engine]. [EngineLike] defines the behavior of an engine,
 while [Engine] is a concrete implementation of [EngineLike]. The most important method in [Engine] are as follows:
 - [Engine::new]: This method creates a new engine from a [KBNF grammar](#kbnf-grammar) string, a [Vocabulary] and default configuration.
-[Engine::with_config] allows you to specify a custom configuration.
+    [Engine::with_config] allows you to specify a custom configuration.
 - [Engine::update_logits]: This method tries to accept a new token and then updates the logits accordingly.
 - [Engine::reset]: This method resets the engine to its initial state. Notably, the cache is preserved.
 

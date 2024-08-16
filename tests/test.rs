@@ -520,7 +520,7 @@ __schema_json_1_next ::=
     | __schema_json_1_next_0;
 "#;
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
-        let mut logits = vec![0.0; vocab.vocab_size()];
+        let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(grammar_str, vocab.clone()).unwrap();
         engine
             .try_accept_new_bytes("```json\n{\"value\": 2, \"next\":".as_bytes())
