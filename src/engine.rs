@@ -21,9 +21,9 @@ use crate::{
 pub struct EngineConfig {
     /// Whether the cache is enabled. Caching speeds up the engine eventually if any of the following conditions are met:
     /// 1. The grammar is "simple". What exactly constitutes a simple grammar is not well defined at the moment but
-    /// all regular grammars should be simple.
+    ///    all regular grammars should be simple.
     /// 2. The grammar is reused multiple times for inputs of similar lengths.
-    /// It is enabled by default.
+    ///    It is enabled by default.
     pub cache_enabled: bool,
     /// Whether the compaction is enabled. Compaction reduces the memory usage of the engine and
     /// speeds up the engine in most cases. In particular, cache usually requires compaction to be effective.
@@ -117,6 +117,7 @@ impl Engine {
         config: Config,
     ) -> Result<Engine, CreateEngineError> {
         let tsp = config.expected_output_length;
+        let regex_config = config.regex_config;
         let internal_config = config.internal_config();
         let grammar =
             utils::construct_kbnf_syntax_grammar(kbnf_syntax_grammar_str, internal_config.clone())?;
@@ -132,7 +133,7 @@ impl Engine {
             && tsp <= u8::MAX.into()
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u8> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8> = Grammar::new(grammar, &vocabulary, regex_config)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U8U8U8U8U32(EngineBase::new(
@@ -146,7 +147,7 @@ impl Engine {
             && tsp <= u16::MAX.into()
             && ts <= u16::MAX as usize
         {
-            let grammar: Grammar<u8> = Grammar::new(grammar)?;
+            let grammar: Grammar<u8> = Grammar::new(grammar, &vocabulary, regex_config)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U8U8U16U16U16(EngineBase::new(
@@ -160,7 +161,7 @@ impl Engine {
             && tsp <= u32::MAX as usize
             && ts <= u32::MAX as usize
         {
-            let grammar: Grammar<u16> = Grammar::new(grammar)?;
+            let grammar: Grammar<u16> = Grammar::new(grammar, &vocabulary, regex_config)?;
             let grammar = Arc::new(grammar);
             let vocabulary = Arc::new(vocabulary);
             EngineUnion::U16U16U32U32U32(EngineBase::new(
@@ -218,10 +219,6 @@ impl EngineLike for Engine {
 
     fn allowed_token_ids_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
         match_engine_union!(EngineLike::allowed_token_ids_from_last_computation[&self.union])
-    }
-
-    fn token_ids_to_finish_from_last_computation(&self) -> &fixedbitset_stack::FixedBitSet {
-        match_engine_union!(EngineLike::token_ids_to_finish_from_last_computation[&self.union])
     }
 
     fn is_finished(&self) -> bool {

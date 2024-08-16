@@ -29,9 +29,6 @@ Engine {
                 "aa[1733]",
                 "aaa[6885]",
             ],
-            token_ids_to_finish: [
-                "aaa[6885]",
-            ],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
@@ -56,9 +53,6 @@ Engine {
                         [
                             "a[98]",
                             "aa[1733]",
-                            "aaa[6885]",
-                        ],
-                        [
                             "aaa[6885]",
                         ],
                     ),

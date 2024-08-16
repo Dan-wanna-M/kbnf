@@ -332,9 +332,8 @@ where
     grammar: Arc<Grammar<TI>>,
     allowed_first_bytes: ByteSet,
     allowed_token_ids: FixedBitSet,
-    token_ids_to_finish: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
-    cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, (FixedBitSet, FixedBitSet)>,
+    cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
     to_be_completed_items_buffer: AHashSet<ToBeCompletedItem<TI, TSP>>,
     deduplication_buffer: AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -387,9 +386,6 @@ where
             .field("allowed_token_ids", {
                 &self.get_display_form_from_token_ids(&self.allowed_token_ids)
             })
-            .field("token_ids_to_finish", {
-                &self.get_display_form_from_token_ids(&self.token_ids_to_finish)
-            })
             .field(
                 "earley_sets",
                 &self.get_display_form_from_earley_sets(&self.earley_sets),
@@ -399,10 +395,7 @@ where
                 &utils::get_deterministic_display_form_from_hash_map(&self.cache, |(k, v)| {
                     (
                         self.get_display_form_from_earley_sets(k),
-                        (
-                            self.get_display_form_from_token_ids(&v.0),
-                            self.get_display_form_from_token_ids(&v.1),
-                        ),
+                        (self.get_display_form_from_token_ids(v),),
                     )
                 }),
             )
@@ -542,7 +535,6 @@ where
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
-        let token_ids_to_finish = FixedBitSet::with_capacity(vocabulary.vocab_size());
         let earley_sets = JaggedArray::new();
         let cache = AHashMap::default();
         let to_be_completed_items = AHashSet::default();
@@ -554,7 +546,6 @@ where
             grammar,
             allowed_first_bytes,
             allowed_token_ids,
-            token_ids_to_finish,
             earley_sets,
             cache,
             to_be_completed_items,
@@ -1349,6 +1340,38 @@ where
         Ok(())
     }
 
+    fn add_tokens_from_eager_regex_cache(&mut self) -> bool {
+        let cache = &self.grammar.regex_to_token_ids;
+        let last_earley_set_index = self.earley_sets.len() - 1;
+        let last_earley_set = self
+            .earley_sets
+            .view::<1, 1>([last_earley_set_index])
+            .as_slice();
+        let mut changed = false;
+        for item in last_earley_set.iter().copied() {
+            let node = *self.grammar.node(
+                item.nonterminal_id,
+                item.dot_position,
+                item.production_index,
+            );
+            match node {
+                HIRNode::RegexString(regex_id) | HIRNode::EarlyEndRegexString(regex_id) => {
+                    let dfa = self.grammar.regex(regex_id);
+                    let stride2 = match dfa {
+                        FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+                    };
+                    let state_id = Self::from_state_id_to_dfa_state_id(item.state_id, stride2);
+                    if let Some(token_ids) = cache.get(&(regex_id, state_id)) {
+                        self.allowed_token_ids.union_with(token_ids);
+                        changed = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        changed
+    }
+
     fn accept_bytes(
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -1529,70 +1552,62 @@ where
 
     fn compute_allowed_token_ids(&mut self) {
         self.allowed_token_ids.clear();
-        self.token_ids_to_finish.clear();
         if self.is_finished() {
             return;
         }
         if self.config.cache_enabled {
-            if let Some((allowed_ids, token_to_finish)) = self.cache.get(&self.earley_sets) {
+            if let Some(allowed_ids) = self.cache.get(&self.earley_sets) {
                 self.allowed_token_ids.union_with(allowed_ids);
-                self.token_ids_to_finish.union_with(token_to_finish);
+
                 return;
             }
+        }
+        let mut eager_cache = false;
+        if !self.grammar.regex_to_token_ids.is_empty() {
+            eager_cache = self.add_tokens_from_eager_regex_cache();
         }
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
             let mut current_token_id: Option<NonMaxU32> = None;
             let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
+            let mut rejected = true;
+            let mut accepted = false;
             #[allow(clippy::while_let_loop)]
-            'outer: loop {
-                if let Some(token_byte) = token_iter.next() {
-                    match token_byte {
-                        TokenIterItem::TokenByte(token_byte) => {
-                            if Self::accept_byte(
-                                &self.grammar,
-                                &mut self.earley_sets,
-                                &mut self.to_be_completed_items,
-                                &mut self.to_be_completed_items_buffer,
-                                &mut self.leo_items,
-                                &mut self.leo_items_buffer,
-                                &mut self.postdot_items,
-                                &mut self.postdot_items_since_last_commit,
-                                |_| {},
-                                |_| {},
-                                &mut self.already_predicted_nonterminals,
-                                &mut self.deduplication_buffer,
-                                &self.regex_start_config,
-                                len,
-                                &mut self.finished,
-                                |_, _, _| {},
-                                token_byte.into(),
-                            )
-                            .is_err()
-                            // The token is rejected
-                            {
-                                loop {
-                                    let a = token_iter.next();
-                                    match a {
-                                        Some(TokenIterItem::TokenByte(_)) => {} // skip the remaining token bytes
-                                        Some(TokenIterItem::NewToken) => {
-                                            // reach the next token
-                                            current_token_id = token_iter.current_token_id();
-                                            break;
-                                        }
-                                        None => {
-                                            // reach the end of the token iterator
-                                            current_token_id = None; // mark the end of the token iterator
-                                            break 'outer;
-                                        }
-                                    }
-                                }
-                            }
+            while let Some(token_byte) = token_iter.next() {
+                match token_byte {
+                    TokenIterItem::TokenByte(token_byte) => {
+                        if rejected || accepted {
+                            continue;
                         }
-                        TokenIterItem::NewToken => {
-                            // The token is accepted
-                            let finished = self.is_finished();
+                        if Self::accept_byte(
+                            &self.grammar,
+                            &mut self.earley_sets,
+                            &mut self.to_be_completed_items,
+                            &mut self.to_be_completed_items_buffer,
+                            &mut self.leo_items,
+                            &mut self.leo_items_buffer,
+                            &mut self.postdot_items,
+                            &mut self.postdot_items_since_last_commit,
+                            |_| {},
+                            |_| {},
+                            &mut self.already_predicted_nonterminals,
+                            &mut self.deduplication_buffer,
+                            &self.regex_start_config,
+                            len,
+                            &mut self.finished,
+                            |_, _, _| {},
+                            token_byte.into(),
+                        )
+                        .is_err()
+                        // The token is rejected
+                        {
+                            rejected = true;
+                        }
+                    }
+                    TokenIterItem::NewToken => {
+                        // The token is accepted
+                        if !accepted && !rejected {
                             Self::revert_change(
                                 &mut self.earley_sets,
                                 &mut self.postdot_items,
@@ -1602,17 +1617,16 @@ where
                                 len,
                                 &mut self.finished,
                             );
-                            if let Some(token_id) = current_token_id {
-                                if finished {
-                                    self.token_ids_to_finish.insert(token_id.get() as usize);
-                                }
-                                self.allowed_token_ids.insert(token_id.get() as usize);
-                            }
-                            current_token_id = token_iter.current_token_id();
+                            let token_id = current_token_id.unwrap();
+                            self.allowed_token_ids.insert(token_id.get() as usize);
                         }
+                        current_token_id = token_iter.current_token_id();
+                        rejected = false;
+                        accepted = eager_cache
+                            && self
+                                .allowed_token_ids
+                                .contains(current_token_id.unwrap().get() as usize);
                     }
-                } else {
-                    break;
                 }
             }
             // reach the end of the token iterator, revert the last token's change
@@ -1625,7 +1639,8 @@ where
                 len,
                 &mut self.finished,
             );
-            if let Some(token_id) = current_token_id {
+            if !rejected && !accepted {
+                let token_id = current_token_id.unwrap();
                 self.allowed_token_ids.insert(token_id.get() as usize);
             }
         }
@@ -1660,9 +1675,6 @@ where
             }
             if accepted {
                 self.allowed_token_ids.insert(token_id as usize);
-                if self.finished {
-                    self.token_ids_to_finish.insert(token_id as usize);
-                }
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,
@@ -1676,13 +1688,8 @@ where
         }
         Self::commit_change(&mut self.postdot_items_since_last_commit);
         if self.config.cache_enabled {
-            self.cache.insert(
-                self.earley_sets.clone(),
-                (
-                    self.allowed_token_ids.clone(),
-                    self.token_ids_to_finish.clone(),
-                ),
-            );
+            self.cache
+                .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
         }
     }
 
@@ -1737,9 +1744,6 @@ where
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
         &self.allowed_token_ids
     }
-    fn token_ids_to_finish_from_last_computation(&self) -> &FixedBitSet {
-        &self.token_ids_to_finish
-    }
 
     fn is_finished(&self) -> bool {
         self.finished
@@ -1758,7 +1762,6 @@ where
         self.already_predicted_nonterminals.clear();
         self.finished = false;
         self.allowed_token_ids.clear();
-        self.token_ids_to_finish.clear();
         self.allowed_first_bytes.clear();
         self.earley_sets.new_row::<0>();
         Self::predict_nonterminal(

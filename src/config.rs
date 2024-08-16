@@ -65,6 +65,10 @@ pub struct RegexConfig {
     /// The type of the Finite State Automaton to be used.
     /// The default is [`Fsa::Dfa`].
     pub fsa_type: Fsa,
+    /// The number of tokens required to cache the accepted tokens for a given regex state.
+    /// `None` means that the cache will be disabled.
+    /// The default is `Some(1000)`.
+    pub min_tokens_required_for_eager_regex_cache: Option<usize>,
 }
 
 /// The configuration of regular expressions.
@@ -83,6 +87,7 @@ impl Default for Config {
             regex_config: RegexConfig {
                 max_memory_usage: None,
                 fsa_type: Fsa::Dfa,
+                min_tokens_required_for_eager_regex_cache: Some(1000),
             },
             engine_config: EngineConfig {
                 cache_enabled: true,

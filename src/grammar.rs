@@ -1,12 +1,18 @@
 //! The grammar module that contains the grammar struct in HIR form and its related functions and structs.
 use std::fmt::Debug;
+use std::hash::Hash;
 
+use crate::config::{InternalConfig, RegexConfig};
 use crate::utils::{self, dispatch_by_dfa_state_status, ByteSet};
+use crate::{Config, Token, Vocabulary};
 use ahash::AHashMap;
+use fixedbitset_stack::FixedBitSet;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
+use kbnf_regex_automata::util::start;
+use kbnf_regex_automata::{Anchored, Input};
 use kbnf_syntax::node::{OperatorFlattenedNode, Rhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
 use kbnf_syntax::InternedStrings;
@@ -32,9 +38,12 @@ where
         + ConstOne
         + ConstZero
         + NumAssign
+        + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded
-        + std::cmp::PartialOrd,
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<T>,
 {
     /// Get the display form of the terminal id.
     pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
@@ -60,7 +69,10 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<T>,
 {
     /// Get the display form of the nonterminal id.
     pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
@@ -86,7 +98,10 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<T>,
 {
     /// Get the display form of the regex id.
     pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
@@ -122,7 +137,10 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<TI>,
 {
     /// Get the display form of the node.
     pub fn to_display_form(&self, grammar: &Grammar<TI>) -> String {
@@ -150,6 +168,7 @@ where
     rules: JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
+    pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID), FixedBitSet>,
     id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
 }
@@ -186,6 +205,8 @@ where
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
         + num::Bounded
+        + Hash
+        + Eq
         + Debug,
     usize: num::traits::AsPrimitive<TI>,
 {
@@ -267,13 +288,17 @@ where
         + NumAssign
         + std::cmp::PartialOrd
         + std::convert::TryFrom<usize>
-        + num::Bounded,
+        + num::Bounded
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<TI>,
 {
-    /// Create a new grammar from a simplified KBNF grammar.
+    /// Create a new grammar from a simplified KBNF grammar and configuration.
     ///
     /// # Arguments
     ///
     /// * `grammar` - The simplified KBNF grammar.
+    /// * `config` - The configuration of the engine.
     ///
     /// # Returns
     ///
@@ -283,7 +308,11 @@ where
     ///
     /// Returns an error if the conversion from [usize] to the generic parameter fails, or if the regex initialization fails.
     /// More information about the error can be found in the [GrammarError] enum docs.
-    pub fn new(grammar: SimplifiedGrammar) -> Result<Self, CreateGrammarError> {
+    pub fn new(
+        grammar: SimplifiedGrammar,
+        vocabulary: &Vocabulary,
+        regex_config: RegexConfig,
+    ) -> Result<Self, CreateGrammarError> {
         let mut id_to_terminals = JaggedArray::<u8, Vec<usize>, 2>::new();
         for (id, terminal) in grammar.interned_strings.terminals.iter() {
             id_to_terminals.new_row::<0>();
@@ -348,6 +377,11 @@ where
             }
         }
         let id_to_regexes = grammar.id_to_regex;
+        let mut regex_to_token_ids: AHashMap<(RegexID<TI>, StateID), FixedBitSet> =
+            AHashMap::default();
+        if let Some(limit) = regex_config.min_tokens_required_for_eager_regex_cache {
+            regex_to_token_ids = Self::construct_regex_to_token_ids(vocabulary, &id_to_regexes, limit);
+        }
         let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes, false)?;
         Ok(Self {
             start_nonterminal_id: NonterminalID(
@@ -364,7 +398,52 @@ where
             id_to_regexes,
             id_to_terminals,
             id_to_regex_first_bytes,
+            regex_to_token_ids,
         })
+    }
+
+    fn construct_regex_to_token_ids(
+        vocabulary: &Vocabulary,
+        id_to_regexes: &[FiniteStateAutomaton],
+        limit: usize,
+    ) -> AHashMap<(RegexID<TI>, StateID), FixedBitSet> {
+        let mut regex_to_token_ids = AHashMap::default();
+        for (regex_id, regex) in id_to_regexes.iter().enumerate() {
+            match regex {
+                FiniteStateAutomaton::Dfa(dfa) => {
+                    for state in dfa.states() {
+                        let mut set = FixedBitSet::with_capacity(vocabulary.vocab_size());
+                        let start_state = state.id();
+                        for (token_id, token) in vocabulary.id_to_token.iter() {
+                            let mut state_id = start_state;
+                            let mut acceptable = true;
+                            for byte in token.0.iter() {
+                                state_id = dfa.next_state(state_id, *byte);
+                                dispatch_by_dfa_state_status!(state_id,
+                                    dfa,
+                                    accept=>{},
+                                    reject=>{
+                                                acceptable=false;
+                                                break;
+                                            },
+                                    in_progress=>{}
+                                );
+                            }
+                            if acceptable {
+                                set.insert(token_id.as_());
+                            }
+                        }
+                        if set.count_ones(..) < limit {
+                            
+                            continue;
+                        }
+                        regex_to_token_ids.insert((RegexID(regex_id.as_()), start_state), set);
+                    }
+                }
+            }
+        }
+
+        regex_to_token_ids
     }
 
     fn construct_regex_first_bytes(

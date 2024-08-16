@@ -223,7 +223,6 @@ Engine {
             allowed_token_ids: [
                 ",[45]",
             ],
-            token_ids_to_finish: [],
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
@@ -259,7 +258,6 @@ Engine {
                             "Hell[23725]",
                             "Hello[33155]",
                         ],
-                        [],
                     ),
                 ),
                 (
@@ -283,7 +281,6 @@ Engine {
                         [
                             ",[45]",
                         ],
-                        [],
                     ),
                 ),
             ],
