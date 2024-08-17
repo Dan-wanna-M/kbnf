@@ -21,7 +21,6 @@ use crate::engine_like::EngineLike;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
-use crate::vocabulary::TokenIterItem;
 use crate::AcceptTokenResult;
 use crate::{
     grammar::{Grammar, HIRNode, NonterminalID},
@@ -1567,79 +1566,16 @@ where
         }
         let len = self.earley_sets.len();
         self.update_allowed_first_bytes();
+        let mut possible_token_ids = FixedBitSet::with_capacity(self.vocabulary.vocab_size());
         for byte in self.allowed_first_bytes.ones() {
-            let mut current_token_id: usize = usize::MAX;
-            let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
-            let mut rejected = true;
-            let mut accepted = false;
-            #[allow(clippy::while_let_loop)]
-            while let Some(token_byte) = token_iter.next() {
-                match token_byte {
-                    TokenIterItem::TokenByte(token_byte) => {
-                        if Self::accept_byte(
-                            &self.grammar,
-                            &mut self.earley_sets,
-                            &mut self.to_be_completed_items,
-                            &mut self.to_be_completed_items_buffer,
-                            &mut self.leo_items,
-                            &mut self.leo_items_buffer,
-                            &mut self.postdot_items,
-                            &mut self.postdot_items_since_last_commit,
-                            |_| {},
-                            |_| {},
-                            &mut self.already_predicted_nonterminals,
-                            &mut self.deduplication_buffer,
-                            &self.regex_start_config,
-                            len,
-                            &mut self.finished,
-                            |_, _, _| {},
-                            token_byte.into(),
-                        )
-                        .is_err()
-                        // The token is rejected
-                        {
-                            rejected = true;
-                            token_iter.next_token();
-                        }
-                    }
-                    TokenIterItem::NewToken => {
-                        // The token is accepted
-                        if !accepted && !rejected {
-                            Self::revert_change(
-                                &mut self.earley_sets,
-                                &mut self.postdot_items,
-                                &mut self.postdot_items_since_last_commit,
-                                &mut self.leo_items,
-                                |_| {},
-                                len,
-                                &mut self.finished,
-                            );
-                            self.allowed_token_ids.insert(current_token_id);
-                        }
-                        current_token_id = token_iter.current_token_id();
-                        rejected = false;
-                        accepted = eager_cache && self.allowed_token_ids.contains(current_token_id);
-                        if accepted {
-                            token_iter.next_token();
-                        }
-                    }
-                }
-            }
-            // reach the end of the token iterator, revert the last token's change
-            Self::revert_change(
-                &mut self.earley_sets,
-                &mut self.postdot_items,
-                &mut self.postdot_items_since_last_commit,
-                &mut self.leo_items,
-                |_| {},
-                len,
-                &mut self.finished,
-            );
-            if !rejected && !accepted {
-                self.allowed_token_ids.insert(current_token_id);
-            }
+            possible_token_ids.union_with(&self.vocabulary.first_byte_to_token_ids[byte]);
         }
-        for (token_id, token) in self.vocabulary.tokens_containing_separators() {
+        if eager_cache {
+            possible_token_ids.difference_with(&self.allowed_token_ids);
+        }
+
+        for token_id in possible_token_ids.ones() {
+            let token = &self.vocabulary.id_to_token[&(token_id as u32)];
             let mut accepted = true;
             for byte in token.0.iter().copied() {
                 if Self::accept_byte(
@@ -1662,14 +1598,12 @@ where
                     byte,
                 )
                 .is_err()
-                // The token is rejected
                 {
                     accepted = false;
                     break;
                 }
             }
             if accepted {
-                self.allowed_token_ids.insert(token_id as usize);
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,
@@ -1679,6 +1613,7 @@ where
                     len,
                     &mut self.finished,
                 );
+                self.allowed_token_ids.insert(token_id);
             }
         }
         Self::commit_change(&mut self.postdot_items_since_last_commit);
