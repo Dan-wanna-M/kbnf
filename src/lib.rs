@@ -3,7 +3,7 @@
 
 This crate provides a constrained decoding engine
 which ensures that a language model's output adheres strictly to the format defined by KBNF (Koishi's BNF), an enhanced variant of EBNF.
-KBNF includes features that enhance usability, notably embeddable regular expressions and more flexible exceptions.
+KBNF includes features that enhance usability, notably embeddable regular expressions.
 Here is a quick example of how this crate works:
 
 ```rust
@@ -240,19 +240,8 @@ It cannot start with a numerical character however.
 ## Terminal
 
 A terminal is a sequence of UTF-8 characters enclosed in double quotes or single quotes.
-
-Currently, these escaped characters are supported:
-
-| Escape sequence | Escaped value            |
-|-----------------|--------------------------|
-| `\t`            | U+0009 (HT)              |
-| `\n`            | U+000A (LF)              |
-| `\r`            | U+000D (CR)              |
-| `\"`            | U+0022 (QUOTATION MARK)  |
-| `\'`            | U+0027 (APOSTROPHE)      |
-| `\\`            | U+005C (REVERSE SOLIDUS) |
-
-More escaped characters will be added in the future.
+All [Javascript escaped characters](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Regular_expressions/Character_escape)
+ are supported.
 
 ## Concatenation
 
@@ -363,7 +352,7 @@ a sequence of "A"s followed by exactly one "B".*)
 ```
 
 A symbol followed by a `+` can be repeated one or more times.
-```kbnf_syntax
+```ebnf
 start ::= ("A"|"B")+ "C";
 (*The engine will constrain the output to
 a nonempty sequence of "A"s and "B"s followed by exactly one "C".*)
@@ -371,17 +360,28 @@ a nonempty sequence of "A"s and "B"s followed by exactly one "C".*)
 
 ## Regular expression
 
-A UTF-8 string enclosed in `#""` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
+A UTF-8 string enclosed in `#""` or `#e""` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
 
 ```ebnf
-start ::= #".+A";
+start ::= #".*A";
 (*
 The engine will constrain the output to be
-a sequence of any characters followed by exactly one A.
+a sequence of any characters ended with one A.
 This is equivalent to:
 start ::= #".+" "A";
 *)
 ```
+
+```ebnf
+start ::= #e".*AA";
+(*
+The engine will constrain the output to be
+a sequence of any characters where
+only the last two characters are two consecutive A.
+In other words, two consecutive A will not appear in the middle of the output.
+*)
+```
+
 
 The Rust regex crate is used to support regular expressions,
 which means [the syntax supported](https://docs.rs/regex/latest/regex/index.html#syntax) might differ from other regex engines.
@@ -389,45 +389,6 @@ Notably, the regex crate does not support arbitrary lookarounds. In exchange, li
 **WARNING: the regular expression is compiled into a DFA which, by its nature, has worst case exponential time and space complexity.**
 If you are dealing with untrusted regular expressions,
 you should set a memory limit in [Config::regex_config] to prevent DoS attacks.
-
-## Exceptions/except!
-
-Although exception is the formal term, I personally find it confusing, so I will refer to it as "except!".
-The `except!` keyword is used to exclude certain strings from the output.
-
-```ebnf
-start ::= except!('\n\n')'\n\n';
-(*
-The engine will constrain the output to be a sequence of characters
-that does not contain "\n\n" followed by exactly one "\n\n".
-*)
-```
-
-**NOTE THAT THE DEFINITION ABOVE DOES ALLOW `\n\n\n`!**
-The first `\n` comes from the exception(since `\n != \n\n`), and the second `\n\n` comes from the terminal.
-If you want a string that strictly ends with `\n\n`, you should use the following definition:
-
-```ebnf
-start ::= #".*\n\n";
-```
-
-You can use a nonterminal that directly contains alternations of terminals in `except!`.
-
-```ebnf
-start ::= except!(C)C;
-C ::= "A"|"B";
-(*The engine will constrain the output to be
-a sequence of characters that ends with "A" or "B". *)
-```
-
-You can also specify the maximum repetition of `except!`.
-
-```ebnf
-start ::= except!('\n\n',50)'\n\n';
-(*The engine will constrain the output
-to be a sequence of bytes of maximum length 50
-that does not contain "\n\n" followed by exactly one "\n\n".*)
-```
 
 # Performance
 
