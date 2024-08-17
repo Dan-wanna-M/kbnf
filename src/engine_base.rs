@@ -1160,9 +1160,6 @@ where
                         finished,
                     );
                 }
-                if *finished {
-                    return;
-                }
             }
             std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
         }
@@ -1280,18 +1277,6 @@ where
         ),
         byte: u8,
     ) -> Result<(), crate::engine_like::AcceptTokenError> {
-        if *finished {
-            Self::revert_change(
-                earley_sets,
-                postdot_items,
-                added_postdot_items,
-                leo_items,
-                remove_column_to_postdot_nonterminal_operation,
-                previous_earley_set_length,
-                finished,
-            );
-            return Err(crate::engine_like::AcceptTokenError::Rejected);
-        }
         Self::scan(
             grammar,
             earley_sets,
