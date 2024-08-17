@@ -166,7 +166,7 @@ where
     rules: JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
-    pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID), FixedBitSet>,
+    pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet>,
     id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
 }
@@ -275,6 +275,11 @@ where
             .finish()
     }
 }
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub(crate) enum RegexType {
+    Normal,
+    Early,
+}
 
 impl<TI> Grammar<TI>
 where
@@ -375,12 +380,12 @@ where
             }
         }
         let id_to_regexes = grammar.id_to_regex;
-        let mut regex_to_token_ids: AHashMap<(RegexID<TI>, StateID), FixedBitSet> =
-            AHashMap::default();
-        if let Some(limit) = regex_config.min_tokens_required_for_eager_regex_cache {
-            regex_to_token_ids = Self::construct_regex_to_token_ids(vocabulary, &id_to_regexes, limit);
-        }
         let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes, false)?;
+        let mut regex_to_token_ids = AHashMap::default();
+        if let Some(limit) = regex_config.min_tokens_required_for_eager_regex_cache {
+            regex_to_token_ids =
+                Self::construct_regex_to_token_ids(vocabulary, &rules, &id_to_regexes, limit);
+        }
         Ok(Self {
             start_nonterminal_id: NonterminalID(
                 grammar.start_symbol.to_usize().try_into().map_err(|_| {
@@ -402,45 +407,76 @@ where
 
     fn construct_regex_to_token_ids(
         vocabulary: &Vocabulary,
+        rules: &JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
         id_to_regexes: &[FiniteStateAutomaton],
         limit: usize,
-    ) -> AHashMap<(RegexID<TI>, StateID), FixedBitSet> {
+    ) -> AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet> {
         let mut regex_to_token_ids = AHashMap::default();
-        for (regex_id, regex) in id_to_regexes.iter().enumerate() {
-            match regex {
-                FiniteStateAutomaton::Dfa(dfa) => {
-                    for state in dfa.states() {
-                        let mut set = FixedBitSet::with_capacity(vocabulary.vocab_size());
-                        let start_state = state.id();
-                        for (token_id, token) in vocabulary.id_to_token.iter() {
-                            let mut state_id = start_state;
-                            let mut acceptable = true;
-                            for byte in token.0.iter() {
-                                state_id = dfa.next_state(state_id, *byte);
-                                dispatch_by_dfa_state_status!(state_id,
-                                    dfa,
-                                    accept=>{},
-                                    reject=>{
-                                                acceptable=false;
-                                                break;
+        for i in 0..rules.len() {
+            let view = rules.view::<1, 2>([i]);
+            for j in 0..view.len() {
+                let view = view.view::<1, 1>([j]);
+                for k in 0..view.len() {
+                    let regex_type;
+                    let regex_id = match view[[k]] {
+                        HIRNode::RegexString(regex_id) => {
+                            regex_type = RegexType::Normal;
+                            regex_id
+                        }
+                        HIRNode::EarlyEndRegexString(regex_id) => {
+                            regex_type = RegexType::Early;
+                            regex_id
+                        }
+                        _ => continue,
+                    };
+                    let regex = &id_to_regexes[regex_id.0.as_()];
+                    match regex {
+                        FiniteStateAutomaton::Dfa(dfa) => {
+                            for state in dfa.states() {
+                                let mut set = FixedBitSet::with_capacity(vocabulary.vocab_size());
+                                let start_state = state.id();
+                                if regex_to_token_ids.contains_key(&(
+                                    regex_id,
+                                    start_state,
+                                    regex_type,
+                                )) {
+                                    continue;
+                                }
+                                for (token_id, token) in vocabulary.id_to_token.iter() {
+                                    let mut state_id = start_state;
+                                    let mut acceptable = true;
+                                    let mut accepted = false;
+                                    for byte in token.0.iter() {
+                                        if accepted && regex_type == RegexType::Early {
+                                            break;
+                                        }
+                                        state_id = dfa.next_state(state_id, *byte);
+                                        dispatch_by_dfa_state_status!(state_id,
+                                            dfa,
+                                            accept=>{
+                                                        accepted=true;
                                             },
-                                    in_progress=>{}
-                                );
-                            }
-                            if acceptable {
-                                set.insert(token_id.as_());
+                                            reject=>{
+                                                        acceptable=false;
+                                                        break;
+                                                    },
+                                            in_progress=>{}
+                                        );
+                                    }
+                                    if acceptable {
+                                        set.insert(token_id.as_());
+                                    }
+                                }
+                                if set.count_ones(..) < limit {
+                                    continue;
+                                }
+                                regex_to_token_ids.insert((regex_id, start_state, regex_type), set);
                             }
                         }
-                        if set.count_ones(..) < limit {
-                            
-                            continue;
-                        }
-                        regex_to_token_ids.insert((RegexID(regex_id.as_()), start_state), set);
                     }
                 }
             }
         }
-
         regex_to_token_ids
     }
 

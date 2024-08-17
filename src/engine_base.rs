@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use crate::engine::EngineConfig;
 use crate::engine_like::EngineLike;
+use crate::grammar::RegexType;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
@@ -1353,19 +1354,27 @@ where
                 item.dot_position,
                 item.production_index,
             );
+            let regex_id;
+            let regex_type;
             match node {
-                HIRNode::RegexString(regex_id) | HIRNode::EarlyEndRegexString(regex_id) => {
-                    let dfa = self.grammar.regex(regex_id);
-                    let stride2 = match dfa {
-                        FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
-                    };
-                    let state_id = Self::from_state_id_to_dfa_state_id(item.state_id, stride2);
-                    if let Some(token_ids) = cache.get(&(regex_id, state_id)) {
-                        self.allowed_token_ids.union_with(token_ids);
-                        changed = true;
-                    }
+                HIRNode::RegexString(id) => {
+                    regex_id = id;
+                    regex_type = RegexType::Normal;
                 }
-                _ => {}
+                HIRNode::EarlyEndRegexString(id) => {
+                    regex_id = id;
+                    regex_type = RegexType::Early;
+                }
+                _ => continue,
+            }
+            let dfa = self.grammar.regex(regex_id);
+            let stride2 = match dfa {
+                FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+            };
+            let state_id = Self::from_state_id_to_dfa_state_id(item.state_id, stride2);
+            if let Some(token_ids) = cache.get(&(regex_id, state_id, regex_type)) {
+                self.allowed_token_ids.union_with(token_ids);
+                changed = true;
             }
         }
         changed

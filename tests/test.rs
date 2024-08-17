@@ -481,7 +481,7 @@ mod tests {
             engine
                 .try_accept_new_token(
                     vocab
-                        .token_id(&Token("b".as_bytes().to_vec().into_boxed_slice()))
+                        .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
                         .unwrap()
                 ),
             Err(kbnf::engine_like::AcceptTokenError::Rejected)
