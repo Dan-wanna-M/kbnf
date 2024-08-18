@@ -302,6 +302,27 @@ pub enum CreateEngineBaseError {
     /// The repetition in regex exceeds the maximum repetition allowed by the current size of StateID(TS).
     RepetitionInExceptedTooLarge(usize, usize),
 }
+#[derive(Clone)]
+struct StagedChanges<TI, TSP>
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq
+        + std::fmt::Debug
+        + PartialOrd
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + NumAssign,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+{
+    postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
+    earley_sets_len_since_last_commit: usize,
+}
+
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
 /// The low-level engine struct that implements the Earley recognizer with Leo optimization and Earley sets compaction.
@@ -1551,7 +1572,6 @@ where
         if self.config.cache_enabled {
             if let Some(allowed_ids) = self.cache.get(&self.earley_sets) {
                 self.allowed_token_ids.union_with(allowed_ids);
-
                 return;
             }
         }
@@ -1559,14 +1579,39 @@ where
         if !self.grammar.regex_to_token_ids.is_empty() {
             eager_cache = self.add_tokens_from_eager_regex_cache();
         }
-        let len = self.earley_sets.len();
+        let original_earley_set_len = self.earley_sets.len();
         self.update_allowed_first_bytes();
         for byte in self.allowed_first_bytes.ones() {
+            Self::accept_byte(
+                &self.grammar,
+                &mut self.earley_sets,
+                &mut self.to_be_completed_items,
+                &mut self.to_be_completed_items_buffer,
+                &mut self.leo_items,
+                &mut self.leo_items_buffer,
+                &mut self.postdot_items,
+                &mut self.postdot_items_since_last_commit,
+                |_| {},
+                |_| {},
+                &mut self.already_predicted_nonterminals,
+                &mut self.deduplication_buffer,
+                &self.regex_start_config,
+                original_earley_set_len,
+                &mut self.finished,
+                |_, _, _| {},
+                byte as u8,
+            )
+            .unwrap();
+            let mut staged_changes = StagedChanges {
+                earley_sets_len_since_last_commit: original_earley_set_len,
+                postdot_items_since_last_commit: self.postdot_items_since_last_commit.clone(),
+            };
+            let len = self.earley_sets.len();
+            Self::commit_change(&mut self.postdot_items_since_last_commit);
             let mut current_token_id: usize = usize::MAX;
             let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
             let mut rejected = true;
             let mut accepted = false;
-            #[allow(clippy::while_let_loop)]
             while let Some(token_byte) = token_iter.next() {
                 match token_byte {
                     TokenIterItem::TokenByte(token_byte) => {
@@ -1632,6 +1677,15 @@ where
             if !rejected && !accepted {
                 self.allowed_token_ids.insert(current_token_id);
             }
+            Self::revert_change(
+                &mut self.earley_sets,
+                &mut self.postdot_items,
+                &mut staged_changes.postdot_items_since_last_commit,
+                &mut self.leo_items,
+                |_| {},
+                staged_changes.earley_sets_len_since_last_commit,
+                &mut self.finished,
+            )
         }
         for (token_id, token) in self.vocabulary.tokens_containing_separators() {
             let mut accepted = true;
@@ -1650,7 +1704,7 @@ where
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     &self.regex_start_config,
-                    len,
+                    original_earley_set_len,
                     &mut self.finished,
                     |_, _, _| {},
                     byte,
@@ -1670,7 +1724,7 @@ where
                     &mut self.postdot_items_since_last_commit,
                     &mut self.leo_items,
                     |_| {},
-                    len,
+                    original_earley_set_len,
                     &mut self.finished,
                 );
             }

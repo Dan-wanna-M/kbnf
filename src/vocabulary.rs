@@ -170,9 +170,9 @@ impl Vocabulary {
                         .ok_or(CreateVocabularyError::TokenTooLong(
                             token.0.len(),
                             u8::MAX as usize,
-                        ))?;
+                        ))?-1;
                 buffer.push(token_len);
-                buffer.extend(token.0.iter());
+                buffer.extend(token.0.iter().skip(1));
                 first_byte_to_token.extend_last_row(buffer.into_iter());
             }
         }

@@ -74,10 +74,19 @@ fn criterion_benchmark(c: &mut Criterion) {
     let no_cache_config = kbnf::config::Config {
         engine_config: EngineConfig {
             cache_enabled: false,
-            compaction_enabled: false,
+            compaction_enabled: true,
         },
         ..Default::default()
     };
+    let mut engine = Engine::with_config(
+        "start::=C'\n';C::=#'( )+';",
+        vocab.clone(),
+        no_cache_config.clone(),
+    )
+    .unwrap();
+    c.bench_function("whitespace recursion 10 iterations(no cache)", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 33,&mut logits))
+    });
     let mut engine = Engine::with_config(
         "start::=C'\n';C::='{'|'{' C;",
         vocab.clone(),
