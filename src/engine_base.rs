@@ -1581,7 +1581,9 @@ where
         }
         let original_earley_set_len = self.earley_sets.len();
         self.update_allowed_first_bytes();
+        let mut invalid_next_bytes = ByteSet::with_capacity(256);
         for byte in self.allowed_first_bytes.ones() {
+            invalid_next_bytes.clear();
             Self::accept_byte(
                 &self.grammar,
                 &mut self.earley_sets,
@@ -1612,9 +1614,19 @@ where
             let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
             let mut rejected = true;
             let mut accepted = false;
+            let mut second_byte_unseen = false;
             while let Some(token_byte) = token_iter.next() {
                 match token_byte {
                     TokenIterItem::TokenByte(token_byte) => {
+                        let token_byte = token_byte.get();
+                        if second_byte_unseen
+                        // SAFETY: invalid_next_bytes preallocates 256 bytes on the stack
+                            && unsafe { invalid_next_bytes.contains_unchecked(token_byte.into()) }
+                        {
+                            rejected = true;
+                            token_iter.next_token();
+                            continue;
+                        }
                         if Self::accept_byte(
                             &self.grammar,
                             &mut self.earley_sets,
@@ -1632,17 +1644,23 @@ where
                             len,
                             &mut self.finished,
                             |_, _, _| {},
-                            token_byte.into(),
+                            token_byte,
                         )
                         .is_err()
                         // The token is rejected
                         {
+                            if second_byte_unseen {
+                                // SAFETY: invalid_next_bytes preallocates 256 bytes on the stack
+                                unsafe{invalid_next_bytes.insert_unchecked(token_byte.into())};
+                            }
                             rejected = true;
                             token_iter.next_token();
                         }
+                        second_byte_unseen = false;
                     }
                     TokenIterItem::NewToken => {
                         // The token is accepted
+                        second_byte_unseen = true;
                         if !accepted && !rejected {
                             Self::revert_change(
                                 &mut self.earley_sets,
@@ -1745,11 +1763,13 @@ where
         if self.allowed_token_ids.count_zeroes(..) > logits_len / 2 {
             let mut mask = vec![f32::NEG_INFINITY; logits_len];
             for token_id in self.allowed_token_ids.ones() {
+                // SAFETY: the capacity of self.allowed_token_ids == vocab_size and we have checked logits_len >= vocab_size
                 unsafe { *mask.get_unchecked_mut(token_id) = *logits.get_unchecked(token_id) };
             }
             logits.copy_from_slice(&mask);
         } else {
             for token_id in self.allowed_token_ids.zeroes() {
+                // SAFETY: the capacity of self.allowed_token_ids == vocab_size and we have checked logits_len >= vocab_size
                 unsafe { *logits.get_unchecked_mut(token_id) = f32::NEG_INFINITY };
             }
         }

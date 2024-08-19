@@ -6,7 +6,7 @@ python-source = "python"
 features = ["python"]
 [project]
 name = "kbnf"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = ["numpy"]
 requires-python = ">=3.7"
 classifiers = [
