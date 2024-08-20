@@ -19,7 +19,6 @@ If you are interested in the design and implementation behind this crate, you ma
   - BPE, BBPE, you-name-it, all types of vocabulary are supported.
 - Supports UTF-8 characters in grammar.
 - Embeddable regular expressions.
-- More flexible exceptions that can exclude unions of strings.
 
 ## Documentation
 
