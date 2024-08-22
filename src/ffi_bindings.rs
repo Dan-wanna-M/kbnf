@@ -7,6 +7,8 @@ use pyo3::exceptions::PyValueError;
 #[cfg(feature = "python")]
 use pyo3::types::PyDict;
 #[cfg(feature = "python")]
+use pyo3::Python;
+#[cfg(feature = "python")]
 use pyo3::{pymethods, PyErr};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -503,8 +505,8 @@ impl Engine {
     ///
     /// (self) -> None
     #[pyo3(name = "compute_allowed_token_ids")]
-    pub fn compute_allowed_token_ids_py(&mut self) {
-        EngineLike::compute_allowed_token_ids(self)
+    pub fn compute_allowed_token_ids_py(&mut self, py: Python<'_>) {
+        py.allow_threads(|| EngineLike::compute_allowed_token_ids(self));
     }
 
     /// Gets the allowed token IDs since last computation.

@@ -1,7 +1,7 @@
 #[cfg(test)]
 
 mod tests {
-    use std::{fs::File, io::BufReader, path::Path};
+    use std::{cell::RefCell, fs::File, io::BufReader, path::Path, sync::{Arc, Mutex}};
 
     use ahash::AHashMap;
     use insta::assert_snapshot;
@@ -169,6 +169,21 @@ mod tests {
             !engine.allowed_token_ids_from_last_computation().is_empty(),
             "allowed token ids are not updated correctly!"
         );
+    }
+    #[test]
+    fn a()
+    {
+        fn create_fn() -> Arc<dyn Fn()> {
+            let text = Mutex::new("Fn".to_owned());
+             Arc::new(move|| {
+                text.lock().unwrap().push_str(" is called");
+                println!("This is a: {text:?}");
+            })
+        }
+        
+        let fn_plain = create_fn();
+        fn_plain();
+        fn_plain();
     }
 
     #[test]
