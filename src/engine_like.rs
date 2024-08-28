@@ -54,9 +54,12 @@ pub enum UpdateLogitsError {
     /// The input logits array is not of the expected length according to the vocabulary.
     InvalidLogitsLength,
 }
+pub(crate) mod sealed {
+    pub trait Sealed {}
+}
 
 /// A trait that defines the behavior of an [`EngineLike`] object.
-pub trait EngineLike {
+pub trait EngineLike: sealed::Sealed {
     /// Tries to accept a new token with the given token ID.
     ///
     /// # Arguments

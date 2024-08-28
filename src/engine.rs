@@ -186,6 +186,8 @@ macro_rules! match_engine_union {
     }
 }
 
+impl crate::engine_like::sealed::Sealed for Engine {}
+
 impl EngineLike for Engine {
     fn try_accept_new_token(
         &mut self,

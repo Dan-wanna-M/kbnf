@@ -1479,6 +1479,56 @@ where
     }
 }
 
+impl<TI, TD, TP, TSP, TS> crate::engine_like::sealed::Sealed for EngineBase<TI, TD, TP, TSP, TS>
+where
+    TI: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumOps
+        + NumAssign
+        + std::cmp::PartialOrd
+        + num::Bounded
+        + std::convert::TryFrom<usize>
+        + Debug
+        + Eq
+        + std::hash::Hash
+        + PartialEq,
+    TD: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq,
+    TP: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq,
+    TSP: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq,
+    TS: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + Eq
+        + std::hash::Hash
+        + PartialEq,
+    usize: num::traits::AsPrimitive<TI>
+        + num::traits::AsPrimitive<TD>
+        + num::traits::AsPrimitive<TP>
+        + num::traits::AsPrimitive<TSP>
+        + num::traits::AsPrimitive<TS>,
+{}
+
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 impl<TI, TD, TP, TSP, TS> EngineLike for EngineBase<TI, TD, TP, TSP, TS>
