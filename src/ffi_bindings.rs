@@ -1,6 +1,10 @@
+#[cfg(any(feature = "python", feature = "wasm"))]
 use crate::engine::CreateEngineError;
+#[cfg(any(feature = "python", feature = "wasm"))]
 use crate::engine_like::{AcceptTokenError, MaskLogitsError, UpdateLogitsError};
+#[cfg(any(feature = "python", feature = "wasm"))]
 use crate::vocabulary::{CreateVocabularyError, Vocabulary};
+#[cfg(any(feature = "python", feature = "wasm"))]
 use crate::{AcceptTokenResult, Config, Engine, EngineLike, Token};
 #[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
@@ -14,53 +18,48 @@ use pyo3::{pymethods, PyErr};
 use wasm_bindgen::prelude::*;
 
 #[allow(clippy::from_over_into)]
+#[allow(clippy::from_over_into)]
 #[cfg(feature = "wasm")]
-impl Into<JsValue> for CreateEngineError {
-    fn into(self) -> JsValue {
-        JsValue::from_str(self.to_string().as_str())
+impl From<CreateEngineError> for JsValue {
+    fn from(error: CreateEngineError) -> Self {
+        JsValue::from_str(error.to_string().as_str())
     }
 }
 #[cfg(feature = "python")]
-#[allow(clippy::from_over_into)]
-impl Into<PyErr> for CreateVocabularyError {
-    fn into(self) -> PyErr {
-        PyErr::new::<PyValueError, _>(self.to_string())
+impl From<CreateVocabularyError> for PyErr {
+    fn from(error: CreateVocabularyError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
 #[cfg(feature = "python")]
-#[allow(clippy::from_over_into)]
-impl Into<PyErr> for CreateEngineError {
-    fn into(self) -> PyErr {
-        PyErr::new::<PyValueError, _>(self.to_string())
+impl From<CreateEngineError> for PyErr {
+    fn from(error: CreateEngineError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
 #[cfg(feature = "python")]
-#[allow(clippy::from_over_into)]
-impl Into<PyErr> for AcceptTokenError {
-    fn into(self) -> PyErr {
-        PyErr::new::<PyValueError, _>(self.to_string())
+impl From<AcceptTokenError> for PyErr {
+    fn from(error: AcceptTokenError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
 #[cfg(feature = "python")]
-#[allow(clippy::from_over_into)]
-impl Into<PyErr> for MaskLogitsError {
-    fn into(self) -> PyErr {
-        PyErr::new::<PyValueError, _>(self.to_string())
+impl From<MaskLogitsError> for PyErr {
+    fn from(error: MaskLogitsError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
 #[cfg(feature = "python")]
-#[allow(clippy::from_over_into)]
-impl Into<PyErr> for UpdateLogitsError {
-    fn into(self) -> PyErr {
-        PyErr::new::<PyValueError, _>(self.to_string())
+impl From<UpdateLogitsError> for PyErr {
+    fn from(error: UpdateLogitsError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
 
-#[allow(clippy::from_over_into)]
 #[cfg(feature = "wasm")]
-impl Into<JsValue> for CreateVocabularyErrorJs {
-    fn into(self) -> JsValue {
-        JsValue::from_str(self.to_string().as_str())
+impl From<CreateVocabularyErrorJs> for JsValue {
+    fn from(error: CreateVocabularyErrorJs) -> Self {
+        JsValue::from_str(error.to_string().as_str())
     }
 }
 #[cfg(feature = "wasm")]
@@ -477,9 +476,9 @@ impl Engine {
     /// Tries to accept new bytes.
     ///
     /// # Signature
-    /// 
+    ///
     /// (self, bytes: bytes) -> AcceptTokenResult
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `bytes` - The bytes to be accepted.
@@ -644,7 +643,7 @@ impl Engine {
     fn __copy__(&self) -> Engine {
         self.clone()
     }
-    fn __deepcopy__(&self, _memo:pyo3::Bound<'_,PyDict>) -> Engine {
+    fn __deepcopy__(&self, _memo: pyo3::Bound<'_, PyDict>) -> Engine {
         self.clone()
     }
 }

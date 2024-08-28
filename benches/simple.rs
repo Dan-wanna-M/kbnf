@@ -4,7 +4,8 @@ use ahash::AHashMap;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kbnf::{
     engine::{Engine, EngineConfig},
-    vocabulary::{Token, Vocabulary}, EngineLike,
+    vocabulary::{Token, Vocabulary},
+    EngineLike,
 };
 #[derive(Debug, thiserror::Error)]
 /// Error type when reading RWKV world model's vocabulary file.
@@ -53,7 +54,7 @@ pub fn read_rwkv_world_vocab(path: impl AsRef<Path>) -> Result<Vocabulary, ReadR
     Ok(Vocabulary::new(id_to_token, id_to_token_string).unwrap())
 }
 
-fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits:&mut [f32]) {
+fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits: &mut [f32]) {
     for _ in 0..iteration {
         let _ = engine.try_accept_new_token(token_id).unwrap();
         engine.compute_allowed_token_ids();
@@ -69,7 +70,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut logits = vec![0.0f32; 65536];
     let mut engine = Engine::new("start::=('{'start'}')?;", vocab.clone()).unwrap();
     c.bench_function("unmarked middle recursion 100 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124, &mut logits))
     });
     let no_cache_config = kbnf::config::Config {
         engine_config: EngineConfig {
@@ -85,7 +86,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("whitespace recursion 10 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 10, 33,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 33, &mut logits))
     });
     let mut engine = Engine::with_config(
         "start::=C'\n';C::='{'|'{' C;",
@@ -94,19 +95,19 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("right recursion 100 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124, &mut logits))
     });
     c.bench_function("right recursion 50 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 50, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 50, 124, &mut logits))
     });
     c.bench_function("right recursion 25 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 25, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 25, 124, &mut logits))
     });
     c.bench_function("right recursion 10 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 124, &mut logits))
     });
     c.bench_function("right recursion 5 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 5, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 5, 124, &mut logits))
     });
     let mut engine = Engine::with_config(
         "start::=C'\n';C::=C'{'|'{';",
@@ -115,15 +116,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("left recursion 100 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 100, 124, &mut logits))
     });
     let mut engine = Engine::new("start::=#\"[a-zA-Z0-9_ ]+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("alphanumeric 5 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 5, 76,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 5, 76, &mut logits))
     });
     let mut engine = Engine::new("start::=#\".+\"'\n';", vocab.clone()).unwrap();
     c.bench_function("always match regex 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113, &mut logits))
     });
     let mut engine = Engine::with_config(
         "start::=#\".+\"'\n';",
@@ -132,11 +133,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("always match regex 3 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113, &mut logits))
     });
     let mut engine = Engine::new("start::=#e'.+\n\n';", vocab.clone()).unwrap();
     c.bench_function("simple except! 3 iterations", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113, &mut logits))
     });
 }
 

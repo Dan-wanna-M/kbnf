@@ -434,13 +434,12 @@ pub use engine::Engine;
 pub use engine_like::AcceptTokenResult;
 pub use engine_like::EngineLike;
 pub use grammar::Grammar;
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 pub use vocabulary::Token;
 pub use vocabulary::Vocabulary;
-
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]

@@ -1,7 +1,13 @@
 #[cfg(test)]
 
 mod tests {
-    use std::{cell::RefCell, fs::File, io::BufReader, path::Path, sync::{Arc, Mutex}};
+    use std::{
+        cell::RefCell,
+        fs::File,
+        io::BufReader,
+        path::Path,
+        sync::{Arc, Mutex},
+    };
 
     use ahash::AHashMap;
     use insta::assert_snapshot;
@@ -169,21 +175,6 @@ mod tests {
             !engine.allowed_token_ids_from_last_computation().is_empty(),
             "allowed token ids are not updated correctly!"
         );
-    }
-    #[test]
-    fn a()
-    {
-        fn create_fn() -> Arc<dyn Fn()> {
-            let text = Mutex::new("Fn".to_owned());
-             Arc::new(move|| {
-                text.lock().unwrap().push_str(" is called");
-                println!("This is a: {text:?}");
-            })
-        }
-        
-        let fn_plain = create_fn();
-        fn_plain();
-        fn_plain();
     }
 
     #[test]
@@ -493,21 +484,20 @@ mod tests {
             .unwrap();
         assert_eq!(result, AcceptTokenResult::Ongoing);
         assert_eq!(
-            engine
-                .try_accept_new_token(
-                    vocab
-                        .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
-                        .unwrap()
-                ),
+            engine.try_accept_new_token(
+                vocab
+                    .token_id(&Token("\n".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap()
+            ),
             Err(kbnf::engine_like::AcceptTokenError::Rejected)
         );
         let result = engine
-        .try_accept_new_token(
-            vocab
-                .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
-                .unwrap(),
-        )
-        .unwrap();
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("a".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
         assert_eq!(result, AcceptTokenResult::Finished);
         engine.compute_allowed_token_ids();
         engine.reset();

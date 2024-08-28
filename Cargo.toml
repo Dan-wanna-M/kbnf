@@ -51,7 +51,7 @@ insta = { version = "1.26.0" }
 serde_json = "1.0.48"
 criterion = "0.5.1"
 [features]
-default = []
+default = ["wasm", "python"]
 wasm = ["getrandom/js", "wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
 python = ["pyo3", "pyo3-log"]
 [[bench]]

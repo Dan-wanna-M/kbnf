@@ -1494,40 +1494,17 @@ where
         + Eq
         + std::hash::Hash
         + PartialEq,
-    TD: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Eq
-        + std::hash::Hash
-        + PartialEq,
-    TP: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Eq
-        + std::hash::Hash
-        + PartialEq,
-    TSP: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Eq
-        + std::hash::Hash
-        + PartialEq,
-    TS: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Eq
-        + std::hash::Hash
-        + PartialEq,
+    TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
+    TS: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     usize: num::traits::AsPrimitive<TI>
         + num::traits::AsPrimitive<TD>
         + num::traits::AsPrimitive<TP>
         + num::traits::AsPrimitive<TSP>
         + num::traits::AsPrimitive<TS>,
-{}
+{
+}
 
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
@@ -1701,7 +1678,7 @@ where
                         {
                             if second_byte_unseen {
                                 // SAFETY: invalid_next_bytes preallocates 256 bytes on the stack
-                                unsafe{invalid_next_bytes.insert_unchecked(token_byte.into())};
+                                unsafe { invalid_next_bytes.insert_unchecked(token_byte.into()) };
                             }
                             rejected = true;
                             token_iter.next_token();

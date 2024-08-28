@@ -4,7 +4,8 @@ use ahash::AHashMap;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kbnf::{
     engine::{Engine, EngineConfig},
-    vocabulary::{Token, Vocabulary}, EngineLike,
+    vocabulary::{Token, Vocabulary},
+    EngineLike,
 };
 #[derive(Debug, thiserror::Error)]
 /// Error type when reading RWKV world model's vocabulary file.
@@ -53,7 +54,7 @@ pub fn read_rwkv_world_vocab(path: impl AsRef<Path>) -> Result<Vocabulary, ReadR
     Ok(Vocabulary::new(id_to_token, id_to_token_string).unwrap())
 }
 
-fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits:&mut [f32]) {
+fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits: &mut [f32]) {
     for _ in 0..iteration {
         let _ = engine.try_accept_new_token(token_id).unwrap();
         engine.compute_allowed_token_ids();
@@ -81,7 +82,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     )
     .unwrap();
     c.bench_function("always match regex 3 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113,&mut logits))
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113, &mut logits))
     });
 }
 
