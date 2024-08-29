@@ -40,6 +40,16 @@ pub enum MaskLogitsError {
     /// The input logits array is not equal to the vocabulary size.
     InvalidLogitsLength,
 }
+
+#[cfg_attr(feature = "python", pyclass(eq, eq_int))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
+/// Represents the error when an [`EngineLike`] tries to mask logits.
+pub enum WriteBufferError {
+    /// The buffer is not large enough to hold all the disallowed token IDs.
+    BufferTooSmall,
+}
+
 #[cfg_attr(feature = "python", pyclass(eq, eq_int))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
@@ -141,6 +151,8 @@ pub trait EngineLike: sealed::Sealed {
     ///
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet;
+    /// Write the disallowed token IDs to the given buffer.
+    fn write_disallowed_token_ids_to_buffer(&self, buffer: &mut [usize]) -> Result<(), WriteBufferError>;
     /// Checks if the engine is finished.
     fn is_finished(&self) -> bool;
     /// Resets the engine to its initial state. Notably, the cache is preserved.

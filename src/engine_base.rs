@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use crate::engine::EngineConfig;
 use crate::engine_like::EngineLike;
+use crate::engine_like::WriteBufferError;
 use crate::grammar::RegexType;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
@@ -1833,6 +1834,19 @@ where
 
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet {
         &self.allowed_token_ids
+    }
+
+    fn write_disallowed_token_ids_to_buffer(
+        &self,
+        buffer: &mut [usize],
+    ) -> Result<(), WriteBufferError> {
+        if self.allowed_token_ids.count_zeroes(..) > buffer.len() {
+            return Err(WriteBufferError::BufferTooSmall);
+        }
+        for (token_id, buffer_element) in self.allowed_token_ids.zeroes().zip(buffer.iter_mut()) {
+            *buffer_element = token_id;
+        }
+        Ok(())
     }
 
     fn is_finished(&self) -> bool {

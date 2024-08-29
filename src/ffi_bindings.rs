@@ -1,6 +1,8 @@
 #[cfg(any(feature = "python", feature = "wasm"))]
 use crate::engine::CreateEngineError;
 #[cfg(any(feature = "python", feature = "wasm"))]
+use crate::engine_like::WriteBufferError;
+#[cfg(any(feature = "python", feature = "wasm"))]
 use crate::engine_like::{AcceptTokenError, MaskLogitsError, UpdateLogitsError};
 #[cfg(any(feature = "python", feature = "wasm"))]
 use crate::vocabulary::{CreateVocabularyError, Vocabulary};
@@ -55,7 +57,12 @@ impl From<UpdateLogitsError> for PyErr {
         PyErr::new::<PyValueError, _>(error.to_string())
     }
 }
-
+#[cfg(feature = "python")]
+impl From<WriteBufferError> for PyErr {
+    fn from(error: WriteBufferError) -> Self {
+        PyErr::new::<PyValueError, _>(error.to_string())
+    }
+}
 #[cfg(feature = "wasm")]
 impl From<CreateVocabularyErrorJs> for JsValue {
     fn from(error: CreateVocabularyErrorJs) -> Self {
@@ -536,8 +543,62 @@ impl Engine {
             .zeroes()
             .collect()
     }
-    /// Checks if the engine is finished.
+    /// Gets a hashable index of the allowed token IDs.
     ///
+    /// # Signature
+    ///
+    /// (self) -> bytes
+    #[pyo3(name = "get_index_of_allowed_token_ids")]
+    pub fn get_index_of_allowed_token_ids_py(&self) -> &[u8] {
+        let allowed_token_ids =
+            EngineLike::allowed_token_ids_from_last_computation(self).as_slice();
+        // SAFETY: the allowed_token_ids is an aligned slice of usize, which is also aligned and reinterpretable as u8 slice.
+        // std::mem::size_of_val returns the size of the value in bytes, which is also the size of the u8 slice.
+        // The ptr is not used anywhere else, so no mutation happens.
+        unsafe {
+            std::slice::from_raw_parts(
+                allowed_token_ids.as_ptr() as *const u8,
+                std::mem::size_of_val(allowed_token_ids),
+            )
+        }
+    }
+    /// Gets the number of disallowed token IDs.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> int
+    #[pyo3(name = "get_number_of_disallowed_token_ids")]
+    pub fn get_number_of_disallowed_token_ids_py(&self) -> usize {
+        EngineLike::allowed_token_ids_from_last_computation(self).count_zeroes(..)
+    }
+    /// Writes the disallowed token IDs to the given buffer.
+    ///
+    /// # Signature
+    ///
+    /// (self, ptr: int, length: int) -> None
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - The pointer to the buffer.
+    /// * `length` - The length of the buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WriteBufferError`] when the buffer is too small.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the pointer is on CPU, points to writable,aligned memory that contains u32 and the length is correct.
+    #[pyo3(name = "write_disallowed_token_ids_to_buffer")]
+    pub unsafe fn write_disallowed_token_ids_to_buffer_py(
+        &self,
+        ptr: usize,
+        length: usize,
+    ) -> Result<(), WriteBufferError> {
+        let buffer = std::slice::from_raw_parts_mut(ptr as *mut usize, length);
+        EngineLike::write_disallowed_token_ids_to_buffer(self, buffer)
+    }
+    /// Checks if the engine is finished.
     /// # Signature
     ///
     /// (self) -> bool

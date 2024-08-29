@@ -38,10 +38,18 @@ def _torch_slice_converter(module:types.ModuleType):
     return convert_slice
 
 def _torch_fast_mask_logits(module:types.ModuleType):
+    cache: typing.Dict[bytes, module.Tensor] = {}
+    cache = {}
     def mask_logits_fast(tensor:typing.Any, engine:"Engine")->typing.Optional[typing.Any]:
         if isinstance(tensor, module.Tensor):
             assert tensor.dim() == 1, f"Only 1D tensor is supported, while the actual tensor shape is {tensor.shape}"
-            indices = module.tensor(engine.get_disallowed_token_ids_from_last_computation(),device=tensor.device,dtype=module.int64)
+            index = engine.get_index_of_allowed_token_ids()
+            if index not in cache:
+                indices = module.empty((engine.get_number_of_disallowed_token_ids(),), device="cpu",dtype=module.int64)
+                engine.write_disallowed_token_ids_to_buffer(indices)
+                cache[index] = indices
+            else:
+                indices = cache[index]
             tensor.index_fill_(0,indices,-float("inf"))
             return tensor
         return None
