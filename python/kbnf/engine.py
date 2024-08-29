@@ -51,7 +51,7 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 cache[index] = indices
             else:
                 indices = cache[index]
-            tensor.index_fill_(0,indices,-float("inf"))
+            tensor.index_fill_(0,indices.to(device=tensor.device),-float("inf"))
             return tensor
         return None
     return mask_logits_fast
