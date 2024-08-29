@@ -46,7 +46,8 @@ def _torch_fast_mask_logits(module:types.ModuleType):
             index = engine.get_index_of_allowed_token_ids()
             if index not in cache:
                 indices = module.empty((engine.get_number_of_disallowed_token_ids(),), device="cpu",dtype=module.int64)
-                engine.write_disallowed_token_ids_to_buffer(indices)
+                assert indices.data_ptr() % 4 == 0, f"The indices data pointer which points to {indices.data_ptr()} is not aligned to 4 bytes"
+                engine.write_disallowed_token_ids_to_buffer(indices.data_ptr(), indices.shape[-1])
                 cache[index] = indices
             else:
                 indices = cache[index]
