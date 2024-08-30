@@ -3,6 +3,7 @@ import typing
 import importlib
 import sys
 _pointer_size = (sys.maxsize.bit_length() + 1) % 8
+assert _pointer_size == 8, f"The pointer size of the current Python interpreter is {_pointer_size} byte rather than 8 bytes"
 from .kbnf import InternalEngine, AcceptTokenResult, Vocabulary,Config
 _slice_converters = []
 _fast_mask_logits = []
@@ -53,7 +54,6 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 indices = module.empty((length,), device="cpu",dtype=module.int64)
                 data_ptr = indices.data_ptr()
                 assert data_ptr % 8 == 0, f"The indices data pointer which points to {data_ptr} is not aligned to 8 bytes"
-                assert _pointer_size == 8, f"The pointer size of the current Python interpreter is {_pointer_size} byte rather than 8 bytes"
                 engine.write_disallowed_token_ids_to_buffer(data_ptr, length)
                 cache[index] = indices
             else:
@@ -103,17 +103,26 @@ and hence DOES NOT affect the masking!
 # Arguments
 
 * `logits`: The logits to be masked. `numpy.ndarray` is supported by default.
-`torch.Tensor` is supported if PyTorch is installed. The shape of the logits should be `(1, n)` or `(n,)`.
-The logits will be updated in-place if:
-    * The logits data type is `float32`.
-    * The underlying data buffer are contiguous AND on CPU.
-    * The data pointer is aligned to 4 bytes.
-
+`torch.Tensor` is supported if PyTorch is installed. The shape of the logits should be `(n,)`.
+The logits will be updated in-place if any of the following conditions is met:
+    * logits type is torch.Tensor.
+    * logits type is numpy.ndarray and all of the following conditions are met:
+        * The logits data type is `float32`.
+        * The underlying data buffer are contiguous AND on CPU.
+        * The data pointer is aligned to 4 bytes.
 # Returns
 
 The masked logits. The shape of the returned logits is the same as the input logits. 
 The returned logits is the same object as the input logits if the input logits is updated in-place.
 Otherwise, a new object with the same type as the input logits is returned.
+
+# Exceptions
+
+This method may raise the following exceptions:
+    * TypeError: When the logits type is not supported.
+    * AssertionError: When the logits shape is not supported or the memory allocator returns an unaligned pointer.
+    * ValueError: When the logits length is too short.
+    * torch.RuntimeError: When the logits type is torch.Tensor and the logits length is too short.
         """
         result = _mask_logits_fast(logits, self)
         if result is not None:
@@ -138,10 +147,17 @@ The logits will be updated in-place if:
 
 # Returns
 
-    a tuple (logits, result). The logits is the same object as the input logits if the input logits is updated in-place.
-    Otherwise, a new object with the same type as the input logits is returned. 
-    The `result` is the result of accepting the token ID.
-"""
+a tuple (logits, result). The logits is the same object as the input logits if the input logits is updated in-place.
+Otherwise, a new object with the same type as the input logits is returned. 
+The `result` is the result of accepting the token ID.
+
+# Exceptions
+
+This method may raise the following exceptions:
+    * TypeError: When the logits type is not supported.
+    * AssertionError: When the logits shape is not supported or the memory allocator returns an unaligned pointer.
+    * ValueError: When the logits length is too short.
+        """
         logits, ptr, size = _convert_logits_to_slice(logits)
         result = super().update_logits(token_id,ptr, size)
         return logits,result
