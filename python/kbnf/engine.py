@@ -2,8 +2,7 @@ import types
 import typing
 import importlib
 import sys
-_pointer_size = (sys.maxsize.bit_length() + 1) % 8
-assert _pointer_size == 8, f"The pointer size of the current Python interpreter is {_pointer_size} byte rather than 8 bytes"
+_torch_fast_mask_enabled = sys.maxsize.bit_length() == 63
 from .kbnf import InternalEngine, AcceptTokenResult, Vocabulary,Config
 _slice_converters = []
 _fast_mask_logits = []
@@ -167,4 +166,5 @@ This method may raise the following exceptions:
 
 _try_register_slice_converter("torch", _torch_slice_converter)
 _try_register_slice_converter("numpy", _numpy_slice_converter)
-_try_register_fast_mask_logits("torch", _torch_fast_mask_logits)
+if _torch_fast_mask_enabled:
+    _try_register_fast_mask_logits("torch", _torch_fast_mask_logits)
