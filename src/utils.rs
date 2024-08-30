@@ -61,6 +61,10 @@ pub fn find_max_state_id_from_kbnf_syntax_grammar(grammar: &SimplifiedGrammar) -
             FiniteStateAutomaton::Dfa(dfa) => dfa.state_len(),
         });
     }
+    let suffix_automata = &grammar.id_to_suffix_automaton;
+    for i in suffix_automata {
+        max_state_id = max_state_id.max(i.num_of_nodes());
+    }
     max_state_id
 }
 /// Helper function to find the maximum dotted position from an KBNF grammar.

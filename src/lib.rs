@@ -382,13 +382,25 @@ In other words, two consecutive A will not appear in the middle of the output.
 *)
 ```
 
-
 The Rust regex crate is used to support regular expressions,
 which means [the syntax supported](https://docs.rs/regex/latest/regex/index.html#syntax) might differ from other regex engines.
 Notably, the regex crate does not support arbitrary lookarounds. In exchange, linear time matching is guaranteed.
 **WARNING: the regular expression is compiled into a DFA which, by its nature, has worst case exponential time and space complexity.**
 If you are dealing with untrusted regular expressions,
 you should set a memory limit in [Config::regex_config] to prevent DoS attacks.
+
+## Substrings
+
+A UTF-8 string enclosed in `#substrs""` is a substrings symbol. A substrings symbol constrains the output to be a substring of the given string.
+
+```ebnf
+start ::= #substrs"AB" '\n';
+(*
+The engine will constrain the output to be a substring of "AB" ended with a newline.
+Note that empty strings (essentially skipping this symbol completely) are always allowed,
+since empty string is a substring of any string.
+*)
+```
 
 # Performance
 

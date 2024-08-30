@@ -152,7 +152,10 @@ pub trait EngineLike: sealed::Sealed {
     /// In other words, [`EngineLike::try_accept_new_token`] DOES NOT compute the allowed token IDs and hence DOES NOT affect its result!
     fn allowed_token_ids_from_last_computation(&self) -> &FixedBitSet;
     /// Write the disallowed token IDs to the given buffer.
-    fn write_disallowed_token_ids_to_buffer(&self, buffer: &mut [usize]) -> Result<(), WriteBufferError>;
+    fn write_disallowed_token_ids_to_buffer(
+        &self,
+        buffer: &mut [usize],
+    ) -> Result<(), WriteBufferError>;
     /// Checks if the engine is finished.
     fn is_finished(&self) -> bool;
     /// Resets the engine to its initial state. Notably, the cache is preserved.

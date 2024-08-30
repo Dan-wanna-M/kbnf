@@ -476,15 +476,12 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result, AcceptTokenResult::Ongoing);
-        let result = engine
-            .try_accept_new_bytes(b"c")
-            .unwrap();
-        let result = engine
-            .try_accept_new_token(
-                vocab
-                    .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
-                    .unwrap(),
-            );
+        let result = engine.try_accept_new_bytes(b"c").unwrap();
+        let result = engine.try_accept_new_token(
+            vocab
+                .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                .unwrap(),
+        );
         assert_eq!(result, Err(kbnf::engine_like::AcceptTokenError::Rejected));
         engine.compute_allowed_token_ids();
         assert_snapshot!(format!("{:#?}", engine));

@@ -588,7 +588,7 @@ impl Engine {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that the pointer is on CPU, points to writable,aligned memory that contains u32 and the length is correct.
+    /// The caller must ensure that the pointer is non-null, on CPU, points to writable, aligned memory that contains usize and the length is correct.
     #[pyo3(name = "write_disallowed_token_ids_to_buffer")]
     pub unsafe fn write_disallowed_token_ids_to_buffer_py(
         &self,

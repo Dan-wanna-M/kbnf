@@ -223,7 +223,10 @@ impl EngineLike for Engine {
         match_engine_union!(EngineLike::allowed_token_ids_from_last_computation[&self.union])
     }
 
-    fn write_disallowed_token_ids_to_buffer(&self, buffer: &mut [usize]) -> Result<(), crate::engine_like::WriteBufferError> {
+    fn write_disallowed_token_ids_to_buffer(
+        &self,
+        buffer: &mut [usize],
+    ) -> Result<(), crate::engine_like::WriteBufferError> {
         match_engine_union!(EngineLike::write_disallowed_token_ids_to_buffer[&self.union, buffer])
     }
 

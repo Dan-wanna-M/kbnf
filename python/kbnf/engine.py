@@ -1,6 +1,8 @@
 import types
 import typing
 import importlib
+import sys
+_pointer_size = (sys.maxsize.bit_length() + 1) % 8
 from .kbnf import InternalEngine, AcceptTokenResult, Vocabulary,Config
 _slice_converters = []
 _fast_mask_logits = []
@@ -45,9 +47,14 @@ def _torch_fast_mask_logits(module:types.ModuleType):
             assert tensor.dim() == 1, f"Only 1D tensor is supported, while the actual tensor shape is {tensor.shape}"
             index = engine.get_index_of_allowed_token_ids()
             if index not in cache:
-                indices = module.empty((engine.get_number_of_disallowed_token_ids(),), device="cpu",dtype=module.int64)
-                assert indices.data_ptr() % 4 == 0, f"The indices data pointer which points to {indices.data_ptr()} is not aligned to 4 bytes"
-                engine.write_disallowed_token_ids_to_buffer(indices.data_ptr(), indices.shape[-1])
+                length = engine.get_number_of_disallowed_token_ids()
+                if length == 0: # Rust FFI requires non-null pointer
+                    return tensor
+                indices = module.empty((length,), device="cpu",dtype=module.int64)
+                data_ptr = indices.data_ptr()
+                assert data_ptr % 8 == 0, f"The indices data pointer which points to {data_ptr} is not aligned to 8 bytes"
+                assert _pointer_size == 8, f"The pointer size of the current Python interpreter is {_pointer_size} byte rather than 8 bytes"
+                engine.write_disallowed_token_ids_to_buffer(data_ptr, length)
                 cache[index] = indices
             else:
                 indices = cache[index]
