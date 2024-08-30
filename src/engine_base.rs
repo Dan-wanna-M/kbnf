@@ -120,6 +120,9 @@ where
                     }
                 }
                 HIRNode::Nonterminal(_) => String::new(),
+                HIRNode::Substrings(_) => {
+                    format!("[{}]", self.state_id.as_())
+                }
             }
         };
         EarleyItemDebugStruct {
@@ -291,17 +294,11 @@ pub enum CreateEngineBaseError {
     /// The regex length exceeds the maximum regex length allowed by the current size of StateID(TS).s
     RegexTooLarge(usize, usize),
     #[error(
-        "Except! length {0} exceeds {1}, the maximum excepted length allowed by current size of StateID(TS).
-     Consider reducing excepted terminals, use larger StateID(TS) or less repetition."
+        "Substrings length {0} exceeds {1}, the maximum substrings length allowed by current size of StateID(TS).
+     Consider reducing substrings length or use larger StateID(TS)."
     )]
-    /// The excepted length exceeds the maximum excepted length allowed by the current size of StateID(TS).
-    ExceptedTooLarge(usize, usize),
-    #[error(
-        "Repetition in regex {0} exceeds {1}, the maximum repetition allowed by current size of StateID(TS).
-     Consider reducing repetition or use larger StateID(TS)."
-    )]
-    /// The repetition in regex exceeds the maximum repetition allowed by the current size of StateID(TS).
-    RepetitionInExceptedTooLarge(usize, usize),
+    /// The substrings length exceeds the maximum substrings length allowed by the current size of StateID(TS).
+    SubstringsTooLarge(usize, usize),
 }
 #[derive(Clone)]
 struct StagedChanges<TI, TSP>
@@ -554,6 +551,7 @@ where
         );
         Self::validate_ts_size_for_terminals(&grammar)?;
         Self::validate_ts_size_for_regexes(&grammar)?;
+        Self::validate_ts_size_for_suffix_automata(&grammar)?;
         // Init fields
         let allowed_first_bytes = ByteSet::with_capacity(u8::MAX as usize);
         let allowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
@@ -640,6 +638,20 @@ where
         Ok(())
     }
 
+    fn validate_ts_size_for_suffix_automata(
+        grammar: &Grammar<TI>,
+    ) -> Result<(), CreateEngineBaseError> {
+        let suffix_automata = grammar.id_to_suffix_automata();
+        let max: usize = 2usize.saturating_pow(Self::STATE_ID_TYPE_BIT) - 1;
+        for suffix_automaton in suffix_automata {
+            for &node_id in suffix_automaton.get_topo_and_suf_len_sorted_node_ids() {
+                if node_id > max {
+                    return Err(CreateEngineBaseError::SubstringsTooLarge(node_id, max));
+                }
+            }
+        }
+        Ok(())
+    }
     /// Run prediction stage of Earley algorithm on last Earley set and current `already_predicted_nonterminals` content
     fn predict(
         grammar: &Grammar<TI>,
@@ -691,6 +703,9 @@ where
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
                     }
                 }
+            }
+            HIRNode::Substrings(_) => {
+                Self::from_suffix_automaton_node_id_to_state_id(general_sam::SAM_ROOT_NODE_ID)
             }
             _ => TS::ZERO,
         }
@@ -877,6 +892,14 @@ where
         // SAFETY: StateID is a u32 due to #[repr(transparent)] attribute
         unsafe { std::mem::transmute((state_id.as_() << stride2) as u32) }
     }
+    #[inline]
+    fn from_suffix_automaton_node_id_to_state_id(node_id: usize) -> TS {
+        node_id.as_()
+    }
+    #[inline]
+    fn from_state_id_to_suffix_automaton_node_id(state_id: TS) -> usize {
+        state_id.as_()
+    }
 
     fn scan(
         grammar: &Grammar<TI>,
@@ -978,6 +1001,31 @@ where
                                 }
                             );
                         }
+                    }
+                }
+                HIRNode::Substrings(suffix_automata_id) => {
+                    let suffix_automata =
+                        unsafe { grammar.suffix_automata_unchecked(suffix_automata_id) };
+                    let node_id = Self::from_state_id_to_suffix_automaton_node_id(item.state_id);
+                    let mut state = suffix_automata.get_state(node_id);
+                    state.feed([byte]);
+                    if !state.is_nil() {
+                        // is one substring
+                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
+                        unsafe {
+                            Self::advance_item_normal_unchecked(
+                                grammar,
+                                earley_sets,
+                                to_be_completed_items,
+                                regex_start_config,
+                                item,
+                            )
+                        };
+                        let state_id =
+                            Self::from_suffix_automaton_node_id_to_state_id(state.node_id);
+                        item.state_id = state_id;
+                        // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
+                        unsafe { earley_sets.push_to_last_row_unchecked(item) };
                     }
                 }
                 HIRNode::Nonterminal(_) => {}

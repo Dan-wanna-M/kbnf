@@ -1,0 +1,307 @@
+---
+source: tests/test.rs
+expression: "format!(\"{:#?}\", engine)"
+---
+Engine {
+    union: U16U16U32U32U32(
+        EngineBase {
+            grammar: Grammar {
+                start_nonterminal: "start[0]",
+                rules: "start[0] ::= #\"abcbc\"[0]\"\n\"[0] | \"\n\"[0];\n",
+                id_to_regexes: {},
+                id_to_suffix_automata: {
+                    "#\"abcbc\"[0]": GeneralSam {
+                        node_pool: [
+                            GeneralSamNode {
+                                trans: {},
+                                accept: false,
+                                len: 0,
+                                link: 0,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    97: 2,
+                                    98: 6,
+                                    99: 8,
+                                },
+                                accept: false,
+                                len: 0,
+                                link: 0,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    98: 3,
+                                },
+                                accept: false,
+                                len: 1,
+                                link: 1,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    99: 4,
+                                },
+                                accept: false,
+                                len: 2,
+                                link: 6,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    98: 5,
+                                },
+                                accept: false,
+                                len: 3,
+                                link: 8,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    99: 7,
+                                },
+                                accept: false,
+                                len: 4,
+                                link: 6,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    99: 8,
+                                },
+                                accept: false,
+                                len: 1,
+                                link: 1,
+                            },
+                            GeneralSamNode {
+                                trans: {},
+                                accept: true,
+                                len: 5,
+                                link: 8,
+                            },
+                            GeneralSamNode {
+                                trans: {
+                                    98: 5,
+                                },
+                                accept: true,
+                                len: 2,
+                                link: 1,
+                            },
+                        ],
+                        topo_and_suf_len_sorted_order: [
+                            1,
+                            2,
+                            6,
+                            3,
+                            8,
+                            4,
+                            5,
+                            7,
+                        ],
+                    },
+                },
+                id_to_suffix_automata_first_bytes: [
+                    (
+                        "#\"abcbc\"[0]",
+                        1,
+                        [
+                            97,
+                            98,
+                            99,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        2,
+                        [
+                            98,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        3,
+                        [
+                            99,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        4,
+                        [
+                            98,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        5,
+                        [
+                            99,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        6,
+                        [
+                            99,
+                        ],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        7,
+                        [],
+                    ),
+                    (
+                        "#\"abcbc\"[0]",
+                        8,
+                        [
+                            98,
+                        ],
+                    ),
+                ],
+                id_to_regex_first_bytes: [],
+                id_to_terminals: [
+                    (
+                        "\"\n\"[0]",
+                        [
+                            10,
+                        ],
+                    ),
+                ],
+            },
+            allowed_first_bytes: [
+                10,
+            ],
+            allowed_token_ids: [
+                "\n[11]",
+            ],
+            earley_sets: [
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                        start_position: 0,
+                        state: "[1]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .\"\n\"[0]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                ],
+                [
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> #\"abcbc\"[0].\"\n\"[0]",
+                        start_position: 0,
+                        state: "[0]",
+                    },
+                    EarleyItemDebugStruct {
+                        dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                        start_position: 0,
+                        state: "[8]",
+                    },
+                ],
+            ],
+            cache: [
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"\n\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                    ],
+                    (
+                        [
+                            "\n[11]",
+                        ],
+                    ),
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"\n\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> #\"abcbc\"[0].\"\n\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                                start_position: 0,
+                                state: "[6]",
+                            },
+                        ],
+                    ],
+                    (
+                        [
+                            "\n[11]",
+                        ],
+                    ),
+                ),
+                (
+                    [
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                                start_position: 0,
+                                state: "[1]",
+                            },
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .\"\n\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                        ],
+                        [
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> #\"abcbc\"[0].\"\n\"[0]",
+                                start_position: 0,
+                                state: "[0]",
+                            },
+                            EarleyItemDebugStruct {
+                                dotted_rule: "start[0] -> .#\"abcbc\"[0]\"\n\"[0]",
+                                start_position: 0,
+                                state: "[8]",
+                            },
+                        ],
+                    ],
+                    (
+                        [
+                            "\n[11]",
+                        ],
+                    ),
+                ),
+            ],
+            to_be_completed_items: [],
+            to_be_completed_items_buffer: [],
+            deduplication_buffer: [],
+            postdot_items: [],
+            column_to_postdot_items: [],
+            postdot_items_since_last_commit: [],
+            leo_items: [],
+            leo_items_buffer: [],
+            already_predicted_nonterminals: [],
+            finished: false,
+            config: EngineConfig {
+                cache_enabled: true,
+                compaction_enabled: true,
+            },
+            regex_start_config: Config {
+                look_behind: None,
+                anchored: Yes,
+            },
+        },
+    ),
+}

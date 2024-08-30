@@ -22,7 +22,7 @@ crate-type = ["cdylib", "rlib"]
 ahash = { version = "0.8.11", features = ["serde"] }
 getrandom = { version = "0.2" }
 thiserror = "1.0.61"
-kbnf-syntax = "0.2.0"
+kbnf-syntax = "0.4.2"
 num = "0.4.3"
 jaggedarray = "0.2.11"
 string-interner = "0.17.0"
@@ -45,7 +45,7 @@ pyo3 = { version = "0.22.0", features = [
 mimalloc = { version = "0.1.43", optional = true }
 log = "0.4.22"
 pyo3-log = { version = "0.11.0", optional = true }
-fst = "0.4.7"
+general-sam = "1.0.0"
 [dev-dependencies]
 insta = { version = "1.26.0" }
 serde_json = "1.0.48"

@@ -9,6 +9,8 @@ Engine {
                 start_nonterminal: "start[0]",
                 rules: "start[0] ::= \"Hello, World!\n\"[0];\n",
                 id_to_regexes: {},
+                id_to_suffix_automata: {},
+                id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [],
                 id_to_terminals: [
                     (

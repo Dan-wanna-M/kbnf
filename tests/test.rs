@@ -439,6 +439,56 @@ mod tests {
             engine.reset();
         }
     }
+
+    #[test]
+    fn substrings() {
+        let input = "start::=#substrs'abcbc''\n';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let logits = vec![0.0; vocab.vocab_size()];
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("b".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("b".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, AcceptTokenResult::Ongoing);
+        let result = engine
+            .try_accept_new_bytes(b"c")
+            .unwrap();
+        let result = engine
+            .try_accept_new_token(
+                vocab
+                    .token_id(&Token("c".as_bytes().to_vec().into_boxed_slice()))
+                    .unwrap(),
+            );
+        assert_eq!(result, Err(kbnf::engine_like::AcceptTokenError::Rejected));
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+    }
     #[test]
     fn early_regex() {
         let input = "start::=#e'(.|\n)+\n\n''a';";

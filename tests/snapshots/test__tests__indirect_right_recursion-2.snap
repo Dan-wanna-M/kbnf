@@ -9,6 +9,8 @@ Engine {
                 start_nonterminal: "start[1]",
                 rules: "B[0] ::= \"y\"[0]A[2] | \"y\"[0];\nstart[1] ::= A[2]\"\n\"[1];\nA[2] ::= \"x\"[2]B[0] | \"x\"[2];\n",
                 id_to_regexes: {},
+                id_to_suffix_automata: {},
+                id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [],
                 id_to_terminals: [
                     (

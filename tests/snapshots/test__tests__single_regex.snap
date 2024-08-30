@@ -52,6 +52,8 @@ Engine {
                         ,
                     ),
                 },
+                id_to_suffix_automata: {},
+                id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [
                     (
                         "#\"\\AHello, World!\n\\z\"[0]",

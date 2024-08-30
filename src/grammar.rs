@@ -7,12 +7,14 @@ use crate::utils::{self, dispatch_by_dfa_state_status, ByteSet};
 use crate::Vocabulary;
 use ahash::AHashMap;
 use fixedbitset_stack::FixedBitSet;
+use general_sam::GeneralSamNodeID;
 use jaggedarray::jagged_array::JaggedArrayViewTrait;
 use jaggedarray::jagged_array::{JaggedArray, JaggedArrayView};
 use kbnf_regex_automata::dfa::Automaton;
 use kbnf_regex_automata::util::primitives::StateID;
 use kbnf_syntax::node::{OperatorFlattenedNode, Rhs};
 use kbnf_syntax::simplified_grammar::SimplifiedGrammar;
+use kbnf_syntax::suffix_automaton::SuffixAutomaton;
 use kbnf_syntax::InternedStrings;
 use kbnf_syntax::{self, regex::FiniteStateAutomaton};
 use num::traits::{NumAssign, NumOps};
@@ -110,6 +112,36 @@ where
         )
     }
 }
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(transparent)]
+/// The wrapper struct that represents the suffix automata id in the grammar.
+pub struct SuffixAutomataID<T>(pub T)
+where
+    T: Num + AsPrimitive<usize> + ConstOne + ConstZero;
+impl<T> SuffixAutomataID<T>
+where
+    T: Num
+        + AsPrimitive<usize>
+        + ConstOne
+        + ConstZero
+        + NumAssign
+        + std::cmp::PartialOrd
+        + std::convert::TryFrom<usize>
+        + num::Bounded
+        + Hash
+        + Eq,
+    usize: num::traits::AsPrimitive<T>,
+{
+    /// Get the display form of the suffix automata id.
+    pub fn to_display_form(&self, grammar: &Grammar<T>) -> String {
+        format!(
+            "#\"{}\"[{}]",
+            grammar.suffix_automata_str(*self).unwrap(),
+            self.0.as_()
+        )
+    }
+}
 /// The node of the grammar in HIR.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub enum HIRNode<T>
@@ -124,6 +156,8 @@ where
     Nonterminal(NonterminalID<T>),
     /// Early end regex node.
     EarlyEndRegexString(RegexID<T>),
+    /// The substrings node.
+    Substrings(SuffixAutomataID<T>),
 }
 
 impl<TI> HIRNode<TI>
@@ -151,6 +185,13 @@ where
             HIRNode::EarlyEndRegexString(x) => {
                 format!("#e\"{}\"[{}]", grammar.regex_str(*x).unwrap(), x.0.as_())
             }
+            HIRNode::Substrings(x) => {
+                format!(
+                    "#\"{}\"[{}]",
+                    grammar.suffix_automata_str(*x).unwrap(),
+                    x.0.as_()
+                )
+            }
         }
     }
 }
@@ -169,6 +210,8 @@ where
     pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet>,
     id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
+    id_to_suffix_automata: Vec<SuffixAutomaton>,
+    id_to_suffix_automata_first_bytes: AHashMap<(usize, GeneralSamNodeID), ByteSet>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -248,6 +291,22 @@ where
                 &utils::fill_debug_form_of_id_to_x(self.id_to_regexes.iter(), |x| {
                     RegexID(x.as_()).to_display_form(self)
                 }),
+            )
+            .field(
+                "id_to_suffix_automata",
+                &utils::fill_debug_form_of_id_to_x(self.id_to_suffix_automata.iter(), |x| {
+                    SuffixAutomataID(x.as_()).to_display_form(self)
+                }),
+            )
+            .field(
+                "id_to_suffix_automata_first_bytes",
+                &utils::get_deterministic_display_form_from_hash_map(
+                    &self.id_to_suffix_automata_first_bytes,
+                    |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
+                )
+                .iter()
+                .map(|(k, v)| (SuffixAutomataID(k.0.as_()).to_display_form(self), k.1, v))
+                .collect::<Vec<_>>(),
             )
             .field(
                 "id_to_regex_first_bytes",
@@ -374,13 +433,25 @@ where
                                     })?,
                                 ))
                             }
+                            OperatorFlattenedNode::Substrings(x) => HIRNode::Substrings(
+                                SuffixAutomataID(x.to_usize().try_into().map_err(|_| {
+                                    CreateGrammarError::IntConversionError(
+                                        "suffix automata".to_string(),
+                                        x.to_usize(),
+                                        TI::max_value().as_(),
+                                    )
+                                })?),
+                            ),
                         });
                     }
                 }
             }
         }
         let id_to_regexes = grammar.id_to_regex;
-        let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes, false)?;
+        let id_to_suffix_automata = grammar.id_to_suffix_automaton;
+        let id_to_regex_first_bytes = Self::construct_regex_first_bytes(&id_to_regexes);
+        let id_to_suffix_automata_first_bytes =
+            Self::construct_suffix_automata_first_bytes(&id_to_suffix_automata);
         let mut regex_to_token_ids = AHashMap::default();
         if let Some(limit) = regex_config.min_tokens_required_for_eager_regex_cache {
             regex_to_token_ids =
@@ -401,6 +472,8 @@ where
             id_to_regexes,
             id_to_terminals,
             id_to_regex_first_bytes,
+            id_to_suffix_automata,
+            id_to_suffix_automata_first_bytes,
             regex_to_token_ids,
         })
     }
@@ -482,8 +555,7 @@ where
 
     fn construct_regex_first_bytes(
         id_to_regexes: &[FiniteStateAutomaton],
-        negated: bool,
-    ) -> Result<AHashMap<(usize, StateID), ByteSet>, CreateGrammarError> {
+    ) -> AHashMap<(usize, StateID), ByteSet> {
         let mut id_to_regex_first_bytes = AHashMap::default();
         for (i, regex) in id_to_regexes.iter().enumerate() {
             match regex {
@@ -496,8 +568,8 @@ where
                             let condition;
                             dispatch_by_dfa_state_status!(next_state,
                                     dfa,
-                                    accept=>{condition = !negated},
-                                    reject=>{condition = negated},
+                                    accept=>{condition = true},
+                                    reject=>{condition = false},
                                     in_progress=>{condition = true}
                             );
                             if condition {
@@ -509,7 +581,28 @@ where
                 }
             }
         }
-        Ok(id_to_regex_first_bytes)
+        id_to_regex_first_bytes
+    }
+
+    fn construct_suffix_automata_first_bytes(
+        id_to_suffix_automata: &[SuffixAutomaton],
+    ) -> AHashMap<(usize, GeneralSamNodeID), ByteSet> {
+        let mut id_to_suffix_automata_first_bytes = AHashMap::default();
+        for (i, suffix_automata) in id_to_suffix_automata.iter().enumerate() {
+            for &node_id in suffix_automata.get_topo_and_suf_len_sorted_node_ids() {
+                let mut set = ByteSet::with_capacity(256);
+                let state = suffix_automata.get_state(node_id);
+                for byte in 0..u8::MAX {
+                    let mut state = state.clone();
+                    state.feed([byte]);
+                    if !state.is_nil() {
+                        set.insert(byte as usize);
+                    }
+                }
+                id_to_suffix_automata_first_bytes.insert((i, node_id), set);
+            }
+        }
+        id_to_suffix_automata_first_bytes
     }
 
     #[inline]
@@ -587,11 +680,35 @@ where
             .regex_strings
             .resolve(SymbolU32::try_from_usize(regex_id.0.as_()).unwrap())
     }
-
+    #[inline]
+    /// Get the suffix automata string from the grammar.
+    pub fn suffix_automata_str(&self, suffix_automata_id: SuffixAutomataID<TI>) -> Option<&str> {
+        self.interned_strings
+            .sub_strings
+            .resolve(SymbolU32::try_from_usize(suffix_automata_id.0.as_()).unwrap())
+    }
     #[inline]
     /// Get the regex from the grammar.
     pub fn regex(&self, regex_id: RegexID<TI>) -> &FiniteStateAutomaton {
         &self.id_to_regexes[regex_id.0.as_()]
+    }
+    #[inline]
+    /// Get the suffix automata from the grammar.
+    pub fn suffix_automata(&self, suffix_automata_id: SuffixAutomataID<TI>) -> &SuffixAutomaton {
+        &self.id_to_suffix_automata[suffix_automata_id.0.as_()]
+    }
+    #[inline]
+    /// Get the suffix automata from the grammar without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the suffix automata id is within bounds.
+    pub unsafe fn suffix_automata_unchecked(
+        &self,
+        suffix_automata_id: SuffixAutomataID<TI>,
+    ) -> &SuffixAutomaton {
+        self.id_to_suffix_automata
+            .get_unchecked(suffix_automata_id.0.as_())
     }
     #[inline]
     /// Get the regex from the grammar without bounds checking.
@@ -627,6 +744,11 @@ where
     /// Get the regexes from the grammar.
     pub fn id_to_regexes(&self) -> &[FiniteStateAutomaton] {
         &self.id_to_regexes
+    }
+    #[inline]
+    /// Get the suffix automata from the grammar.
+    pub fn id_to_suffix_automata(&self) -> &[SuffixAutomaton] {
+        &self.id_to_suffix_automata
     }
     #[inline]
     /// Get the terminals size.
