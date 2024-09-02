@@ -782,6 +782,10 @@ where
                             ),
                         ));
                 }
+                HIRNode::Substrings(_) => {
+                    let first_bytes = self.grammar.first_bytes_from_suffix_automaton(item.state_id.as_());
+                    self.allowed_first_bytes.union_with(first_bytes);
+                }
                 _ => {}
             }
         }

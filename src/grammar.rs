@@ -764,6 +764,13 @@ where
         &self.id_to_regex_first_bytes[&(regex_id.0.as_(), state_id)]
     }
     #[inline]
+    pub(crate) fn first_bytes_from_suffix_automaton(
+        &self,
+        state_id: GeneralSamNodeID,
+    ) -> &ByteSet {
+        &self.id_to_suffix_automata_first_bytes[&(0, state_id)]
+    }
+    #[inline]
     pub(crate) unsafe fn dotted_productions(
         &self,
         nonterminal_id: NonterminalID<TI>,
