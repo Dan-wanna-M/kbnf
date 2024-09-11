@@ -64,6 +64,7 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 disallowed, allowed = engine._cache[index]
             if num_of_disallowed>tensor.shape[-1]/2: # we have more disallowed than allowed
                 new_tensor = module.full_like(tensor,fill_value=ninf)
+                allowed = allowed.to(device=tensor.device)
                 new_tensor.index_put_((allowed,), tensor.index_select(0, allowed))
                 return new_tensor
             else: # we have more allowed than disallowed
