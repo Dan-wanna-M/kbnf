@@ -543,6 +543,7 @@ impl Engine {
             .zeroes()
             .collect()
     }
+
     /// Gets a hashable index of the allowed token IDs.
     ///
     /// # Signature
@@ -570,6 +571,16 @@ impl Engine {
     #[pyo3(name = "get_number_of_disallowed_token_ids")]
     pub fn get_number_of_disallowed_token_ids_py(&self) -> usize {
         EngineLike::allowed_token_ids_from_last_computation(self).count_zeroes(..)
+    }
+
+    /// Gets the number of allowed token IDs.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> int
+    #[pyo3(name = "get_number_of_allowed_token_ids")]
+    pub fn get_number_of_allowed_token_ids_py(&self) -> usize {
+        EngineLike::allowed_token_ids_from_last_computation(self).count_ones(..)
     }
     /// Writes the disallowed token IDs to the given buffer.
     ///
@@ -620,6 +631,57 @@ impl Engine {
         let buffer = std::slice::from_raw_parts_mut(ptr as *mut usize, length);
         EngineLike::write_disallowed_token_ids_to_buffer(self, buffer)
     }
+
+    /// Writes the allowed token IDs to the given buffer.
+    ///
+    /// # Signature
+    ///
+    /// (self, ptr: int, length: int) -> None
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - The pointer to the buffer.
+    /// * `length` - The length of the buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WriteBufferError`] when the buffer is too small.
+    ///
+    ///
+    /// # Safety
+    ///
+    /// Behavior is undefined if any of the following conditions are violated:
+    ///
+    /// * `ptr` must be [valid] for both reads and writes for `len * mem::size_of::<T>()` many bytes,
+    ///   and it must be properly aligned. This means in particular:
+    ///
+    ///     * The entire memory range of this slice must be contained within a single allocated object!
+    ///       Slices can never span across multiple allocated objects.
+    ///     * `ptr` must be non-null and aligned even for zero-length slices. One
+    ///       reason for this is that enum layout optimizations may rely on references
+    ///       (including slices of any length) being aligned and non-null to distinguish
+    ///       them from other data. You can obtain a pointer that is usable as `ptr`
+    ///       for zero-length slices using [`NonNull::dangling()`].
+    /// 
+    /// * `ptr` must point to `len` consecutive properly initialized values of type `T`.
+    ///
+    /// * The memory referenced by the returned slice must not be accessed through any other pointer
+    ///   (not derived from the return value) for the duration of lifetime `'a`.
+    ///   Both read and write accesses are forbidden.
+    ///
+    /// * The total size `len * mem::size_of::<T>()` of the slice must be no larger than `isize::MAX`,
+    ///   and adding that size to `data` must not "wrap around" the address space.
+    ///   See the safety documentation of [`pointer::offset`].
+    #[pyo3(name = "write_allowed_token_ids_to_buffer")]
+    pub unsafe fn write_allowed_token_ids_to_buffer_py(
+        &self,
+        ptr: usize,
+        length: usize,
+    ) -> Result<(), WriteBufferError> {
+        let buffer = std::slice::from_raw_parts_mut(ptr as *mut usize, length);
+        EngineLike::write_allowed_token_ids_to_buffer(self, buffer)
+    }
+
     /// Checks if the engine is finished.
     /// # Signature
     ///

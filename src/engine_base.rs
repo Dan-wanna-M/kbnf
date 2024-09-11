@@ -1901,6 +1901,19 @@ where
         Ok(())
     }
 
+    fn write_allowed_token_ids_to_buffer(
+        &self,
+        buffer: &mut [usize],
+    ) -> Result<(), WriteBufferError> {
+        if self.allowed_token_ids.count_ones(..) > buffer.len() {
+            return Err(WriteBufferError::BufferTooSmall);
+        }
+        for (token_id, buffer_element) in self.allowed_token_ids.ones().zip(buffer.iter_mut()) {
+            *buffer_element = token_id;
+        }
+        Ok(())
+    }
+
     fn is_finished(&self) -> bool {
         self.finished
     }

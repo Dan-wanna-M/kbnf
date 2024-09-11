@@ -40,23 +40,35 @@ def _torch_slice_converter(module:types.ModuleType):
     return convert_slice
 
 def _torch_fast_mask_logits(module:types.ModuleType):
+    ninf = -float("inf")
     def mask_logits_fast(tensor:typing.Any, engine:"Engine")->typing.Optional[typing.Any]:
         if isinstance(tensor, module.Tensor):
             assert tensor.dim() == 1, f"Only 1D tensor is supported, while the actual tensor shape is {tensor.shape}"
             index = engine.get_index_of_allowed_token_ids()
+            num_of_disallowed = engine.get_number_of_disallowed_token_ids()
             if index not in engine._cache:
-                length = engine.get_number_of_disallowed_token_ids()
+                length = num_of_disallowed
                 if length == 0: # Rust FFI requires non-null pointer
                     return tensor
-                indices = module.empty((length,), device="cpu",dtype=module.int64)
-                data_ptr = indices.data_ptr()
+                disallowed = module.empty((length,), device="cpu",dtype=module.int64)
+                data_ptr = disallowed.data_ptr()
                 assert data_ptr % 8 == 0, f"The indices data pointer which points to {data_ptr} is not aligned to 8 bytes"
                 engine.write_disallowed_token_ids_to_buffer(data_ptr, length)
-                engine._cache[index] = indices
+                length = engine.get_number_of_allowed_token_ids()
+                allowed = module.empty((length,), device="cpu",dtype=module.int64)
+                data_ptr = allowed.data_ptr()
+                assert data_ptr % 8 == 0, f"The allowed data pointer which points to {data_ptr} is not aligned to 8 bytes"
+                engine.write_allowed_token_ids_to_buffer(data_ptr, length)
+                engine._cache[index] = (disallowed, allowed)
             else:
-                indices = engine._cache[index]
-            tensor.index_fill_(0,indices.to(device=tensor.device),-float("inf"))
-            return tensor
+                disallowed, allowed = engine._cache[index]
+            if num_of_disallowed>tensor.shape[-1]/2: # we have more disallowed than allowed
+                new_tensor = module.full_like(tensor,fill_value=ninf)
+                new_tensor.scatter_(0,allowed.to(device=tensor.device),tensor)
+                return new_tensor
+            else: # we have more allowed than disallowed
+                tensor.index_fill_(0,disallowed.to(device=tensor.device),ninf)
+                return tensor
         return None
     return mask_logits_fast
 
@@ -106,7 +118,6 @@ and hence DOES NOT affect the masking!
 * `logits`: The logits to be masked. `numpy.ndarray` is supported by default.
 `torch.Tensor` is supported if PyTorch is installed. The shape of the logits should be `(n,)`.
 The logits will be updated in-place if any of the following conditions is met:
-    * logits type is torch.Tensor.
     * logits type is numpy.ndarray and all of the following conditions are met:
         * The logits data type is `float32`.
         * The underlying data buffer are contiguous AND on CPU.

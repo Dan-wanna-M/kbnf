@@ -156,6 +156,12 @@ pub trait EngineLike: sealed::Sealed {
         &self,
         buffer: &mut [usize],
     ) -> Result<(), WriteBufferError>;
+
+    /// Write the allowed token IDs to the given buffer.
+    fn write_allowed_token_ids_to_buffer(
+        &self,
+        buffer: &mut [usize],
+    ) -> Result<(), WriteBufferError>;
     /// Checks if the engine is finished.
     fn is_finished(&self) -> bool;
     /// Resets the engine to its initial state. Notably, the cache is preserved.
