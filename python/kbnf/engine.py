@@ -1,3 +1,4 @@
+import math
 import types
 import typing
 import importlib
@@ -40,7 +41,7 @@ def _torch_slice_converter(module:types.ModuleType):
     return convert_slice
 
 def _torch_fast_mask_logits(module:types.ModuleType):
-    ninf = -float("inf")
+    ninf = -math.inf
     def mask_logits_fast(tensor:typing.Any, engine:"Engine")->typing.Optional[typing.Any]:
         if isinstance(tensor, module.Tensor):
             assert tensor.dim() == 1, f"Only 1D tensor is supported, while the actual tensor shape is {tensor.shape}"
@@ -51,11 +52,13 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 if length == 0: # Rust FFI requires non-null pointer
                     return tensor
                 disallowed = module.empty((length,), device="cpu",dtype=module.int64)
+                disallowed.pin_memory()
                 data_ptr = disallowed.data_ptr()
                 assert data_ptr % 8 == 0, f"The indices data pointer which points to {data_ptr} is not aligned to 8 bytes"
                 engine.write_disallowed_token_ids_to_buffer(data_ptr, length)
                 length = engine.get_number_of_allowed_token_ids()
                 allowed = module.empty((length,), device="cpu",dtype=module.int64)
+                allowed.pin_memory()
                 data_ptr = allowed.data_ptr()
                 assert data_ptr % 8 == 0, f"The allowed data pointer which points to {data_ptr} is not aligned to 8 bytes"
                 engine.write_allowed_token_ids_to_buffer(data_ptr, length)
@@ -64,11 +67,11 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 disallowed, allowed = engine._cache[index]
             if num_of_disallowed>tensor.shape[-1]/2: # we have more disallowed than allowed
                 new_tensor = module.full_like(tensor,fill_value=ninf)
-                allowed = allowed.to(device=tensor.device)
+                allowed = allowed.to(device=tensor.device,non_blocking=True)
                 new_tensor.put_(allowed, tensor.take(allowed))
                 return new_tensor
             else: # we have more allowed than disallowed
-                tensor.index_fill_(0,disallowed.to(device=tensor.device),ninf)
+                tensor.index_fill_(0,disallowed.to(device=tensor.device,non_blocking=True),ninf)
                 return tensor
         return None
     return mask_logits_fast
