@@ -52,12 +52,12 @@ def _torch_fast_mask_logits(module:types.ModuleType):
                 if length == 0: # Rust FFI requires non-null pointer
                     return tensor
                 pinned = tensor.is_cuda # only pin if the logits is on CUDA, which implies the user is using CUDA for its LLM
-                disallowed = module.empty((length,), device="cpu",dtype=module.int64, pinned=pinned)
+                disallowed = module.empty((length,), device="cpu",dtype=module.int64, pin_memory=pinned)
                 data_ptr = disallowed.data_ptr()
                 assert data_ptr % 8 == 0, f"The indices data pointer which points to {data_ptr} is not aligned to 8 bytes"
                 engine.write_disallowed_token_ids_to_buffer(data_ptr, length)
                 length = engine.get_number_of_allowed_token_ids()
-                allowed = module.empty((length,), device="cpu",dtype=module.int64, pinned=pinned)
+                allowed = module.empty((length,), device="cpu",dtype=module.int64, pin_memory=pinned)
                 data_ptr = allowed.data_ptr()
                 assert data_ptr % 8 == 0, f"The allowed data pointer which points to {data_ptr} is not aligned to 8 bytes"
                 engine.write_allowed_token_ids_to_buffer(data_ptr, length)
