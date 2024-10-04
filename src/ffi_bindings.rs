@@ -563,6 +563,15 @@ impl Engine {
             )
         }
     }
+    /// Checks if the token is allowed.
+    ///
+    /// # Signature
+    ///
+    /// (self, token_id: int) -> bool
+    #[pyo3(name = "check_if_token_is_allowed")]
+    pub fn check_if_token_is_allowed_py(&self, token_id: u32) -> bool {
+        EngineLike::allowed_token_ids_from_last_computation(self).contains(token_id)
+    }
     /// Gets the number of disallowed token IDs.
     ///
     /// # Signature
