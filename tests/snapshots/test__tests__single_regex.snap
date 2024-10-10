@@ -7,9 +7,9 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= #\"\\AHello, World!\n\\z\"[0];\n",
+                rules: "start[0] ::= #\"\\A(?:Hello, World!\n)\\z\"[0];\n",
                 id_to_regexes: {
-                    "#\"\\AHello, World!\n\\z\"[0]": Dfa(
+                    "#\"\\A(?:Hello, World!\n)\\z\"[0]": Dfa(
                         dense::DFA(
                         D 000000: 
                         Q 000032: 
@@ -56,28 +56,28 @@ Engine {
                 id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             0,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             32,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             64,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             96,
                         ),
@@ -86,14 +86,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             128,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             160,
                         ),
@@ -102,7 +102,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             192,
                         ),
@@ -111,7 +111,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             224,
                         ),
@@ -120,7 +120,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             256,
                         ),
@@ -129,7 +129,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             288,
                         ),
@@ -138,7 +138,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             320,
                         ),
@@ -147,7 +147,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             352,
                         ),
@@ -156,7 +156,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             384,
                         ),
@@ -165,7 +165,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             416,
                         ),
@@ -174,7 +174,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             448,
                         ),
@@ -183,7 +183,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             480,
                         ),
@@ -192,7 +192,7 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             512,
                         ),
@@ -201,14 +201,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             544,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\AHello, World!\n\\z\"[0]",
+                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
                             576,
                         ),
@@ -232,7 +232,7 @@ Engine {
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .#\"\\AHello, World!\n\\z\"[0]",
+                        dotted_rule: "start[0] -> .#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },
@@ -243,7 +243,7 @@ Engine {
                     [
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .#\"\\AHello, World!\n\\z\"[0]",
+                                dotted_rule: "start[0] -> .#\"\\A(?:Hello, World!\n)\\z\"[0]",
                                 start_position: 0,
                                 state: "[3(InProgress)]",
                             },

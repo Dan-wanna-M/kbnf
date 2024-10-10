@@ -7,9 +7,9 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= #\"\\A[0-9]+\\z\"[0]\"\n\"[0];\n",
+                rules: "start[0] ::= #\"\\A(?:[0-9]+)\\z\"[0]\"\n\"[0];\n",
                 id_to_regexes: {
-                    "#\"\\A[0-9]+\\z\"[0]": Dfa(
+                    "#\"\\A(?:[0-9]+)\\z\"[0]": Dfa(
                         dense::DFA(
                         D 000000: 
                         Q 000004: 
@@ -43,28 +43,28 @@ Engine {
                 id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             0,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             4,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             8,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             12,
                         ),
@@ -82,14 +82,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             16,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A[0-9]+\\z\"[0]",
+                        "#\"\\A(?:[0-9]+)\\z\"[0]",
                         StateID(
                             20,
                         ),
@@ -243,7 +243,7 @@ Engine {
             earley_sets: [
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .#\"\\A[0-9]+\\z\"[0]\"\n\"[0]",
+                        dotted_rule: "start[0] -> .#\"\\A(?:[0-9]+)\\z\"[0]\"\n\"[0]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },
@@ -254,7 +254,7 @@ Engine {
                     [
                         [
                             EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .#\"\\A[0-9]+\\z\"[0]\"\n\"[0]",
+                                dotted_rule: "start[0] -> .#\"\\A(?:[0-9]+)\\z\"[0]\"\n\"[0]",
                                 start_position: 0,
                                 state: "[3(InProgress)]",
                             },

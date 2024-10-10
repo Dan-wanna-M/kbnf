@@ -219,6 +219,51 @@ mod tests {
     }
 
     #[test]
+    fn minimal_case_with_accept_bytes() {
+        let input = "start::='abc';";
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+
+        // Test accepting valid bytes
+        assert_eq!(
+            engine.try_accept_new_bytes(b"a"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept first byte"
+        );
+        engine.compute_allowed_token_ids();
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"b"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept second byte"
+        );
+        engine.compute_allowed_token_ids();
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"c"),
+            Ok(AcceptTokenResult::Finished),
+            "Failed to accept third byte and finish"
+        );
+        engine.compute_allowed_token_ids();
+
+        // Test rejecting invalid bytes
+        engine.reset();
+        assert_eq!(
+            engine.try_accept_new_bytes(b"x"),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Should reject invalid byte"
+        );
+
+        // Test accepting multiple bytes at once
+        engine.reset();
+        assert_eq!(
+            engine.try_accept_new_bytes(b"abc"),
+            Ok(AcceptTokenResult::Finished),
+            "Failed to accept all bytes at once"
+        );
+    }
+
+    #[test]
     fn escaped_literal() {
         let input = "start::=#'(\\n\\n)+';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();

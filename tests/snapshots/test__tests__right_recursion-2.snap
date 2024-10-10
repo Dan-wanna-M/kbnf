@@ -7,9 +7,9 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= C[1]\"\n\"[0];\nC[1] ::= #\"\\Ac\\z\"[0]C[1] | \"c\"[1];\n",
+                rules: "start[0] ::= C[1]\"\n\"[0];\nC[1] ::= #\"\\A(?:c)\\z\"[0]C[1] | \"c\"[1];\n",
                 id_to_regexes: {
-                    "#\"\\Ac\\z\"[0]": Dfa(
+                    "#\"\\A(?:c)\\z\"[0]": Dfa(
                         dense::DFA(
                         D 000000: 
                         Q 000004: 
@@ -43,28 +43,28 @@ Engine {
                 id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             0,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             4,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             8,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             12,
                         ),
@@ -73,14 +73,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             16,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\Ac\\z\"[0]",
+                        "#\"\\A(?:c)\\z\"[0]",
                         StateID(
                             20,
                         ),
@@ -112,7 +112,7 @@ Engine {
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .#\"\\Ac\\z\"[0]C[1]",
+                        dotted_rule: "C[1] -> .#\"\\A(?:c)\\z\"[0]C[1]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },

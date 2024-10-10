@@ -7,9 +7,9 @@ Engine {
         EngineBase {
             grammar: Grammar {
                 start_nonterminal: "start[0]",
-                rules: "start[0] ::= C[1]\"\n\"[0];\nC[1] ::= #\"\\A \\z\"[0]C[1] | \" \"[1];\n",
+                rules: "start[0] ::= C[1]\"\n\"[0];\nC[1] ::= #\"\\A(?: )\\z\"[0]C[1] | \" \"[1];\n",
                 id_to_regexes: {
-                    "#\"\\A \\z\"[0]": Dfa(
+                    "#\"\\A(?: )\\z\"[0]": Dfa(
                         dense::DFA(
                         D 000000: 
                         Q 000004: 
@@ -43,28 +43,28 @@ Engine {
                 id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             0,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             4,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             8,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             12,
                         ),
@@ -73,14 +73,14 @@ Engine {
                         ],
                     ),
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             16,
                         ),
                         [],
                     ),
                     (
-                        "#\"\\A \\z\"[0]",
+                        "#\"\\A(?: )\\z\"[0]",
                         StateID(
                             20,
                         ),
@@ -112,7 +112,7 @@ Engine {
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .#\"\\A \\z\"[0]C[1]",
+                        dotted_rule: "C[1] -> .#\"\\A(?: )\\z\"[0]C[1]",
                         start_position: 0,
                         state: "[3(InProgress)]",
                     },
@@ -124,12 +124,12 @@ Engine {
                 ],
                 [
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> #\"\\A \\z\"[0].C[1]",
+                        dotted_rule: "C[1] -> #\"\\A(?: )\\z\"[0].C[1]",
                         start_position: 0,
                         state: "",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .#\"\\A \\z\"[0]C[1]",
+                        dotted_rule: "C[1] -> .#\"\\A(?: )\\z\"[0]C[1]",
                         start_position: 0,
                         state: "[5(Accept)]",
                     },
@@ -139,7 +139,7 @@ Engine {
                         state: "[0]",
                     },
                     EarleyItemDebugStruct {
-                        dotted_rule: "C[1] -> .#\"\\A \\z\"[0]C[1]",
+                        dotted_rule: "C[1] -> .#\"\\A(?: )\\z\"[0]C[1]",
                         start_position: 1,
                         state: "[3(InProgress)]",
                     },
@@ -177,7 +177,7 @@ Engine {
                     },
                     LeoEligible(
                         EarleyItemDebugStruct {
-                            dotted_rule: "C[1] -> #\"\\A \\z\"[0].C[1]",
+                            dotted_rule: "C[1] -> #\"\\A(?: )\\z\"[0].C[1]",
                             start_position: 0,
                             state: "",
                         },
