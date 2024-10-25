@@ -97,7 +97,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("substring recursion 10 iterations(no cache)", |b| {
         b.iter(|| run_an_engine(black_box(&mut engine), 10, 33, &mut logits))
     });
-
+    let mut engine = Engine::with_config(
+        "start::=#ex'd|e|f' '\n';",
+        vocab.clone(),
+        no_cache_config.clone(),
+    )
+    .unwrap();
+    c.bench_function("regular expression complement recursion 10 iterations(no cache)", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 10, 33, &mut logits))
+    });
     let mut engine = Engine::with_config(
         "start::=C'\n';C::='{'|'{' C;",
         vocab.clone(),

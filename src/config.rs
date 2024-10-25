@@ -106,7 +106,7 @@ impl Config {
             Fsa::Dfa => FiniteStateAutomatonConfig::Dfa(
                 kbnf_regex_automata::dfa::dense::Config::new()
                     .dfa_size_limit(self.regex_config.max_memory_usage)
-                    .start_kind(kbnf_regex_automata::dfa::StartKind::Anchored),
+                    .start_kind(kbnf_regex_automata::dfa::StartKind::Both),
             ),
         };
         let compression_config = kbnf_syntax::config::CompressionConfig {

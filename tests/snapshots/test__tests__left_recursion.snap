@@ -12,6 +12,7 @@ Engine {
                 id_to_suffix_automata: {},
                 id_to_suffix_automata_first_bytes: [],
                 id_to_regex_first_bytes: [],
+                id_to_regex_complement_first_bytes: [],
                 id_to_terminals: [
                     (
                         "\"bb\"[0]",
@@ -75,10 +76,6 @@ Engine {
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
-            },
-            regex_start_config: Config {
-                look_behind: None,
-                anchored: Yes,
             },
         },
     ),
