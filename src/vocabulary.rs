@@ -119,25 +119,38 @@ impl Vocabulary {
                 0x1000000,
             ));
         }
+        
         let mut token_to_id = AHashMap::with_capacity(id_to_token.len());
+        let mut conflicting_token_ids: Vec<(u32, u32)> = Vec::new();
         for (&token_id, token) in id_to_token.iter() {
-            match token_to_id.entry(token.clone()) {
+            match token_to_id.entry(token.clone()) {  // why clone?
                 Entry::Occupied(entry) => {
-                    log::warn!(
-                        "Token ID {} and token ID {} corresponds to the same token. 
-                        The second token ID will be ignored when matching tokens to ids. 
-                        While matching tokens to ids is only used for debugging, 
-                        seeing this warning likely indicates either input parameters are not created correctly 
-                        or you are using a very creepy vocabulary.",
-                        entry.get(),
-                        token_id
-                    );
+                    conflicting_token_ids.push((token_id, *entry.get())); // what does entry.get do?
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(token_id);
                 }
             }
         }
+        if !conflicting_token_ids.is_empty() {
+            let conflicting_pairs: Vec<String> = conflicting_token_ids
+                .iter()
+                .map(|(new_id, existing_id)| {  // what is this?
+                    format!(
+                        "({}, {})",
+                        existing_id, new_id
+                    )
+                })
+                .collect(); // what does this do?
+            log::warn!(
+                "Multiple token ids correspond to the same token. Matching \
+                tokens to token ids is only used for debugging purposes. The second \
+                token id in each pair will be ignored when matching tokens to \
+                ids: {}.",
+                conflicting_pairs.join(", ")
+            );
+        }
+
         let mut first_byte_to_token = JaggedArray::with_capacity([256, 256]);
         let mut temp: [Vec<(u32, &Token)>; 256] = array::from_fn(|_| (vec![]));
         for (&token_id, token) in id_to_token.iter() {

@@ -22,7 +22,7 @@ crate-type = ["cdylib", "rlib"]
 ahash = { version = "0.8.11", features = ["serde"] }
 getrandom = { version = "0.2" }
 thiserror = "1.0.61"
-kbnf-syntax = "0.5.0"
+kbnf-syntax = "=0.5.0"
 num = "0.4.3"
 jaggedarray = "0.2.11"
 string-interner = "0.17.0"
