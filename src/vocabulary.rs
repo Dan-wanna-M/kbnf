@@ -123,9 +123,9 @@ impl Vocabulary {
         let mut token_to_id = AHashMap::with_capacity(id_to_token.len());
         let mut conflicting_token_ids: Vec<(u32, u32)> = Vec::new();
         for (&token_id, token) in id_to_token.iter() {
-            match token_to_id.entry(token.clone()) {  // why clone?
+            match token_to_id.entry(token.clone()) {
                 Entry::Occupied(entry) => {
-                    conflicting_token_ids.push((token_id, *entry.get())); // what does entry.get do?
+                    conflicting_token_ids.push((token_id, *entry.get()));
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(token_id);
@@ -135,13 +135,13 @@ impl Vocabulary {
         if !conflicting_token_ids.is_empty() {
             let conflicting_pairs: Vec<String> = conflicting_token_ids
                 .iter()
-                .map(|(new_id, existing_id)| {  // what is this?
+                .map(|(new_id, existing_id)| {
                     format!(
                         "({}, {})",
                         existing_id, new_id
                     )
                 })
-                .collect(); // what does this do?
+                .collect();
             log::warn!(
                 "Multiple token ids correspond to the same token. Matching \
                 tokens to token ids is only used for debugging purposes. The second \
