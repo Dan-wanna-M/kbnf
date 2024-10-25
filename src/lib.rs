@@ -360,7 +360,9 @@ a nonempty sequence of "A"s and "B"s followed by exactly one "C".*)
 
 ## Regular expression
 
-A UTF-8 string enclosed in `#""` or `#e""` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
+There are three types of regular expressions:
+
+- A UTF-8 string enclosed in `#""` or `#''` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
 
 ```ebnf
 start ::= #".*A";
@@ -372,6 +374,8 @@ start ::= #".+" "A";
 *)
 ```
 
+- A UTF-8 string enclosed in `#e""` or `#e''` is a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
+
 ```ebnf
 start ::= #e".*AA";
 (*
@@ -381,6 +385,16 @@ only the last two characters are two consecutive A.
 In other words, two consecutive A will not appear in the middle of the output.
 *)
 ```
+
+- A UTF-8 string enclosed in `#ex""` or `#ex''` is a complement of a regular expression. The escaped characters supported is the same as [Terminal](##terminal).
+
+```ebnf
+start ::= #ex"a|b|c" "A";
+(*
+The engine will constrain the output to be anything that does not contain "a", "b", or "c" followed by "A".
+*)
+```
+
 
 The Rust regex crate is used to support regular expressions,
 which means [the syntax supported](https://docs.rs/regex/latest/regex/index.html#syntax) might differ from other regex engines.
