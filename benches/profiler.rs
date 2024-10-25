@@ -76,13 +76,13 @@ fn criterion_benchmark(c: &mut Criterion) {
         ..Default::default()
     };
     let mut engine = Engine::with_config(
-        "start::=#\".+\"'\n';",
+        "start::=#ex\"a|b|c\"'\n';",
         vocab.clone(),
         no_cache_config.clone(),
     )
     .unwrap();
-    c.bench_function("always match regex 3 iterations(no cache)", |b| {
-        b.iter(|| run_an_engine(black_box(&mut engine), 3, 113, &mut logits))
+    c.bench_function("regex with complement 3 iterations(no cache)", |b| {
+        b.iter(|| run_an_engine(black_box(&mut engine), 3, 33, &mut logits))
     });
 }
 

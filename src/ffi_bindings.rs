@@ -621,7 +621,7 @@ impl Engine {
     ///       (including slices of any length) being aligned and non-null to distinguish
     ///       them from other data. You can obtain a pointer that is usable as `ptr`
     ///       for zero-length slices using [`NonNull::dangling()`].
-    /// 
+    ///
     /// * `ptr` must point to `len` consecutive properly initialized values of type `T`.
     ///
     /// * The memory referenced by the returned slice must not be accessed through any other pointer
@@ -671,7 +671,7 @@ impl Engine {
     ///       (including slices of any length) being aligned and non-null to distinguish
     ///       them from other data. You can obtain a pointer that is usable as `ptr`
     ///       for zero-length slices using [`NonNull::dangling()`].
-    /// 
+    ///
     /// * `ptr` must point to `len` consecutive properly initialized values of type `T`.
     ///
     /// * The memory referenced by the returned slice must not be accessed through any other pointer

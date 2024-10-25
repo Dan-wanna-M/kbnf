@@ -213,8 +213,8 @@ where
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
     pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet>,
-    id_to_regex_first_bytes: AHashMap<(usize, StateID), ByteSet>,
-    id_to_regex_complement_first_bytes: AHashMap<(usize, StateID), ByteSet>,
+    id_to_regex_first_bytes: AHashMap<(TI, StateID), ByteSet>,
+    id_to_regex_complement_first_bytes: AHashMap<(TI, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
     id_to_suffix_automata: Vec<SuffixAutomaton>,
     id_to_suffix_automata_first_bytes: AHashMap<(usize, GeneralSamNodeID), ByteSet>,
@@ -254,7 +254,7 @@ where
         + num::Bounded
         + Hash
         + Eq
-        + Debug,
+        + std::cmp::Ord,
     usize: num::traits::AsPrimitive<TI>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -321,7 +321,7 @@ where
                     |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
                 )
                 .iter()
-                .map(|(k, v)| (RegexID(k.0.as_()).to_display_form(self), k.1, v))
+                .map(|(k, v)| (RegexID(k.0).to_display_form(self), k.1, v))
                 .collect::<Vec<_>>(),
             )
             .field(
@@ -331,7 +331,7 @@ where
                     |(x, y)| (*x, utils::get_display_form_from_bitset_on_stack(y)),
                 )
                 .iter()
-                .map(|(k, v)| (RegexID(k.0.as_()).to_display_form(self), k.1, v))
+                .map(|(k, v)| (RegexID(k.0).to_display_form(self), k.1, v))
                 .collect::<Vec<_>>(),
             )
             .field(
@@ -572,13 +572,10 @@ where
                                             in_progress=>{}
                                         );
                                     }
-                                    if !accepted && regex_type == RegexType::Complement {
+                                    if acceptable
+                                        && (!accepted || regex_type != RegexType::Complement)
+                                    {
                                         set.insert(token_id.as_());
-                                        continue;
-                                    }
-                                    if acceptable && regex_type != RegexType::Complement {
-                                        set.insert(token_id.as_());
-                                        continue;
                                     }
                                 }
                                 if set.count_ones(..) < limit {
@@ -597,7 +594,10 @@ where
     fn construct_regex_first_bytes(
         rules: &JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
         id_to_regexes: &[FiniteStateAutomaton],
-    ) -> (AHashMap<(usize, StateID), ByteSet>, AHashMap<(usize, StateID), ByteSet>) {
+    ) -> (
+        AHashMap<(TI, StateID), ByteSet>,
+        AHashMap<(TI, StateID), ByteSet>,
+    ) {
         let mut id_to_regex_first_bytes = AHashMap::default();
         let mut id_to_regex_complement_first_bytes = AHashMap::default();
         for i in 0..rules.len() {
@@ -646,11 +646,17 @@ where
                                         }
                                     }
                                 }
-                                id_to_regex_first_bytes.insert((regex_id.0.as_(), state_id), set);
-                                id_to_regex_complement_first_bytes.insert(
-                                    (regex_id.0.as_(), state_id),
-                                    set_complement,
-                                );
+                                if !set.is_clear()
+                                    && (regex_type == RegexType::Normal
+                                        || regex_type == RegexType::Early)
+                                {
+                                    id_to_regex_first_bytes.insert((regex_id.0, state_id), set);
+                                }
+                                if !set_complement.is_clear() && regex_type == RegexType::Complement
+                                {
+                                    id_to_regex_complement_first_bytes
+                                        .insert((regex_id.0, state_id), set_complement);
+                                }
                             }
                         }
                     }
@@ -835,16 +841,17 @@ where
         &self,
         regex_id: RegexID<TI>,
         state_id: StateID,
-    ) -> &ByteSet {
-        &self.id_to_regex_first_bytes[&(regex_id.0.as_(), state_id)]
+    ) -> Option<&ByteSet> {
+        self.id_to_regex_first_bytes.get(&(regex_id.0, state_id))
     }
     #[inline]
     pub(crate) fn complement_first_bytes_from_regex(
         &self,
         regex_id: RegexID<TI>,
         state_id: StateID,
-    ) -> &ByteSet {
-        &self.id_to_regex_complement_first_bytes[&(regex_id.0.as_(), state_id)]
+    ) -> Option<&ByteSet> {
+        self.id_to_regex_complement_first_bytes
+            .get(&(regex_id.0, state_id))
     }
 
     #[inline]

@@ -102,10 +102,11 @@ where
                 self.production_index,
             ) {
                 HIRNode::Terminal(_) => format!("[{}]", self.state_id.as_()),
-                &HIRNode::RegexString(id) | &HIRNode::EarlyEndRegexString(id) | &HIRNode::RegexComplement(id) => {
-                    match engine.grammar.regex(id) {
-                        FiniteStateAutomaton::Dfa(dfa) => {
-                            format!(
+                &HIRNode::RegexString(id)
+                | &HIRNode::EarlyEndRegexString(id)
+                | &HIRNode::RegexComplement(id) => match engine.grammar.regex(id) {
+                    FiniteStateAutomaton::Dfa(dfa) => {
+                        format!(
                             "[{}({})]",
                             self.state_id.as_(),
                             utils::check_dfa_state_status(
@@ -116,9 +117,8 @@ where
                                 dfa
                             )
                         )
-                        }
                     }
-                }
+                },
                 HIRNode::Nonterminal(_) => String::new(),
                 HIRNode::Substrings(_) => {
                     format!("[{}]", self.state_id.as_())
@@ -383,7 +383,8 @@ where
         + PartialOrd
         + num::Bounded
         + std::convert::TryFrom<usize>
-        + NumAssign,
+        + NumAssign
+        + Ord,
     TD: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
     TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
@@ -682,17 +683,20 @@ where
         already_predicted_nonterminals.clear();
     }
 
-    fn initialize_state_id_based_on_node(
-        grammar: &Grammar<TI>,
-        node: HIRNode<TI>,
-    ) -> TS {
+    fn initialize_state_id_based_on_node(grammar: &Grammar<TI>, node: HIRNode<TI>) -> TS {
         match node {
             HIRNode::RegexString(id) | HIRNode::EarlyEndRegexString(id) => {
                 let fsa = grammar.regex(id);
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                        let start = dfa.start_state(&kbnf_regex_automata::util::start::Config::new().anchored(kbnf_regex_automata::Anchored::Yes)).unwrap();
+                        let start = unsafe {
+                            dfa.start_state(
+                                &kbnf_regex_automata::util::start::Config::new()
+                                    .anchored(kbnf_regex_automata::Anchored::Yes),
+                            )
+                            .unwrap_unchecked()
+                        };
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
                     }
                 }
@@ -701,7 +705,13 @@ where
                 let fsa = grammar.regex(regex_id);
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
-                        let start = dfa.start_state(&kbnf_regex_automata::util::start::Config::new().anchored(kbnf_regex_automata::Anchored::No)).unwrap();
+                        // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
+                        let start = unsafe{dfa
+                            .start_state(
+                                &kbnf_regex_automata::util::start::Config::new()
+                                    .anchored(kbnf_regex_automata::Anchored::No),
+                            )
+                            .unwrap_unchecked()};
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
                     }
                 }
@@ -768,31 +778,35 @@ where
                         .insert(self.grammar.terminal(terminal_id)[item.state_id.as_()].as_());
                 }
                 HIRNode::RegexString(regex_id) | HIRNode::EarlyEndRegexString(regex_id) => {
-                    self.allowed_first_bytes
-                        .union_with(self.grammar.first_bytes_from_regex(
-                            regex_id,
-                            Self::from_state_id_to_dfa_state_id(
-                                item.state_id,
-                                match self.grammar.regex(regex_id) {
-                                    FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
-                                },
-                            ),
-                        ));
+                    if let Some(first_bytes) = self.grammar.first_bytes_from_regex(
+                        regex_id,
+                        Self::from_state_id_to_dfa_state_id(
+                            item.state_id,
+                            match self.grammar.regex(regex_id) {
+                                FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+                            },
+                        ),
+                    ) {
+                        self.allowed_first_bytes.union_with(first_bytes);
+                    }
                 }
                 HIRNode::RegexComplement(regex_id) => {
-                    self.allowed_first_bytes
-                        .union_with(self.grammar.complement_first_bytes_from_regex(
-                            regex_id,
-                            Self::from_state_id_to_dfa_state_id(
-                                item.state_id,
-                                match self.grammar.regex(regex_id) {
-                                    FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
-                                },
-                            ),
-                        ));
+                    if let Some(first_bytes) = self.grammar.complement_first_bytes_from_regex(
+                        regex_id,
+                        Self::from_state_id_to_dfa_state_id(
+                            item.state_id,
+                            match self.grammar.regex(regex_id) {
+                                FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
+                            },
+                        ),
+                    ) {
+                        self.allowed_first_bytes.union_with(first_bytes);
+                    }
                 }
                 HIRNode::Substrings(_) => {
-                    let first_bytes = self.grammar.first_bytes_from_suffix_automaton(item.state_id.as_());
+                    let first_bytes = self
+                        .grammar
+                        .first_bytes_from_suffix_automaton(item.state_id.as_());
                     self.allowed_first_bytes.union_with(first_bytes);
                 }
                 _ => {}
@@ -812,9 +826,10 @@ where
     {
         // SAFETY: nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
         let view = unsafe { grammar.dotted_productions(nonterminal_id) };
-        if new_dot_position.as_() < view.len() {
+        let new_dot_position = new_dot_position.as_();
+        if new_dot_position < view.len() {
             // SAFETY: new_dot_position is guaranteed to be valid since we checked it in the previous line
-            let view = unsafe { view.view_unchecked::<1, 1>([new_dot_position.as_()]) };
+            let view = unsafe { view.view_unchecked::<1, 1>([new_dot_position]) };
             if production_id.as_() < view.len() {
                 return false;
             }
@@ -1023,12 +1038,7 @@ where
                                 reject=>{},
                                 in_progress=>{
                                     // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-                                    unsafe{Self::advance_item_normal_unchecked(
-                                        grammar,
-                                        earley_sets,
-                                        to_be_completed_items,
-                                        item,
-                                    )};
+
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
@@ -1116,7 +1126,6 @@ where
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
                         entry.insert(PostDotItems::LeoEligible(item));
-
                         added_postdot_items.insert(postdot);
                     }
                 }
@@ -1378,12 +1387,7 @@ where
         ),
         byte: u8,
     ) -> Result<(), crate::engine_like::AcceptTokenError> {
-        Self::scan(
-            grammar,
-            earley_sets,
-            to_be_completed_items,
-            byte,
-        ); // scan the current Earley set and creates the next Earley set
+        Self::scan(grammar, earley_sets, to_be_completed_items, byte); // scan the current Earley set and creates the next Earley set
         if Self::is_rejected(earley_sets, to_be_completed_items) {
             Self::revert_change(
                 earley_sets,
@@ -1408,11 +1412,7 @@ where
             finished,
         ); // complete the next Earley set
         compact(earley_sets, leo_items, postdot_items);
-        Self::predict(
-            grammar,
-            earley_sets,
-            already_predicted_nonterminals,
-        ); // predict the next Earley set
+        Self::predict(grammar, earley_sets, already_predicted_nonterminals); // predict the next Earley set
         Self::update_postdot_items(
             grammar,
             earley_sets,
@@ -1447,6 +1447,10 @@ where
                 HIRNode::EarlyEndRegexString(id) => {
                     regex_id = id;
                     regex_type = RegexType::Early;
+                }
+                HIRNode::RegexComplement(id) => {
+                    regex_id = id;
+                    regex_type = RegexType::Complement;
                 }
                 _ => continue,
             }
