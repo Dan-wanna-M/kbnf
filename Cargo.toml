@@ -22,7 +22,7 @@ crate-type = ["cdylib", "rlib"]
 ahash = { version = "0.8.11", features = ["serde"] }
 getrandom = { version = "0.2" }
 thiserror = "1.0.61"
-kbnf-syntax = "=0.5.0"
+kbnf-syntax = "0.5.2"
 num = "0.4.3"
 jaggedarray = "0.2.11"
 string-interner = "0.17.0"
@@ -34,10 +34,10 @@ kbnf-regex-automata = "0.4.10"
 serde = "1.0.203"
 strum = { version = "0.26", features = ["derive"] }
 displaydoc = "0.2.4"
-wasm-bindgen = { version = "0.2.92", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6.5", optional = true }
 js-sys = { version = "0.3.69", optional = true }
-pyo3 = { version = "0.22.0", features = [
+pyo3 = { version = "0.22", features = [
     "multiple-pymethods",
     "extension-module",
     "abi3-py37",
@@ -61,4 +61,4 @@ harness = false
 name = "profiler"
 harness = false
 [profile.bench]
-debug = true
+debug = false

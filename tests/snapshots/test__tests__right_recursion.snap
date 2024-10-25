@@ -19,12 +19,12 @@ Engine {
                           000020: EOI => 8
                         
                         START-GROUP(unanchored)
-                          NonWordByte => 000000
-                          WordByte => 000000
-                          Text => 000000
-                          LineLF => 000000
-                          LineCR => 000000
-                          CustomLineTerminator => 000000
+                          NonWordByte => 000016
+                          WordByte => 000016
+                          Text => 000012
+                          LineLF => 000016
+                          LineCR => 000016
+                          CustomLineTerminator => 000016
                         START-GROUP(anchored)
                           NonWordByte => 000016
                           WordByte => 000016
@@ -45,48 +45,14 @@ Engine {
                     (
                         "#\"\\A(?:c)\\z\"[0]",
                         StateID(
-                            0,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:c)\\z\"[0]",
-                        StateID(
-                            4,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:c)\\z\"[0]",
-                        StateID(
-                            8,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:c)\\z\"[0]",
-                        StateID(
                             12,
                         ),
                         [
                             99,
                         ],
                     ),
-                    (
-                        "#\"\\A(?:c)\\z\"[0]",
-                        StateID(
-                            16,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:c)\\z\"[0]",
-                        StateID(
-                            20,
-                        ),
-                        [],
-                    ),
                 ],
+                id_to_regex_complement_first_bytes: [],
                 id_to_terminals: [
                     (
                         "\"\n\"[0]",
@@ -200,10 +166,6 @@ Engine {
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
-            },
-            regex_start_config: Config {
-                look_behind: None,
-                anchored: Yes,
             },
         },
     ),

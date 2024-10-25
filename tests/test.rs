@@ -626,4 +626,62 @@ __schema_json_1_next ::=
             .try_accept_new_bytes(" {\"value\": 3, \"next\":null}".as_bytes())
             .unwrap();
     }
+
+    #[test]
+    fn test_regex_complement() {
+        let input = r#"start::=#ex"a|b|c" '\n';"#;
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+
+        // Test accepting valid bytes (anything except 'a', 'b', or 'c')
+        assert_eq!(
+            engine.try_accept_new_bytes(b"d"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept valid byte 'd'"
+        );
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"x"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept valid byte 'x'"
+        );
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"1"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept valid byte '1'"
+        );
+        // Test rejecting invalid bytes ('a', 'b', 'c')
+        assert_eq!(
+            engine.try_accept_new_bytes(b"a"),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Should reject invalid byte 'a'"
+        );
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"b"),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Should reject invalid byte 'b'"
+        );
+
+        assert_eq!(
+            engine.try_accept_new_bytes(b"c"),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Should reject invalid byte 'c'"
+        );
+        // Test accepting multiple valid bytes at once
+        assert_eq!(
+            engine.try_accept_new_bytes(b"xyz"),
+            Ok(AcceptTokenResult::Ongoing),
+            "Failed to accept multiple valid bytes 'xyz'"
+        );
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+        // Test rejecting when invalid byte is part of a sequence
+        assert_eq!(
+            engine.try_accept_new_bytes(b"xay"),
+            Err(kbnf::engine_like::AcceptTokenError::Rejected),
+            "Should reject sequence containing invalid byte 'a'"
+        );
+    }
 }

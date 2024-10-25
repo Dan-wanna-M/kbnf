@@ -32,12 +32,12 @@ Engine {
                           000576: \r => 160
                         
                         START-GROUP(unanchored)
-                          NonWordByte => 000000
-                          WordByte => 000000
-                          Text => 000000
-                          LineLF => 000000
-                          LineCR => 000000
-                          CustomLineTerminator => 000000
+                          NonWordByte => 000128
+                          WordByte => 000128
+                          Text => 000096
+                          LineLF => 000128
+                          LineCR => 000128
+                          CustomLineTerminator => 000128
                         START-GROUP(anchored)
                           NonWordByte => 000128
                           WordByte => 000128
@@ -58,39 +58,11 @@ Engine {
                     (
                         "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
-                            0,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
-                        StateID(
-                            32,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
-                        StateID(
-                            64,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
-                        StateID(
                             96,
                         ),
                         [
                             72,
                         ],
-                    ),
-                    (
-                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
-                        StateID(
-                            128,
-                        ),
-                        [],
                     ),
                     (
                         "#\"\\A(?:Hello, World!\n)\\z\"[0]",
@@ -203,13 +175,6 @@ Engine {
                     (
                         "#\"\\A(?:Hello, World!\n)\\z\"[0]",
                         StateID(
-                            544,
-                        ),
-                        [],
-                    ),
-                    (
-                        "#\"\\A(?:Hello, World!\n)\\z\"[0]",
-                        StateID(
                             576,
                         ),
                         [
@@ -217,6 +182,7 @@ Engine {
                         ],
                     ),
                 ],
+                id_to_regex_complement_first_bytes: [],
                 id_to_terminals: [],
             },
             allowed_first_bytes: [
@@ -299,10 +265,6 @@ Engine {
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
-            },
-            regex_start_config: Config {
-                look_behind: None,
-                anchored: Yes,
             },
         },
     ),
