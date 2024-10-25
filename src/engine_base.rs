@@ -1038,7 +1038,12 @@ where
                                 reject=>{},
                                 in_progress=>{
                                     // SAFETY: line 1055 ensures earley_sets has enough capacity to push one new item
-
+                                    unsafe{Self::advance_item_normal_unchecked(
+                                        grammar,
+                                        earley_sets,
+                                        to_be_completed_items,
+                                        item,
+                                    )};
                                     let state_id = Self::from_dfa_state_id_to_state_id(
                                         state_id,
                                         dfa.stride2(),
