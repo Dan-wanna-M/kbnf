@@ -113,7 +113,7 @@ jobs:
           apt-get update
           apt-get install -y gcc-4.9
         args: --release --out dist --sdist -m Cargo.toml
-    - uses: uraimo/run-on-arch-action@v2.7.2
+    - uses: uraimo/run-on-arch-action@v2
       name: Install built wheel
       with:
         arch: ${{ matrix.target }}
