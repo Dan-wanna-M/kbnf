@@ -110,8 +110,8 @@ class Engine:
     def try_accept_new_token(self, token_id:int)->AcceptTokenResult:
         return self._internal.try_accept_new_token(token_id)
     
-    def try_accept_new_bytes(self, bytes:bytes)->AcceptTokenResult:
-        return self._internal.try_accept_new_bytes(bytes)
+    def try_accept_new_bytes(self, _bytes:bytes)->AcceptTokenResult:
+        return self._internal.try_accept_new_bytes(_bytes)
     
     def get_allowed_token_ids_from_last_computation(self)->typing.List[int]:
         return self._internal.allowed_token_ids_from_last_computation()
