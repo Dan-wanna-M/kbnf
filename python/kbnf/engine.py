@@ -114,13 +114,13 @@ class Engine:
         return self._internal.try_accept_new_bytes(_bytes)
     
     def get_allowed_token_ids_from_last_computation(self)->typing.List[int]:
-        return self._internal.allowed_token_ids_from_last_computation()
+        return self._internal.get_allowed_token_ids_from_last_computation()
     
     def compute_allowed_token_ids(self)->typing.List[int]:
         return self._internal.compute_allowed_token_ids()
     
     def get_disallowed_token_ids_from_last_computation(self)->typing.List[int]:
-        return self._internal.disallowed_token_ids_from_last_computation()
+        return self._internal.get_disallowed_token_ids_from_last_computation()
     
     def check_if_token_is_allowed(self, token_id:int)->bool:
         return self._internal.check_if_token_is_allowed(token_id)
