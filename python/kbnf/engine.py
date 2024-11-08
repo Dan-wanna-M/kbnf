@@ -102,11 +102,53 @@ def _mask_logits_fast(logits:typing.Any,engine:"Engine")->typing.Optional[typing
             return masked
     return None
 
-class Engine(InternalEngine):
-    def __init__(self, kbnf_syntax_grammar_str, vocabulary,config=None): # signature is only needed for python runtime type checking
-        super().__init__() # pyo3 works by making magics on __new__ and the __init__ is just a placeholder
+class Engine:
+    def __init__(self, kbnf_syntax_grammar_str, vocabulary, config=None):
+        self._internal = InternalEngine(kbnf_syntax_grammar_str, vocabulary, config)
         self._cache = {}
 
+    def try_accept_new_token(self, token_id:int)->AcceptTokenResult:
+        return self._internal.try_accept_new_token(token_id)
+    
+    def try_accept_new_bytes(self, bytes:bytes)->AcceptTokenResult:
+        return self._internal.try_accept_new_bytes(bytes)
+    
+    def get_allowed_token_ids_from_last_computation(self)->typing.List[int]:
+        return self._internal.allowed_token_ids_from_last_computation()
+    
+    def compute_allowed_token_ids(self)->typing.List[int]:
+        return self._internal.compute_allowed_token_ids()
+    
+    def get_disallowed_token_ids_from_last_computation(self)->typing.List[int]:
+        return self._internal.disallowed_token_ids_from_last_computation()
+    
+    def check_if_token_is_allowed(self, token_id:int)->bool:
+        return self._internal.check_if_token_is_allowed(token_id)
+    
+    def get_number_of_disallowed_token_ids(self)->int:
+        return self._internal.get_number_of_disallowed_token_ids()
+    
+    def get_number_of_allowed_token_ids(self)->int:
+        return self._internal.get_number_of_allowed_token_ids()
+    
+    def get_index_of_allowed_token_ids(self)->bytes:
+        return self._internal.get_index_of_allowed_token_ids()
+    
+    def write_disallowed_token_ids_to_buffer(self, ptr:int, length:int)->None:
+        self._internal.write_disallowed_token_ids_to_buffer(ptr, length)
+    
+    def write_allowed_token_ids_to_buffer(self, ptr:int, length:int)->None:
+        self._internal.write_allowed_token_ids_to_buffer(ptr, length)
+
+    def is_finished(self)->bool:
+        return self._internal.is_finished()
+    
+    def get_vocab(self)->Vocabulary:
+        return self._internal.get_vocab()
+
+    def reset(self)->None:
+        self._internal.reset()
+    
     def mask_logits(self, logits):
         """
 Masks the logits based on last computed token IDs.
@@ -143,7 +185,7 @@ This method may raise the following exceptions:
         if result is not None:
             return result
         logits, ptr, size = _convert_logits_to_slice(logits)
-        super().mask_logits(ptr, size)
+        self._internal.mask_logits(ptr, size)
         return logits
     
     def update_logits(self, token_id:int, logits)->typing.Tuple[typing.Any,AcceptTokenResult]:
@@ -174,11 +216,26 @@ This method may raise the following exceptions:
     * ValueError: When the logits length is too short.
         """
         logits, ptr, size = _convert_logits_to_slice(logits)
-        result = super().update_logits(token_id,ptr, size)
-        return logits,result
+        result = self._internal.update_logits(token_id, ptr, size)
+        return logits, result
     
+    def __repr__(self)->str:
+        return f"Engine({self._internal.__repr__()}, {self._cache})"
+    
+    def __str__(self)->str:
+        return self.__repr__()
+
     def __copy__(self):
-        return super().__copy__()
+        new_engine = Engine.__new__(Engine)
+        new_engine._internal = self._internal.__copy__()
+        new_engine._cache = {}
+        return new_engine
+    
+    def __deepcopy__(self, memo):
+        new_engine = Engine.__new__(Engine)
+        new_engine._internal = self._internal.__deepcopy__(memo)
+        new_engine._cache = {}
+        return new_engine
 
 _try_register_slice_converter("torch", _torch_slice_converter)
 _try_register_slice_converter("numpy", _numpy_slice_converter)

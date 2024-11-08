@@ -6,9 +6,9 @@ python-source = "python"
 features = ["python"]
 [project]
 name = "kbnf"
-version = "0.3.13"
+version = "0.4.0"
 dependencies = ["numpy"]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
