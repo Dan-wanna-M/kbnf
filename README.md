@@ -4,6 +4,7 @@
 [![docs.rs](https://docs.rs/kbnf/badge.svg)](https://docs.rs/kbnf)
 [![PyPI](https://img.shields.io/pypi/v/kbnf.svg)](https://pypi.python.org/pypi/kbnf)
 ![CI](https://github.com/Dan-wanna-M/kbnf/actions/workflows/CI.yml/badge.svg)
+![PyPI Downloads](https://static.pepy.tech/badge/kbnf)
 
 This crate provides a constrained decoding engine which ensures that a language model's output adheres strictly to the format defined by KBNF (Koishi's BNF), an enhanced variant of EBNF. KBNF includes features that enhance usability, notably embeddable regular expressions.
 
