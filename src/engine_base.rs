@@ -14,6 +14,7 @@ use num::{
 };
 use std::fmt::Debug;
 use std::hint::unreachable_unchecked;
+use std::slice;
 use std::sync::Arc;
 
 use crate::engine::EngineConfig;
@@ -932,15 +933,24 @@ where
         byte: u8,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
-                                                             // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
+        // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
         // Each regex or excepted will add at most two item to the next Earley set
         earley_sets.buffer_reserve(earley_set_len * 2);
-        for i in 0..earley_set_len {
-            // SAFETY: 0<i<earley_set_len and earley sets is never empty ensures the index is valid
-            let mut item = unsafe { *earley_sets.get_unchecked([earley_set_index, i]) };
+        // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
+        // SAFETY: earley_set is guaranteed to be valid during the loop since we have preallocated enough memory to avoid reallocation
+        let earley_set = unsafe {
+            slice::from_raw_parts(
+                earley_sets
+                    .view_unchecked::<1, 1>([earley_set_index])
+                    .as_slice()
+                    .as_ptr(),
+                earley_set_len,
+            )
+        };
+        for mut item in earley_set.iter().copied() {
             // SAFETY:
             // item.nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
             // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
