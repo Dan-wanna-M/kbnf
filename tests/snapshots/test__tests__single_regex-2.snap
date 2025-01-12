@@ -1,6 +1,7 @@
 ---
 source: tests/test.rs
 expression: "format!(\"{:#?}\", engine)"
+snapshot_kind: text
 ---
 Engine {
     union: U16U16U32U32U32(

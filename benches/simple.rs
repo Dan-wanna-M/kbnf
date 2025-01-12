@@ -80,7 +80,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         ..Default::default()
     };
     let mut engine = Engine::with_config(
-        "start::=C'\n';C::=#'( )+';",
+        "start::=C#'\n';C::=#'( )+';",
         vocab.clone(),
         no_cache_config.clone(),
     )

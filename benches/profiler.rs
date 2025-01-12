@@ -58,7 +58,7 @@ fn run_an_engine(engine: &mut Engine, iteration: usize, token_id: u32, logits: &
     for _ in 0..iteration {
         let _ = engine.try_accept_new_token(token_id).unwrap();
         engine.compute_allowed_token_ids();
-        engine.mask_logits(logits).unwrap();
+        // engine.mask_logits(logits).unwrap();
     }
     engine.reset(); // reset the engine to its initial state while not deallocate memory
 }
@@ -76,7 +76,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         ..Default::default()
     };
     let mut engine = Engine::with_config(
-        "start::=#ex\"a|b|c\"'\n';",
+        "start::=#\".+\"#'\n';",
         vocab.clone(),
         no_cache_config.clone(),
     )

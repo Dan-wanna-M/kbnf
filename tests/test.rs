@@ -457,7 +457,7 @@ mod tests {
     }
     #[test]
     fn always_match_regex() {
-        let input = "start::=#\".+\"'\n';";
+        let input = "start::=#\".+\" #'\n';";
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let logits = vec![0.0; vocab.vocab_size()];
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();

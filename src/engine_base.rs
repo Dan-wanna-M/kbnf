@@ -24,7 +24,6 @@ use crate::grammar::RegexType;
 use crate::utils;
 use crate::utils::dispatch_by_dfa_state_status;
 use crate::utils::ByteSet;
-use crate::vocabulary::TokenIterItem;
 use crate::AcceptTokenResult;
 use crate::{
     grammar::{Grammar, HIRNode, NonterminalID},
@@ -301,26 +300,6 @@ pub enum CreateEngineBaseError {
     /// The substrings length exceeds the maximum substrings length allowed by the current size of StateID(TS).
     SubstringsTooLarge(usize, usize),
 }
-#[derive(Clone)]
-struct StagedChanges<TI, TSP>
-where
-    TI: Num
-        + AsPrimitive<usize>
-        + ConstOne
-        + ConstZero
-        + Eq
-        + std::hash::Hash
-        + PartialEq
-        + std::fmt::Debug
-        + PartialOrd
-        + num::Bounded
-        + std::convert::TryFrom<usize>
-        + NumAssign,
-    TSP: Num + AsPrimitive<usize> + ConstOne + ConstZero + Eq + std::hash::Hash + PartialEq,
-{
-    postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
-    earley_sets_len_since_last_commit: usize,
-}
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
@@ -352,6 +331,8 @@ where
     grammar: Arc<Grammar<TI>>,
     allowed_first_bytes: ByteSet,
     allowed_token_ids: FixedBitSet,
+    disallowed_token_ids: FixedBitSet,
+    undetermined_token_ids: FixedBitSet,
     earley_sets: EarleySets<TI, TD, TP, TSP, TS>,
     cache: AHashMap<EarleySets<TI, TD, TP, TSP, TS>, FixedBitSet>,
     to_be_completed_items: AHashSet<ToBeCompletedItem<TI, TSP>>,
@@ -561,11 +542,15 @@ where
         let already_predicted_nonterminals =
             FixedBitSet::with_capacity(grammar.nonterminals_size());
         let postdot_items = AHashMap::default();
+        let disallowed_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
+        let allowable_token_ids = FixedBitSet::with_capacity(vocabulary.vocab_size());
         let mut engine = Self {
             vocabulary,
             grammar,
             allowed_first_bytes,
             allowed_token_ids,
+            disallowed_token_ids,
+            undetermined_token_ids: allowable_token_ids,
             earley_sets,
             cache,
             to_be_completed_items,
@@ -707,12 +692,13 @@ where
                 match fsa {
                     FiniteStateAutomaton::Dfa(dfa) => {
                         // SAFETY: start_error will not happen since that will result in an error in Grammar::new() method
-                        let start = unsafe{dfa
-                            .start_state(
+                        let start = unsafe {
+                            dfa.start_state(
                                 &kbnf_regex_automata::util::start::Config::new()
                                     .anchored(kbnf_regex_automata::Anchored::No),
                             )
-                            .unwrap_unchecked()};
+                            .unwrap_unchecked()
+                        };
                         Self::from_dfa_state_id_to_state_id(start, dfa.stride2())
                     }
                 }
@@ -931,9 +917,10 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &mut AHashSet<ToBeCompletedItem<TI, TSP>>,
         byte: u8,
+        skipped_items_indices: &Option<FixedBitSet>,
     ) {
         let earley_set_index: usize = earley_sets.len() - 1; // Interestingly usize seems to be faster than i32
-        // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
+                                                             // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
         let earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
         earley_sets.new_row::<0>();
@@ -950,7 +937,12 @@ where
                 earley_set_len,
             )
         };
-        for mut item in earley_set.iter().copied() {
+        for (index, mut item) in earley_set.iter().copied().enumerate() {
+            if let Some(skipped_items_indices) = skipped_items_indices {
+                if skipped_items_indices.contains(index) {
+                    continue;
+                }
+            }
             // SAFETY:
             // item.nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
             // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
@@ -1401,8 +1393,15 @@ where
             &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         ),
         byte: u8,
+        skipped_items_indices: &Option<FixedBitSet>,
     ) -> Result<(), crate::engine_like::AcceptTokenError> {
-        Self::scan(grammar, earley_sets, to_be_completed_items, byte); // scan the current Earley set and creates the next Earley set
+        Self::scan(
+            grammar,
+            earley_sets,
+            to_be_completed_items,
+            byte,
+            skipped_items_indices,
+        ); // scan the current Earley set and creates the next Earley set
         if Self::is_rejected(earley_sets, to_be_completed_items) {
             Self::revert_change(
                 earley_sets,
@@ -1438,7 +1437,11 @@ where
         Ok(())
     }
 
-    fn add_tokens_from_eager_regex_cache(&mut self) -> bool {
+    fn add_tokens_from_eager_regex_cache(
+        &mut self,
+        skipped_items_indices: &mut FixedBitSet,
+        all_regex: &mut bool,
+    ) -> bool {
         let cache = &self.grammar.regex_to_token_ids;
         let last_earley_set_index = self.earley_sets.len() - 1;
         let last_earley_set = self
@@ -1446,7 +1449,7 @@ where
             .view::<1, 1>([last_earley_set_index])
             .as_slice();
         let mut changed = false;
-        for item in last_earley_set.iter().copied() {
+        for (index, item) in last_earley_set.iter().copied().enumerate() {
             let node = *self.grammar.node(
                 item.nonterminal_id,
                 item.dot_position,
@@ -1467,16 +1470,27 @@ where
                     regex_id = id;
                     regex_type = RegexType::Complement;
                 }
-                _ => continue,
+                HIRNode::Nonterminal(_) => {
+                    continue;
+                }
+                _ => {
+                    *all_regex = false;
+                    continue;
+                }
             }
+            skipped_items_indices.insert(index);
             let dfa = self.grammar.regex(regex_id);
             let stride2 = match dfa {
                 FiniteStateAutomaton::Dfa(dfa) => dfa.stride2(),
             };
             let state_id = Self::from_state_id_to_dfa_state_id(item.state_id, stride2);
             if let Some(token_ids) = cache.get(&(regex_id, state_id, regex_type)) {
-                self.allowed_token_ids.union_with(token_ids);
+                self.allowed_token_ids.union_with(&token_ids.allowed_tokens);
+                self.disallowed_token_ids
+                    .intersect_with(&token_ids.disallowed_tokens);
                 changed = true;
+            } else {
+                *all_regex = false;
             }
         }
         changed
@@ -1539,6 +1553,7 @@ where
                         })
                     },
                     byte,
+                    &None,
                 )?;
             }
         } else {
@@ -1560,6 +1575,7 @@ where
                     finished,
                     |_, _, _| {},
                     byte,
+                    &None,
                 )?;
             }
         }
@@ -1684,6 +1700,8 @@ where
 
     fn compute_allowed_token_ids(&mut self) {
         self.allowed_token_ids.clear();
+        self.undetermined_token_ids.clear();
+        self.disallowed_token_ids.clear();
         if self.is_finished() {
             return;
         }
@@ -1694,136 +1712,47 @@ where
             }
         }
         let mut eager_cache = false;
+        let mut all_regex = true;
+        let mut skipped_items_indices = None;
         if !self.grammar.regex_to_token_ids.is_empty() {
-            eager_cache = self.add_tokens_from_eager_regex_cache();
+            skipped_items_indices = Some(FixedBitSet::with_capacity(
+                self.earley_sets
+                    .view::<1, 1>([self.earley_sets.len() - 1])
+                    .len(),
+            ));
+            self.disallowed_token_ids.set_range(.., true);
+            eager_cache =
+                self.add_tokens_from_eager_regex_cache(skipped_items_indices.as_mut().unwrap(),&mut all_regex);
+            if !eager_cache {
+                skipped_items_indices = None;
+                self.disallowed_token_ids.set_range(.., false);
+            }
         }
         let original_earley_set_len = self.earley_sets.len();
         self.update_allowed_first_bytes();
-        let mut invalid_next_bytes = ByteSet::with_capacity(256);
         for byte in self.allowed_first_bytes.ones() {
-            invalid_next_bytes.clear();
-            Self::accept_byte(
-                &self.grammar,
-                &mut self.earley_sets,
-                &mut self.to_be_completed_items,
-                &mut self.to_be_completed_items_buffer,
-                &mut self.leo_items,
-                &mut self.leo_items_buffer,
-                &mut self.postdot_items,
-                &mut self.postdot_items_since_last_commit,
-                |_| {},
-                |_| {},
-                &mut self.already_predicted_nonterminals,
-                &mut self.deduplication_buffer,
-                original_earley_set_len,
-                &mut self.finished,
-                |_, _, _| {},
-                byte as u8,
-            )
-            .unwrap();
-            let mut staged_changes = StagedChanges {
-                earley_sets_len_since_last_commit: original_earley_set_len,
-                postdot_items_since_last_commit: self.postdot_items_since_last_commit.clone(),
-            };
-            let len = self.earley_sets.len();
-            Self::commit_change(&mut self.postdot_items_since_last_commit);
-            let mut current_token_id: usize = usize::MAX;
-            let mut token_iter = self.vocabulary.normal_tokens_from_first_byte(byte as u8);
-            let mut rejected = true;
-            let mut accepted = false;
-            let mut second_byte_unseen = false;
-            while let Some(token_byte) = token_iter.next() {
-                match token_byte {
-                    TokenIterItem::TokenByte(token_byte) => {
-                        let token_byte = token_byte.get();
-                        if second_byte_unseen
-                        // SAFETY: invalid_next_bytes preallocates 256 bytes on the stack
-                            && unsafe { invalid_next_bytes.contains_unchecked(token_byte.into()) }
-                        {
-                            rejected = true;
-                            token_iter.next_token();
-                            continue;
-                        }
-                        if Self::accept_byte(
-                            &self.grammar,
-                            &mut self.earley_sets,
-                            &mut self.to_be_completed_items,
-                            &mut self.to_be_completed_items_buffer,
-                            &mut self.leo_items,
-                            &mut self.leo_items_buffer,
-                            &mut self.postdot_items,
-                            &mut self.postdot_items_since_last_commit,
-                            |_| {},
-                            |_| {},
-                            &mut self.already_predicted_nonterminals,
-                            &mut self.deduplication_buffer,
-                            len,
-                            &mut self.finished,
-                            |_, _, _| {},
-                            token_byte,
-                        )
-                        .is_err()
-                        // The token is rejected
-                        {
-                            if second_byte_unseen {
-                                // SAFETY: invalid_next_bytes preallocates 256 bytes on the stack
-                                unsafe { invalid_next_bytes.insert_unchecked(token_byte.into()) };
-                            }
-                            rejected = true;
-                            token_iter.next_token();
-                        }
-                        second_byte_unseen = false;
-                    }
-                    TokenIterItem::NewToken => {
-                        // The token is accepted
-                        second_byte_unseen = true;
-                        if !accepted && !rejected {
-                            Self::revert_change(
-                                &mut self.earley_sets,
-                                &mut self.postdot_items,
-                                &mut self.postdot_items_since_last_commit,
-                                &mut self.leo_items,
-                                |_| {},
-                                len,
-                                &mut self.finished,
-                            );
-                            self.allowed_token_ids.insert(current_token_id);
-                        }
-                        current_token_id = token_iter.current_token_id();
-                        rejected = false;
-                        accepted = eager_cache && self.allowed_token_ids.contains(current_token_id);
-                        if accepted {
-                            token_iter.next_token();
-                        }
-                    }
-                }
-            }
-            // reach the end of the token iterator, revert the last token's change
-            Self::revert_change(
-                &mut self.earley_sets,
-                &mut self.postdot_items,
-                &mut self.postdot_items_since_last_commit,
-                &mut self.leo_items,
-                |_| {},
-                len,
-                &mut self.finished,
-            );
-            if !rejected && !accepted {
-                self.allowed_token_ids.insert(current_token_id);
-            }
-            Self::revert_change(
-                &mut self.earley_sets,
-                &mut self.postdot_items,
-                &mut staged_changes.postdot_items_since_last_commit,
-                &mut self.leo_items,
-                |_| {},
-                staged_changes.earley_sets_len_since_last_commit,
-                &mut self.finished,
-            )
+            self.undetermined_token_ids
+                .union_with(&self.vocabulary.byte_to_token_ids[byte]);
         }
-        for (token_id, token) in self.vocabulary.tokens_containing_separators() {
+        if eager_cache {
+            self.undetermined_token_ids
+                .difference_with(&self.allowed_token_ids);
+            if all_regex {
+                self.undetermined_token_ids
+                    .difference_with(&self.disallowed_token_ids);
+            }
+        }
+        for token_id in self.undetermined_token_ids.ones() {
             let mut accepted = true;
-            for byte in token.0.iter().copied() {
+            for (index, byte) in unsafe {
+                self.vocabulary
+                    .id_to_token_contiguous
+                    .view_unchecked::<1, 1>([token_id])
+                    .as_slice()
+                    .iter()
+                    .copied()
+                    .enumerate()
+            } {
                 if Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1841,6 +1770,11 @@ where
                     &mut self.finished,
                     |_, _, _| {},
                     byte,
+                    if eager_cache && index == 0 && self.disallowed_token_ids.contains(token_id) {
+                        &skipped_items_indices
+                    } else {
+                        &None
+                    },
                 )
                 .is_err()
                 // The token is rejected
@@ -1850,7 +1784,7 @@ where
                 }
             }
             if accepted {
-                self.allowed_token_ids.insert(token_id as usize);
+                self.allowed_token_ids.insert(token_id);
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,

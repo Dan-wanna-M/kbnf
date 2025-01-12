@@ -200,6 +200,11 @@ where
         }
     }
 }
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub(crate) struct TokensCache {
+   pub allowed_tokens: FixedBitSet,
+   pub disallowed_tokens: FixedBitSet,
+}
 
 /// The grammar struct that stores the grammar in HIR.
 #[derive(Clone)]
@@ -212,7 +217,7 @@ where
     rules: JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
     interned_strings: InternedStrings,
     id_to_regexes: Vec<FiniteStateAutomaton>,
-    pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet>,
+    pub(crate) regex_to_token_ids: AHashMap<(RegexID<TI>, StateID, RegexType), TokensCache>,
     id_to_regex_first_bytes: AHashMap<(TI, StateID), ByteSet>,
     id_to_regex_complement_first_bytes: AHashMap<(TI, StateID), ByteSet>,
     id_to_terminals: JaggedArray<u8, Vec<usize>, 2>,
@@ -511,7 +516,7 @@ where
         rules: &JaggedArray<HIRNode<TI>, Vec<usize>, 3>,
         id_to_regexes: &[FiniteStateAutomaton],
         limit: usize,
-    ) -> AHashMap<(RegexID<TI>, StateID, RegexType), FixedBitSet> {
+    ) -> AHashMap<(RegexID<TI>, StateID, RegexType), TokensCache> {
         let mut regex_to_token_ids = AHashMap::default();
         for i in 0..rules.len() {
             let view = rules.view::<1, 2>([i]);
@@ -538,7 +543,8 @@ where
                     match regex {
                         FiniteStateAutomaton::Dfa(dfa) => {
                             for state in dfa.states() {
-                                let mut set = FixedBitSet::with_capacity(vocabulary.vocab_size());
+                                let mut allowed_tokens = FixedBitSet::with_capacity(vocabulary.vocab_size());
+                                let mut disallowed_tokens = FixedBitSet::with_capacity(vocabulary.vocab_size());
                                 let start_state = state.id();
                                 if regex_to_token_ids.contains_key(&(
                                     regex_id,
@@ -549,11 +555,11 @@ where
                                 }
                                 for (token_id, token) in vocabulary.id_to_token.iter() {
                                     let mut state_id = start_state;
-                                    let mut acceptable = true;
+                                    let mut rejected = false;
                                     let mut accepted = false;
                                     for byte in token.0.iter() {
                                         if accepted && regex_type == RegexType::Early {
-                                            acceptable = false;
+                                            rejected = true;
                                             break;
                                         }
                                         if accepted && regex_type == RegexType::Complement {
@@ -566,22 +572,29 @@ where
                                                         accepted=true;
                                             },
                                             reject=>{
-                                                        acceptable=false;
+                                                        rejected=true;
                                                         break;
                                                     },
                                             in_progress=>{}
                                         );
                                     }
-                                    if acceptable
+                                    if !rejected
                                         && (!accepted || regex_type != RegexType::Complement)
                                     {
-                                        set.insert(token_id.as_());
+                                        allowed_tokens.insert(token_id.as_());
+                                    }
+                                    if rejected&&!accepted||(accepted&&regex_type==RegexType::Complement){
+                                        disallowed_tokens.insert(token_id.as_());
                                     }
                                 }
-                                if set.count_ones(..) < limit {
+                                if allowed_tokens.count_ones(..) < limit&&disallowed_tokens.count_ones(..)<limit {
                                     continue;
                                 }
-                                regex_to_token_ids.insert((regex_id, start_state, regex_type), set);
+                                let cache = TokensCache {
+                                    allowed_tokens,
+                                    disallowed_tokens,
+                                };
+                                regex_to_token_ids.insert((regex_id, start_state, regex_type), cache);
                             }
                         }
                     }
