@@ -1359,17 +1359,10 @@ where
         }
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
         for index in max_start_position + 1..earley_set_index {
-            if let Some(nonterminals) = column_to_postdot_nonterminals.remove(&index.as_()) {
-                for nonterminal in nonterminals.into_iter() {
-                    let dotted: Dotted<TI, TSP> = Dotted {
-                        postdot_nonterminal_id: nonterminal,
-                        column: index.as_(),
-                    };
-                    postdot_items.remove(&dotted);
-                    leo_items.remove(&dotted);
-                }
-            }
+            column_to_postdot_nonterminals.remove(&index.as_());
         }
+        postdot_items.retain(|k, _| k.column.as_() <= max_start_position);
+        leo_items.retain(|k, _| k.column.as_() <= max_start_position);
     }
 
     fn accept_byte(
