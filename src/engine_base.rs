@@ -1281,8 +1281,10 @@ where
             }
             std::mem::swap(to_be_completed_items, to_be_completed_items_buffer);
         }
+        earley_sets.buffer_reserve(deduplication_buffer.len());
         for item in deduplication_buffer.drain() {
-            earley_sets.push_to_last_row(item);
+            // SAFETY: earley_sets.push_to_last_row_unchecked is safe since we just reserve the capacity
+            unsafe { earley_sets.push_to_last_row_unchecked(item) };
         }
     }
 
@@ -1297,13 +1299,11 @@ where
     ) {
         earley_sets.truncate::<0>(earley_set_length);
         *finished = false;
-        for postdot in added_postdot_items.iter() {
-            // interestingly, this is faster than drain
-            postdot_items.remove(postdot);
-            leo_items.remove(postdot);
+        for postdot in added_postdot_items.drain() {
+            postdot_items.remove(&postdot);
+            leo_items.remove(&postdot);
             column_to_postdot_nonterminal_operation(postdot.column);
         }
-        added_postdot_items.clear();
     }
     #[inline]
     fn commit_change(postdot_items_since_last_commit: &mut AHashSet<Dotted<TI, TSP>>) {
@@ -1314,8 +1314,13 @@ where
         earley_sets: &EarleySets<TI, TD, TP, TSP, TS>,
         to_be_completed_items: &AHashSet<ToBeCompletedItem<TI, TSP>>,
     ) -> bool {
-        earley_sets.view::<1, 1>([earley_sets.len() - 1]).is_empty()
-            && to_be_completed_items.is_empty()
+        unsafe {
+            // SAFETY: earley_sets.len() is guaranteed to be valid since earley_sets is never empty
+            earley_sets
+                .view_unchecked::<1, 1>([earley_sets.len() - 1])
+                .is_empty()
+                && to_be_completed_items.is_empty()
+        }
     }
     /// Compact the Earley sets by removing the Earley sets that are not reachable from the last Earley set
     fn compact(
@@ -1358,9 +1363,7 @@ where
             return;
         }
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
-        for index in max_start_position + 1..earley_set_index {
-            column_to_postdot_nonterminals.remove(&index.as_());
-        }
+        column_to_postdot_nonterminals.retain(|k, _| k.as_() <= max_start_position);
         postdot_items.retain(|k, _| k.column.as_() <= max_start_position);
         leo_items.retain(|k, _| k.column.as_() <= max_start_position);
     }
@@ -1707,18 +1710,21 @@ where
         let mut eager_cache = false;
         let mut all_regex = true;
         let mut skipped_items_indices = None;
+        let mut rejected_prefixes = AHashSet::new();
         if !self.grammar.regex_to_token_ids.is_empty() {
             skipped_items_indices = Some(FixedBitSet::with_capacity(
                 self.earley_sets
                     .view::<1, 1>([self.earley_sets.len() - 1])
                     .len(),
             ));
-            self.disallowed_token_ids.set_range(.., true);
-            eager_cache =
-                self.add_tokens_from_eager_regex_cache(skipped_items_indices.as_mut().unwrap(),&mut all_regex);
+            self.disallowed_token_ids.insert_range(..);
+            eager_cache = self.add_tokens_from_eager_regex_cache(
+                skipped_items_indices.as_mut().unwrap(),
+                &mut all_regex,
+            );
             if !eager_cache {
                 skipped_items_indices = None;
-                self.disallowed_token_ids.set_range(.., false);
+                self.disallowed_token_ids.remove_range(..);
             }
         }
         let original_earley_set_len = self.earley_sets.len();
@@ -1737,15 +1743,23 @@ where
         }
         for token_id in self.undetermined_token_ids.ones() {
             let mut accepted = true;
-            for (index, byte) in unsafe {
+            let token = unsafe {
                 self.vocabulary
                     .id_to_token_contiguous
                     .view_unchecked::<1, 1>([token_id])
                     .as_slice()
-                    .iter()
-                    .copied()
-                    .enumerate()
-            } {
+            };
+            let mut already_rejected = false;
+            for prefix_len in 1..=token.len() {
+                if rejected_prefixes.contains(&token[..prefix_len]) {
+                    already_rejected = true;
+                    break;
+                }
+            }
+            if already_rejected {
+                continue;
+            }
+            for (index, byte) in token.iter().copied().enumerate() {
                 if Self::accept_byte(
                     &self.grammar,
                     &mut self.earley_sets,
@@ -1763,7 +1777,11 @@ where
                     &mut self.finished,
                     |_, _, _| {},
                     byte,
-                    if eager_cache && index == 0 && self.disallowed_token_ids.contains(token_id) {
+                    if eager_cache
+                        && !all_regex
+                        && index == 0
+                        && self.disallowed_token_ids.contains(token_id)
+                    {
                         &skipped_items_indices
                     } else {
                         &None
@@ -1773,11 +1791,12 @@ where
                 // The token is rejected
                 {
                     accepted = false;
+                    rejected_prefixes.insert(&token[..index+1]);
                     break;
                 }
             }
             if accepted {
-                self.allowed_token_ids.insert(token_id);
+                unsafe { self.allowed_token_ids.insert_unchecked(token_id) };
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,
