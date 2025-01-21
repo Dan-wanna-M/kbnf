@@ -344,7 +344,6 @@ where
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
-    column_to_postdot_nonterminals: AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
     leo_items: AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
     already_predicted_nonterminals: FixedBitSet,
@@ -424,6 +423,7 @@ where
                     |(k, v)| (k.to_debug_form(&self.grammar), v.to_debug_form(self)),
                 )
             })
+            /*
             .field(
                 "column_to_postdot_items",
                 &utils::get_deterministic_display_form_from_hash_map(
@@ -437,7 +437,7 @@ where
                         )
                     },
                 ),
-            )
+            )*/
             .field("postdot_items_since_last_commit", {
                 &utils::get_deterministic_display_form_from_hash_set(
                     &self.postdot_items_since_last_commit,
@@ -563,7 +563,6 @@ where
             leo_items_buffer: Vec::new(),
             postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
-            column_to_postdot_nonterminals: AHashMap::default(),
         };
         engine.reset();
         Ok(engine)
@@ -1091,7 +1090,6 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
-        mut insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
     ) {
         let earley_set_index = earley_sets.len() - 1;
         // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
@@ -1117,7 +1115,6 @@ where
                     postdot_nonterminal_id: nonterminal,
                     column: earley_set_index.as_(),
                 };
-                insert_column_to_postdot_nonterminal(postdot);
                 match postdot_items.entry(postdot) {
                     std::collections::hash_map::Entry::Occupied(mut entry) => {
                         let mut_ref = entry.get_mut();
@@ -1293,7 +1290,6 @@ where
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
-        mut column_to_postdot_nonterminal_operation: impl FnMut(TSP),
         earley_set_length: usize,
         finished: &mut bool,
     ) {
@@ -1302,7 +1298,6 @@ where
         for postdot in added_postdot_items.drain() {
             postdot_items.remove(&postdot);
             leo_items.remove(&postdot);
-            column_to_postdot_nonterminal_operation(postdot.column);
         }
     }
     #[inline]
@@ -1327,7 +1322,6 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        column_to_postdot_nonterminals: &mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
         let mut view = earley_sets.view_mut::<1, 1>([earley_set_index]);
@@ -1363,7 +1357,6 @@ where
             return;
         }
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
-        column_to_postdot_nonterminals.retain(|k, _| k.as_() <= max_start_position);
         postdot_items.retain(|k, _| k.column.as_() <= max_start_position);
         leo_items.retain(|k, _| k.column.as_() <= max_start_position);
     }
@@ -1377,8 +1370,6 @@ where
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
-        remove_column_to_postdot_nonterminal_operation: impl FnMut(TSP),
-        insert_column_to_postdot_nonterminal: impl FnMut(Dotted<TI, TSP>),
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         previous_earley_set_length: usize,
@@ -1404,7 +1395,6 @@ where
                 postdot_items,
                 added_postdot_items,
                 leo_items,
-                remove_column_to_postdot_nonterminal_operation,
                 previous_earley_set_length,
                 finished,
             );
@@ -1428,7 +1418,6 @@ where
             earley_sets,
             postdot_items,
             added_postdot_items,
-            insert_column_to_postdot_nonterminal,
         ); // update postdot items for the next Earley set
         Ok(())
     }
@@ -1503,7 +1492,6 @@ where
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         already_predicted_nonterminals: &mut FixedBitSet,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
-        column_to_postdot_nonterminals: *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>,
         config: &EngineConfig,
         finished: &mut bool,
         bytes: impl Iterator<Item = u8>,
@@ -1520,33 +1508,12 @@ where
                     leo_items_buffer,
                     postdot_items,
                     added_postdot_items,
-                    |column| {
-                        unsafe { &mut *column_to_postdot_nonterminals }.remove(&column);
-                    },
-                    |dotted| {
-                        // SAFETY: this closure will only be called in `update_postdot_items`
-                        // and never run simultaneously with the other closures there
-                        match unsafe { &mut *column_to_postdot_nonterminals }.entry(dotted.column) {
-                            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                                entry.get_mut().insert(dotted.postdot_nonterminal_id);
-                            }
-                            std::collections::hash_map::Entry::Vacant(entry) => {
-                                entry
-                                    .insert(AHashSet::new())
-                                    .insert(dotted.postdot_nonterminal_id);
-                            }
-                        };
-                    },
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     len,
                     finished,
                     |earley_sets, leo_items, postdot_items| {
-                        // SAFETY: this closure will only be called in `accept_byte`
-                        // and never run simultaneously with the closures above
-                        Self::compact(earley_sets, leo_items, postdot_items, unsafe {
-                            &mut *column_to_postdot_nonterminals
-                        })
+                        Self::compact(earley_sets, leo_items, postdot_items)
                     },
                     byte,
                     &None,
@@ -1563,8 +1530,6 @@ where
                     leo_items_buffer,
                     postdot_items,
                     added_postdot_items,
-                    |_| {},
-                    |_| {},
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     len,
@@ -1648,7 +1613,6 @@ where
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
         let token_iter = token.0.iter().copied();
-        let ptr = &mut self.column_to_postdot_nonterminals as *mut _;
         Self::accept_bytes(
             &self.grammar,
             &mut self.earley_sets,
@@ -1660,7 +1624,6 @@ where
             &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.deduplication_buffer,
-            ptr,
             &self.config,
             &mut self.finished,
             token_iter,
@@ -1674,8 +1637,6 @@ where
         if self.is_finished() {
             return Err(crate::engine_like::AcceptTokenError::Finished);
         }
-        let ptr = &mut self.column_to_postdot_nonterminals
-            as *mut AHashMap<TSP, AHashSet<NonterminalID<TI>>>;
         Self::accept_bytes(
             &self.grammar,
             &mut self.earley_sets,
@@ -1687,7 +1648,6 @@ where
             &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.deduplication_buffer,
-            ptr,
             &self.config,
             &mut self.finished,
             bytes.iter().copied(),
@@ -1702,10 +1662,15 @@ where
             return;
         }
         if self.config.cache_enabled {
+            let start_time = std::time::Instant::now();
             if let Some(allowed_ids) = self.cache.get(&self.earley_sets) {
+                let duration = start_time.elapsed();
+                // println!("cache hit: {:?}", duration);
                 self.allowed_token_ids.union_with(allowed_ids);
                 return;
             }
+            let duration = start_time.elapsed();
+            // println!("cache miss: {:?}", duration);
         }
         let mut eager_cache = false;
         let mut all_regex = true;
@@ -1769,8 +1734,6 @@ where
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
-                    |_| {},
-                    |_| {},
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     original_earley_set_len,
@@ -1802,7 +1765,6 @@ where
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
                     &mut self.leo_items,
-                    |_| {},
                     original_earley_set_len,
                     &mut self.finished,
                 );
@@ -1908,7 +1870,6 @@ where
         self.postdot_items.clear();
         self.postdot_items_since_last_commit.clear();
         self.deduplication_buffer.clear();
-        self.column_to_postdot_nonterminals.clear();
         self.already_predicted_nonterminals.clear();
         self.finished = false;
         self.allowed_token_ids.clear();
@@ -1931,7 +1892,6 @@ where
             &mut self.earley_sets,
             &mut self.postdot_items,
             &mut AHashSet::default(), // We will never need to revert the engine's state since it is the initialization
-            |_| {},                   // column zero should never be removed
         );
     }
 

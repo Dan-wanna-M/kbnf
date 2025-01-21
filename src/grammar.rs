@@ -580,10 +580,14 @@ where
                                     }
                                     if !rejected
                                         && (!accepted || regex_type != RegexType::Complement)
+                                        // if we have not been rejected, and we either has not been accepted(so in progress)
+                                        // or we are not in complement mode(while we may have been accepted, we are not rejected)
                                     {
                                         allowed_tokens.insert(token_id.as_());
                                     }
                                     if rejected&&!accepted||(accepted&&regex_type==RegexType::Complement){
+                                        // if we have been rejected, and we have never been accepted,
+                                        // or we are in complement mode and we have been accepted
                                         disallowed_tokens.insert(token_id.as_());
                                     }
                                 }
@@ -845,7 +849,7 @@ where
         &self.id_to_suffix_automata
     }
     #[inline]
-    /// Get the terminals size.
+    /// Get the nonterminals size.
     pub fn nonterminals_size(&self) -> usize {
         self.interned_strings.nonterminals.len()
     }

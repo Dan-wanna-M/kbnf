@@ -684,4 +684,15 @@ __schema_json_1_next ::=
             "Should reject sequence containing invalid byte 'a'"
         );
     }
+
+    #[test]
+    fn test_json_string() {
+        let input = r#"start::=#'"([^\\\\"\u0000-\u001f]|\\\\["\\\\bfnrt/]|\\\\u[0-9A-Fa-f]{4})*"' '\n';"#;
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        engine.try_accept_new_bytes(b"\"Hello, World!\\n").unwrap();
+        engine.compute_allowed_token_ids();
+        assert_snapshot!(format!("{:#?}", engine));
+    }
 }
+
