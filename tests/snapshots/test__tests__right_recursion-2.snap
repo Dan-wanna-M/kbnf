@@ -111,11 +111,9 @@ Engine {
                     ),
                 ),
             ],
-            column_to_postdot_items: [],
             postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],
-            already_predicted_nonterminals: [],
             finished: true,
             config: EngineConfig {
                 cache_enabled: true,

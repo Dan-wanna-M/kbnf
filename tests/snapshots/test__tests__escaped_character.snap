@@ -150,18 +150,9 @@ Engine {
                     ),
                 ),
             ],
-            column_to_postdot_items: [
-                (
-                    1,
-                    [
-                        "C[1]",
-                    ],
-                ),
-            ],
             postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],
-            already_predicted_nonterminals: [],
             finished: false,
             config: EngineConfig {
                 cache_enabled: true,

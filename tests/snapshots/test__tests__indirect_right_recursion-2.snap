@@ -76,8 +76,20 @@ Engine {
                         ],
                     ),
                 ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "A[2]",
+                        column: 1,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "B[0] -> \"y\"[0].A[2]",
+                            start_position: 0,
+                            state: "",
+                        },
+                    ),
+                ),
             ],
-            column_to_postdot_items: [],
             postdot_items_since_last_commit: [],
             leo_items: [
                 (
@@ -92,7 +104,6 @@ Engine {
                 ),
             ],
             leo_items_buffer: [],
-            already_predicted_nonterminals: [],
             finished: true,
             config: EngineConfig {
                 cache_enabled: true,

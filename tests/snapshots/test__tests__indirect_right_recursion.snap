@@ -110,13 +110,18 @@ Engine {
                         },
                     ),
                 ),
-            ],
-            column_to_postdot_items: [
                 (
-                    1,
-                    [
-                        "A[2]",
-                    ],
+                    DottedDebugStruct {
+                        postdot_nonterminal: "B[0]",
+                        column: 1,
+                    },
+                    LeoEligible(
+                        EarleyItemDebugStruct {
+                            dotted_rule: "A[2] -> \"x\"[2].B[0]",
+                            start_position: 0,
+                            state: "",
+                        },
+                    ),
                 ),
             ],
             postdot_items_since_last_commit: [],
@@ -131,9 +136,18 @@ Engine {
                         start_position: 0,
                     },
                 ),
+                (
+                    DottedDebugStruct {
+                        postdot_nonterminal: "B[0]",
+                        column: 1,
+                    },
+                    ToBeCompletedItemDebugStruct {
+                        nonterminal: "A[2]",
+                        start_position: 0,
+                    },
+                ),
             ],
             leo_items_buffer: [],
-            already_predicted_nonterminals: [],
             finished: false,
             config: EngineConfig {
                 cache_enabled: true,

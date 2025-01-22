@@ -228,11 +228,9 @@ Engine {
             to_be_completed_items_buffer: [],
             deduplication_buffer: [],
             postdot_items: [],
-            column_to_postdot_items: [],
             postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],
-            already_predicted_nonterminals: [],
             finished: false,
             config: EngineConfig {
                 cache_enabled: true,
