@@ -1289,6 +1289,7 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
+        already_predicted_nonterminals: &mut Vec<FixedBitSet>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         earley_set_length: usize,
         finished: &mut bool,
@@ -1299,6 +1300,7 @@ where
             postdot_items.remove(&postdot);
             leo_items.remove(&postdot);
         }
+        already_predicted_nonterminals.truncate(earley_set_length);
     }
     #[inline]
     fn commit_change(postdot_items_since_last_commit: &mut AHashSet<Dotted<TI, TSP>>) {
@@ -1406,6 +1408,7 @@ where
                 earley_sets,
                 postdot_items,
                 added_postdot_items,
+                already_predicted_nonterminals,
                 leo_items,
                 previous_earley_set_length,
                 finished,
@@ -1790,6 +1793,7 @@ where
                     &mut self.earley_sets,
                     &mut self.postdot_items,
                     &mut self.postdot_items_since_last_commit,
+                    &mut self.already_predicted_nonterminals,
                     &mut self.leo_items,
                     original_earley_set_len,
                     &mut self.finished,
