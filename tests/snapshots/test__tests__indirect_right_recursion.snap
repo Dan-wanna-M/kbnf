@@ -110,36 +110,12 @@ Engine {
                         },
                     ),
                 ),
-                (
-                    DottedDebugStruct {
-                        postdot_nonterminal: "B[0]",
-                        column: 1,
-                    },
-                    LeoEligible(
-                        EarleyItemDebugStruct {
-                            dotted_rule: "A[2] -> \"x\"[2].B[0]",
-                            start_position: 0,
-                            state: "",
-                        },
-                    ),
-                ),
             ],
-            postdot_items_since_last_commit: [],
             leo_items: [
                 (
                     DottedDebugStruct {
                         postdot_nonterminal: "B[0]",
                         column: 0,
-                    },
-                    ToBeCompletedItemDebugStruct {
-                        nonterminal: "A[2]",
-                        start_position: 0,
-                    },
-                ),
-                (
-                    DottedDebugStruct {
-                        postdot_nonterminal: "B[0]",
-                        column: 1,
                     },
                     ToBeCompletedItemDebugStruct {
                         nonterminal: "A[2]",

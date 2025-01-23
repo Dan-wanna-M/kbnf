@@ -76,21 +76,7 @@ Engine {
                         ],
                     ),
                 ),
-                (
-                    DottedDebugStruct {
-                        postdot_nonterminal: "A[2]",
-                        column: 1,
-                    },
-                    LeoEligible(
-                        EarleyItemDebugStruct {
-                            dotted_rule: "B[0] -> \"y\"[0].A[2]",
-                            start_position: 0,
-                            state: "",
-                        },
-                    ),
-                ),
             ],
-            postdot_items_since_last_commit: [],
             leo_items: [
                 (
                     DottedDebugStruct {

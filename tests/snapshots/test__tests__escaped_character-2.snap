@@ -111,7 +111,6 @@ Engine {
                     ),
                 ),
             ],
-            postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],
             finished: true,

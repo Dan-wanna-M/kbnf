@@ -343,7 +343,6 @@ where
     // Memory pool actually makes the performance worse. Maybe it will be better if there is a lot of postdot items for a single Dotted.
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     postdot_items_buffer: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-    postdot_items_since_last_commit: AHashSet<Dotted<TI, TSP>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
     leo_items: AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
@@ -439,12 +438,6 @@ where
                     },
                 ),
             )*/
-            .field("postdot_items_since_last_commit", {
-                &utils::get_deterministic_display_form_from_hash_set(
-                    &self.postdot_items_since_last_commit,
-                    |x| x.to_debug_form(&self.grammar),
-                )
-            })
             .field("leo_items", {
                 &utils::get_deterministic_display_form_from_hash_map(&self.leo_items, |(k, v)| {
                     (
@@ -558,7 +551,6 @@ where
             finished: false,
             to_be_completed_items_buffer: AHashSet::default(),
             leo_items_buffer: Vec::new(),
-            postdot_items_since_last_commit: AHashSet::default(),
             deduplication_buffer: AHashSet::default(),
         };
         engine.reset();
@@ -635,9 +627,9 @@ where
     fn predict(
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
-        already_predicted_nonterminals: &mut Vec<FixedBitSet>,
+        already_predicted_nonterminals: &mut [FixedBitSet],
     ) {
-        let mut temp_already_predicted_nonterminals = FixedBitSet::with_capacity(grammar.nonterminals_size());
+        let temp_already_predicted_nonterminals = already_predicted_nonterminals.last_mut().unwrap();
         let earley_set_index = earley_sets.len() - 1;
         let mut earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
@@ -656,14 +648,14 @@ where
                 earley_set_len += Self::predict_nonterminal(
                     grammar,
                     earley_sets,
-                    &mut temp_already_predicted_nonterminals,
+                    temp_already_predicted_nonterminals,
                     nonterminal_id,
                     earley_set_index,
                 );
             }
             i += 1;
         }
-        already_predicted_nonterminals.push(temp_already_predicted_nonterminals);
+        // already_predicted_nonterminals.push(temp_already_predicted_nonterminals);
     }
 
     fn initialize_state_id_based_on_node(grammar: &Grammar<TI>, node: HIRNode<TI>) -> TS {
@@ -1087,7 +1079,6 @@ where
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
@@ -1129,7 +1120,6 @@ where
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
                         entry.insert(PostDotItems::LeoEligible(item));
-                        added_postdot_items.insert(postdot);
                     }
                 }
             }
@@ -1288,7 +1278,6 @@ where
     fn revert_change(
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         already_predicted_nonterminals: &mut Vec<FixedBitSet>,
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         earley_set_length: usize,
@@ -1296,15 +1285,17 @@ where
     ) {
         earley_sets.truncate::<0>(earley_set_length);
         *finished = false;
-        for postdot in added_postdot_items.drain() {
-            postdot_items.remove(&postdot);
-            leo_items.remove(&postdot);
+        for (index, temp) in already_predicted_nonterminals.drain(earley_set_length..).enumerate() {
+            let index = index + earley_set_length;
+            for nonterminal_id in temp.ones() {
+                let dotted = Dotted {
+                    postdot_nonterminal_id: NonterminalID(nonterminal_id.as_()),
+                    column: index.as_(),
+                };
+                postdot_items.remove(&dotted);
+                leo_items.remove(&dotted);
+            }
         }
-        already_predicted_nonterminals.truncate(earley_set_length);
-    }
-    #[inline]
-    fn commit_change(postdot_items_since_last_commit: &mut AHashSet<Dotted<TI, TSP>>) {
-        postdot_items_since_last_commit.clear();
     }
     #[inline]
     fn is_rejected(
@@ -1381,7 +1372,6 @@ where
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         already_predicted_nonterminals: &mut Vec<FixedBitSet>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1407,7 +1397,6 @@ where
             Self::revert_change(
                 earley_sets,
                 postdot_items,
-                added_postdot_items,
                 already_predicted_nonterminals,
                 leo_items,
                 previous_earley_set_length,
@@ -1427,12 +1416,12 @@ where
             finished,
         ); // complete the next Earley set
         compact(earley_sets, leo_items, postdot_items, already_predicted_nonterminals);
+        already_predicted_nonterminals.push(FixedBitSet::with_capacity(grammar.nonterminals_size()));
         Self::predict(grammar, earley_sets, already_predicted_nonterminals); // predict the next Earley set
         Self::update_postdot_items(
             grammar,
             earley_sets,
             postdot_items,
-            added_postdot_items,
             postdot_items_buffer,
         ); // update postdot items for the next Earley set
         Ok(())
@@ -1505,7 +1494,6 @@ where
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        added_postdot_items: &mut AHashSet<Dotted<TI, TSP>>,
         already_predicted_nonterminals: &mut Vec<FixedBitSet>,
         postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
@@ -1524,7 +1512,6 @@ where
                     leo_items,
                     leo_items_buffer,
                     postdot_items,
-                    added_postdot_items,
                     postdot_items_buffer,
                     already_predicted_nonterminals,
                     deduplication_buffer,
@@ -1547,7 +1534,6 @@ where
                     leo_items,
                     leo_items_buffer,
                     postdot_items,
-                    added_postdot_items,
                     postdot_items_buffer,
                     already_predicted_nonterminals,
                     deduplication_buffer,
@@ -1559,7 +1545,6 @@ where
                 )?;
             }
         }
-        Self::commit_change(added_postdot_items);
         if *finished {
             Ok(crate::engine_like::AcceptTokenResult::Finished)
         } else {
@@ -1640,7 +1625,6 @@ where
             &mut self.leo_items,
             &mut self.leo_items_buffer,
             &mut self.postdot_items,
-            &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.postdot_items_buffer,
             &mut self.deduplication_buffer,
@@ -1665,7 +1649,6 @@ where
             &mut self.leo_items,
             &mut self.leo_items_buffer,
             &mut self.postdot_items,
-            &mut self.postdot_items_since_last_commit,
             &mut self.already_predicted_nonterminals,
             &mut self.postdot_items_buffer,
             &mut self.deduplication_buffer,
@@ -1729,6 +1712,8 @@ where
                     .difference_with(&self.disallowed_token_ids);
             }
         }
+        // println!("number of undetermined_token_ids: {:?}", self.undetermined_token_ids.count_ones(..));
+        // println!("number of allowed_token_ids before: {:?}", self.allowed_token_ids.count_ones(..));
         for token_id in self.undetermined_token_ids.ones() {
             let mut accepted = true;
             let token = unsafe {
@@ -1751,6 +1736,7 @@ where
                 let skipped = eager_cache && index == 0;
                 if skipped {
                     let temp: &mut FixedBitSet = current_skipped_items_indices.as_mut().unwrap();
+                    temp.clear();
                     for (index, disallowed_tokens) in skipped_items_indices.iter().copied() {
                         if unsafe { (*disallowed_tokens).contains(token_id) } {
                             temp.insert(index);
@@ -1765,7 +1751,6 @@ where
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
-                    &mut self.postdot_items_since_last_commit,
                     &mut self.postdot_items_buffer,
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
@@ -1792,7 +1777,6 @@ where
                 Self::revert_change(
                     &mut self.earley_sets,
                     &mut self.postdot_items,
-                    &mut self.postdot_items_since_last_commit,
                     &mut self.already_predicted_nonterminals,
                     &mut self.leo_items,
                     original_earley_set_len,
@@ -1800,7 +1784,7 @@ where
                 );
             }
         }
-        Self::commit_change(&mut self.postdot_items_since_last_commit);
+        // println!("number of allowed_token_ids after: {:?}", self.allowed_token_ids.count_ones(..));
         if self.config.cache_enabled {
             self.cache
                 .insert(self.earley_sets.clone(), self.allowed_token_ids.clone());
@@ -1898,7 +1882,6 @@ where
         self.leo_items.clear();
         self.leo_items_buffer.clear();
         self.postdot_items.clear();
-        self.postdot_items_since_last_commit.clear();
         self.deduplication_buffer.clear();
         self.already_predicted_nonterminals.clear();
         self.finished = false;
@@ -1922,7 +1905,6 @@ where
             &self.grammar,
             &mut self.earley_sets,
             &mut self.postdot_items,
-            &mut AHashSet::default(), // We will never need to revert the engine's state since it is the initialization
             &mut self.postdot_items_buffer,
         );
     }

@@ -37,16 +37,6 @@ Engine {
                         start_position: 0,
                         state: "[0]",
                     },
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .start[0]\"bb\"[0]",
-                        start_position: 0,
-                        state: "",
-                    },
-                    EarleyItemDebugStruct {
-                        dotted_rule: "start[0] -> .\"bb\"[0]",
-                        start_position: 0,
-                        state: "[0]",
-                    },
                 ],
                 [
                     EarleyItemDebugStruct {
@@ -73,16 +63,10 @@ Engine {
                                 start_position: 0,
                                 state: "",
                             },
-                            EarleyItemDebugStruct {
-                                dotted_rule: "start[0] -> .start[0]\"bb\"[0]",
-                                start_position: 0,
-                                state: "",
-                            },
                         ],
                     ),
                 ),
             ],
-            postdot_items_since_last_commit: [],
             leo_items: [],
             leo_items_buffer: [],
             finished: true,
