@@ -342,7 +342,6 @@ where
     // I feel like copying the item is better than add a reference to the item since the item is relatively small(<=16 bytes)
     // Memory pool actually makes the performance worse. Maybe it will be better if there is a lot of postdot items for a single Dotted.
     postdot_items: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-    postdot_items_buffer: AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     // Maybe we could do a tree-like search to broaden the definition of leo items later.
     leo_items: AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
     leo_items_buffer: Vec<ToBeCompletedItem<TI, TSP>>,
@@ -546,7 +545,6 @@ where
             already_predicted_nonterminals,
             config,
             postdot_items,
-            postdot_items_buffer: AHashMap::default(),
             leo_items: AHashMap::default(),
             finished: false,
             to_be_completed_items_buffer: AHashSet::default(),
@@ -629,7 +627,8 @@ where
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         already_predicted_nonterminals: &mut [FixedBitSet],
     ) {
-        let temp_already_predicted_nonterminals = already_predicted_nonterminals.last_mut().unwrap();
+        let temp_already_predicted_nonterminals =
+            already_predicted_nonterminals.last_mut().unwrap();
         let earley_set_index = earley_sets.len() - 1;
         let mut earley_set_len =
             unsafe { earley_sets.view_unchecked::<1, 1>([earley_set_index]).len() };
@@ -1079,7 +1078,6 @@ where
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     ) {
         let earley_set_index = earley_sets.len() - 1;
         // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
@@ -1105,7 +1103,7 @@ where
                     postdot_nonterminal_id: nonterminal,
                     column: earley_set_index.as_(),
                 };
-                match postdot_items_buffer.entry(postdot) {
+                match postdot_items.entry(postdot) {
                     std::collections::hash_map::Entry::Occupied(mut entry) => {
                         let mut_ref = entry.get_mut();
                         // add_column_to_postdot_nonterminal(postdot);
@@ -1119,25 +1117,21 @@ where
                         }
                     }
                     std::collections::hash_map::Entry::Vacant(entry) => {
-                        entry.insert(PostDotItems::LeoEligible(item));
+                        if !Self::item_should_be_completed(
+                            grammar,
+                            item.nonterminal_id,
+                            item.dot_position + TD::ONE,
+                            item.production_index,
+                        ) {
+                            // not a leo item
+                            entry.insert(PostDotItems::NormalItems(vec![item]));
+                        } else {
+                            entry.insert(PostDotItems::LeoEligible(item));
+                        }
                     }
                 }
             }
         }
-        for v in postdot_items_buffer.values_mut() {
-            if let &mut PostDotItems::LeoEligible(item) = v {
-                if !Self::item_should_be_completed(
-                    grammar,
-                    item.nonterminal_id,
-                    item.dot_position + TD::ONE,
-                    item.production_index,
-                ) {
-                    // not a leo item
-                    *v = PostDotItems::NormalItems(vec![item]);
-                }
-            }
-        }
-        postdot_items.extend(postdot_items_buffer.drain());
     }
     fn try_leo_complete_item(
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
@@ -1150,9 +1144,9 @@ where
                 postdot_nonterminal_id: topmost_item.nonterminal_id,
                 column: topmost_item.start_position,
             };
-            if let Some(leo_item) = leo_items.get(&dotted) {
+            if let Some(&leo_item) = leo_items.get(&dotted) {
                 leo_items_buffer.push(topmost_item);
-                topmost_item = *leo_item;
+                topmost_item = leo_item;
                 break;
             }
             match postdot_items.get(&dotted) {
@@ -1285,7 +1279,10 @@ where
     ) {
         earley_sets.truncate::<0>(earley_set_length);
         *finished = false;
-        for (index, temp) in already_predicted_nonterminals.drain(earley_set_length..).enumerate() {
+        for (index, temp) in already_predicted_nonterminals
+            .drain(earley_set_length..)
+            .enumerate()
+        {
             let index = index + earley_set_length;
             for nonterminal_id in temp.ones() {
                 let dotted = Dotted {
@@ -1340,6 +1337,12 @@ where
                         },
                         leo_item,
                     );
+                    // SAFETY: leo_item.start_position is guaranteed to be valid since it is a valid column index
+                    unsafe {
+                        already_predicted_nonterminals
+                            .get_unchecked_mut(leo_item.start_position.as_())
+                            .insert(item.nonterminal_id.0.as_())
+                    };
                 }
                 start_position = leo_item.start_position.as_();
             }
@@ -1351,8 +1354,11 @@ where
             return;
         }
         earley_sets.remove_rows(max_start_position + 1..earley_set_index);
-        for (index, temp) in already_predicted_nonterminals.drain(max_start_position + 1..earley_set_index).enumerate() {
-            let index = index + max_start_position + 1;
+        for (mut index, temp) in already_predicted_nonterminals
+            .drain(max_start_position + 1..earley_set_index)
+            .enumerate()
+        {
+            index += max_start_position + 1;
             for nonterminal_id in temp.ones() {
                 let dotted = Dotted {
                     postdot_nonterminal_id: NonterminalID(nonterminal_id.as_()),
@@ -1372,7 +1378,6 @@ where
         leo_items: &mut AHashMap<Dotted<TI, TSP>, ToBeCompletedItem<TI, TSP>>,
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
-        postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         already_predicted_nonterminals: &mut Vec<FixedBitSet>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         previous_earley_set_length: usize,
@@ -1415,15 +1420,16 @@ where
             deduplication_buffer,
             finished,
         ); // complete the next Earley set
-        compact(earley_sets, leo_items, postdot_items, already_predicted_nonterminals);
-        already_predicted_nonterminals.push(FixedBitSet::with_capacity(grammar.nonterminals_size()));
-        Self::predict(grammar, earley_sets, already_predicted_nonterminals); // predict the next Earley set
-        Self::update_postdot_items(
-            grammar,
+        compact(
             earley_sets,
+            leo_items,
             postdot_items,
-            postdot_items_buffer,
-        ); // update postdot items for the next Earley set
+            already_predicted_nonterminals,
+        );
+        already_predicted_nonterminals
+            .push(FixedBitSet::with_capacity(grammar.nonterminals_size()));
+        Self::predict(grammar, earley_sets, already_predicted_nonterminals); // predict the next Earley set
+        Self::update_postdot_items(grammar, earley_sets, postdot_items); // update postdot items for the next Earley set
         Ok(())
     }
 
@@ -1495,7 +1501,6 @@ where
         leo_items_buffer: &mut Vec<ToBeCompletedItem<TI, TSP>>,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         already_predicted_nonterminals: &mut Vec<FixedBitSet>,
-        postdot_items_buffer: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
         deduplication_buffer: &mut AHashSet<EarleyItem<TI, TD, TP, TSP, TS>>,
         config: &EngineConfig,
         finished: &mut bool,
@@ -1512,13 +1517,17 @@ where
                     leo_items,
                     leo_items_buffer,
                     postdot_items,
-                    postdot_items_buffer,
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     len,
                     finished,
                     |earley_sets, leo_items, postdot_items, already_predicted_nonterminals| {
-                        Self::compact(earley_sets, already_predicted_nonterminals, leo_items, postdot_items)
+                        Self::compact(
+                            earley_sets,
+                            already_predicted_nonterminals,
+                            leo_items,
+                            postdot_items,
+                        )
                     },
                     byte,
                     &None,
@@ -1534,7 +1543,6 @@ where
                     leo_items,
                     leo_items_buffer,
                     postdot_items,
-                    postdot_items_buffer,
                     already_predicted_nonterminals,
                     deduplication_buffer,
                     len,
@@ -1626,7 +1634,6 @@ where
             &mut self.leo_items_buffer,
             &mut self.postdot_items,
             &mut self.already_predicted_nonterminals,
-            &mut self.postdot_items_buffer,
             &mut self.deduplication_buffer,
             &self.config,
             &mut self.finished,
@@ -1650,7 +1657,6 @@ where
             &mut self.leo_items_buffer,
             &mut self.postdot_items,
             &mut self.already_predicted_nonterminals,
-            &mut self.postdot_items_buffer,
             &mut self.deduplication_buffer,
             &self.config,
             &mut self.finished,
@@ -1688,10 +1694,8 @@ where
                     .view::<1, 1>([self.earley_sets.len() - 1])
                     .len(),
             ));
-            eager_cache = self.add_tokens_from_eager_regex_cache(
-                &mut skipped_items_indices,
-                &mut all_regex,
-            );
+            eager_cache =
+                self.add_tokens_from_eager_regex_cache(&mut skipped_items_indices, &mut all_regex);
             if !eager_cache {
                 skipped_items_indices.clear();
                 self.disallowed_token_ids.remove_range(..);
@@ -1751,7 +1755,6 @@ where
                     &mut self.leo_items,
                     &mut self.leo_items_buffer,
                     &mut self.postdot_items,
-                    &mut self.postdot_items_buffer,
                     &mut self.already_predicted_nonterminals,
                     &mut self.deduplication_buffer,
                     original_earley_set_len,
@@ -1888,7 +1891,8 @@ where
         self.allowed_token_ids.clear();
         self.allowed_first_bytes.clear();
         self.earley_sets.new_row::<0>();
-        self.already_predicted_nonterminals.push(FixedBitSet::with_capacity(self.grammar.nonterminals_size()));
+        self.already_predicted_nonterminals
+            .push(FixedBitSet::with_capacity(self.grammar.nonterminals_size()));
         Self::predict_nonterminal(
             &self.grammar,
             &mut self.earley_sets,
@@ -1905,7 +1909,6 @@ where
             &self.grammar,
             &mut self.earley_sets,
             &mut self.postdot_items,
-            &mut self.postdot_items_buffer,
         );
     }
 
