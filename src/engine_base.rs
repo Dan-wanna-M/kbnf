@@ -626,6 +626,7 @@ where
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
         already_predicted_nonterminals: &mut [FixedBitSet],
+        postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     ) {
         let temp_already_predicted_nonterminals =
             already_predicted_nonterminals.last_mut().unwrap();
@@ -651,6 +652,7 @@ where
                     nonterminal_id,
                     earley_set_index,
                 );
+                Self::update_postdot_item(grammar, node, item, earley_set_index, postdot_items);
             }
             i += 1;
         }
@@ -1074,39 +1076,21 @@ where
             }
         }
     }
-    fn update_postdot_items(
+    fn update_postdot_item(
         grammar: &Grammar<TI>,
-        earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
+        node: HIRNode<TI>,
+        item: EarleyItem<TI, TD, TP, TSP, TS>,
+        earley_set_index: usize,
         postdot_items: &mut AHashMap<Dotted<TI, TSP>, PostDotItems<TI, TD, TP, TSP, TS>>,
     ) {
-        let earley_set_index = earley_sets.len() - 1;
-        // SAFETY: earley_set_index is guaranteed to be valid since earley_sets is never empty
-        let earley_set = unsafe {
-            earley_sets
-                .view_unchecked::<1, 1>([earley_set_index])
-                .as_slice()
-        };
-        for item in earley_set.iter().copied() {
-            // SAFETY:
-            // item.nonterminal_id is guaranteed to be valid since it always comes from the grammar, in other words, the jagged array.
-            // item.dot_position and item.production_index either come from predict_nonterminal or advance_item,
-            // both of which guarantee the validity.
-            let node = *unsafe {
-                grammar.node_unchecked(
-                    item.nonterminal_id,
-                    item.dot_position,
-                    item.production_index,
-                )
-            };
-            if let HIRNode::Nonterminal(nonterminal) = node {
-                let postdot = Dotted {
-                    postdot_nonterminal_id: nonterminal,
-                    column: earley_set_index.as_(),
+        if let HIRNode::Nonterminal(nonterminal) = node {
+            let postdot = Dotted {
+                postdot_nonterminal_id: nonterminal,
+                column: earley_set_index.as_(),
                 };
                 match postdot_items.entry(postdot) {
                     std::collections::hash_map::Entry::Occupied(mut entry) => {
                         let mut_ref = entry.get_mut();
-                        // add_column_to_postdot_nonterminal(postdot);
                         match mut_ref {
                             &mut PostDotItems::LeoEligible(old_item) => {
                                 *mut_ref = PostDotItems::NormalItems(vec![old_item, item]);
@@ -1130,7 +1114,10 @@ where
                         }
                     }
                 }
-            }
+        }
+        else {
+            debug_assert!(false, "Only nonterminal node should be handled in update_postdot_item");
+            unsafe { unreachable_unchecked() };
         }
     }
     fn try_leo_complete_item(
@@ -1428,8 +1415,7 @@ where
         );
         already_predicted_nonterminals
             .push(FixedBitSet::with_capacity(grammar.nonterminals_size()));
-        Self::predict(grammar, earley_sets, already_predicted_nonterminals); // predict the next Earley set
-        Self::update_postdot_items(grammar, earley_sets, postdot_items); // update postdot items for the next Earley set
+        Self::predict(grammar, earley_sets, already_predicted_nonterminals, postdot_items); // predict the next Earley set
         Ok(())
     }
 
@@ -1904,12 +1890,8 @@ where
             &self.grammar,
             &mut self.earley_sets,
             &mut self.already_predicted_nonterminals,
-        ); // run a full prediction for the first earley set
-        Self::update_postdot_items(
-            &self.grammar,
-            &mut self.earley_sets,
             &mut self.postdot_items,
-        );
+        ); // run a full prediction for the first earley set
     }
 
     fn into_boxed_engine(self) -> Box<dyn EngineLike> {
