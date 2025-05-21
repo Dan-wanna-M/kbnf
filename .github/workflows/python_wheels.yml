@@ -37,7 +37,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ strategy.job-index }}
           path: dist
           
   windows:
@@ -64,7 +64,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ strategy.job-index }}
           path: dist
 
   linux:
@@ -91,7 +91,7 @@ jobs:
     - name: Upload wheels
       uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-${{ strategy.job-index }}
         path: dist
 
   linux-cross:
@@ -131,7 +131,7 @@ jobs:
     - name: Upload wheels
       uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-${{ strategy.job-index }}
         path: dist
 
   musllinux:
@@ -165,7 +165,7 @@ jobs:
     - name: Upload wheels
       uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-${{ strategy.job-index }}
         path: dist
 
   musllinux-cross:
@@ -207,7 +207,7 @@ jobs:
     - name: Upload wheels
       uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-${{ strategy.job-index }}
         path: dist
 
   release:
@@ -215,9 +215,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ macos, windows, linux, linux-cross, musllinux, musllinux-cross ]
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          pattern: wheels-*
+          merge-multiple: true
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9
