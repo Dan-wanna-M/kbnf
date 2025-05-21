@@ -37,7 +37,7 @@ displaydoc = "0.2.4"
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6.5", optional = true }
 js-sys = { version = "0.3.69", optional = true }
-pyo3 = { version = "0.23", features = [
+pyo3 = { version = "0.24", features = [
     "multiple-pymethods",
     "extension-module",
     "abi3-py37",
