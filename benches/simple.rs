@@ -76,6 +76,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         engine_config: EngineConfig {
             cache_enabled: false,
             compaction_enabled: true,
+            rejected_token_prefix_cache_enabled: true,
         },
         ..Default::default()
     };

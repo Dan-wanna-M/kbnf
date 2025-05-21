@@ -29,6 +29,9 @@ pub struct EngineConfig {
     /// speeds up the engine in most cases. In particular, cache usually requires compaction to be effective.
     /// It is enabled by default.
     pub compaction_enabled: bool,
+    /// Whether rejected token prefixes are cached.
+    /// It is enabled by default.
+    pub rejected_token_prefix_cache_enabled: bool,
 }
 #[derive(Debug, Clone)]
 /// An enum that represents the common type combinations of [`EngineBase`].
@@ -187,6 +190,22 @@ macro_rules! match_engine_union {
 }
 
 impl crate::engine_like::sealed::Sealed for Engine {}
+
+impl Engine {
+    pub fn shrink_to_fit(&mut self) {
+        match &mut self.union {
+            EngineUnion::U8U8U8U8U32(engine) => {
+                engine.shrink_to_fit();
+            },
+            EngineUnion::U8U8U16U16U16(engine) => {
+                engine.shrink_to_fit();
+            },
+            EngineUnion::U16U16U32U32U32(engine) => {
+                engine.shrink_to_fit();
+            },
+        }
+    }
+}
 
 impl EngineLike for Engine {
     fn try_accept_new_token(

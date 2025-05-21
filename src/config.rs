@@ -92,6 +92,7 @@ impl Default for Config {
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
+                rejected_token_prefix_cache_enabled: true,
             },
             start_nonterminal: "start".to_string(),
             compression_config: CompressionConfig { min_terminals: 5 },

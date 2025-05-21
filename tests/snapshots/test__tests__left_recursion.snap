@@ -73,6 +73,7 @@ Engine {
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
+                rejected_token_prefix_cache_enabled: true,
             },
         },
     ),

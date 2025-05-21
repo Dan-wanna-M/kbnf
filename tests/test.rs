@@ -144,6 +144,7 @@ mod tests {
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: false,
+                rejected_token_prefix_cache_enabled: true,
             },
             ..Default::default()
         };
@@ -319,6 +320,7 @@ mod tests {
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
+                rejected_token_prefix_cache_enabled: true,
             },
             ..Default::default()
         };
@@ -355,6 +357,7 @@ mod tests {
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
+                rejected_token_prefix_cache_enabled: true,
             },
             ..Default::default()
         };
@@ -390,6 +393,7 @@ mod tests {
             engine_config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: true,
+                rejected_token_prefix_cache_enabled: true,
             },
             ..Default::default()
         };
@@ -687,12 +691,20 @@ __schema_json_1_next ::=
 
     #[test]
     fn test_json_string() {
-        let input = r#"start::=#'"([^\\\\"\u0000-\u001f]|\\\\["\\\\bfnrt/]|\\\\u[0-9A-Fa-f]{4})*"' '\n';"#;
+        let input = r#"start::=#'"([^\\\\"\u0000-\u001f]|\\\\["\\\\bfnrt]|\\\\u[0-9A-Fa-f]{4})*"' '\n';"#;
         let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
         let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
         engine.try_accept_new_bytes(b"\"Hello, World!\\n").unwrap();
         engine.compute_allowed_token_ids();
         assert_snapshot!(format!("{:#?}", engine));
+    }
+
+    #[test]
+    fn test_ambiguous_grammar() {
+        let input = r#"start::=E;E::=E'+'E|'E';"#;
+        let vocab = read_rwkv_world_vocab("tests/rwkv_vocab_v20230424.json").unwrap();
+        let mut engine = kbnf::engine::Engine::new(input, vocab.clone()).unwrap();
+        engine.try_accept_new_bytes(b"E+E+E+E+E+E+E").unwrap();
     }
 }
 

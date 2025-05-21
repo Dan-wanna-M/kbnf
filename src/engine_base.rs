@@ -1087,36 +1087,38 @@ where
             let postdot = Dotted {
                 postdot_nonterminal_id: nonterminal,
                 column: earley_set_index.as_(),
-                };
-                match postdot_items.entry(postdot) {
-                    std::collections::hash_map::Entry::Occupied(mut entry) => {
-                        let mut_ref = entry.get_mut();
-                        match mut_ref {
-                            &mut PostDotItems::LeoEligible(old_item) => {
-                                *mut_ref = PostDotItems::NormalItems(vec![old_item, item]);
-                            }
-                            PostDotItems::NormalItems(items) => {
-                                items.push(item);
-                            }
+            };
+            match postdot_items.entry(postdot) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    let mut_ref = entry.get_mut();
+                    match mut_ref {
+                        &mut PostDotItems::LeoEligible(old_item) => {
+                            *mut_ref = PostDotItems::NormalItems(vec![old_item, item]);
                         }
-                    }
-                    std::collections::hash_map::Entry::Vacant(entry) => {
-                        if !Self::item_should_be_completed(
-                            grammar,
-                            item.nonterminal_id,
-                            item.dot_position + TD::ONE,
-                            item.production_index,
-                        ) {
-                            // not a leo item
-                            entry.insert(PostDotItems::NormalItems(vec![item]));
-                        } else {
-                            entry.insert(PostDotItems::LeoEligible(item));
+                        PostDotItems::NormalItems(items) => {
+                            items.push(item);
                         }
                     }
                 }
-        }
-        else {
-            debug_assert!(false, "Only nonterminal node should be handled in update_postdot_item");
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    if !Self::item_should_be_completed(
+                        grammar,
+                        item.nonterminal_id,
+                        item.dot_position + TD::ONE,
+                        item.production_index,
+                    ) {
+                        // not a leo item
+                        entry.insert(PostDotItems::NormalItems(vec![item]));
+                    } else {
+                        entry.insert(PostDotItems::LeoEligible(item));
+                    }
+                }
+            }
+        } else {
+            debug_assert!(
+                false,
+                "Only nonterminal node should be handled in update_postdot_item"
+            );
             unsafe { unreachable_unchecked() };
         }
     }
@@ -1357,6 +1359,22 @@ where
         }
     }
 
+    /// Shrinks the memory of the engine. Used for benchmarking.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> None
+    pub fn shrink_to_fit(&mut self) {
+        self.leo_items_buffer.shrink_to_fit();
+        self.postdot_items.shrink_to_fit();
+        self.leo_items.shrink_to_fit();
+        self.to_be_completed_items.shrink_to_fit();
+        self.to_be_completed_items_buffer.shrink_to_fit();
+        self.already_predicted_nonterminals.shrink_to_fit();
+        self.deduplication_buffer.shrink_to_fit();
+        self.cache.shrink_to_fit();
+    }
+
     fn accept_byte(
         grammar: &Grammar<TI>,
         earley_sets: &mut EarleySets<TI, TD, TP, TSP, TS>,
@@ -1415,7 +1433,12 @@ where
         );
         already_predicted_nonterminals
             .push(FixedBitSet::with_capacity(grammar.nonterminals_size()));
-        Self::predict(grammar, earley_sets, already_predicted_nonterminals, postdot_items); // predict the next Earley set
+        Self::predict(
+            grammar,
+            earley_sets,
+            already_predicted_nonterminals,
+            postdot_items,
+        ); // predict the next Earley set
         Ok(())
     }
 
@@ -1610,7 +1633,6 @@ where
             Some(token) => token,
             None => return Err(crate::engine_like::AcceptTokenError::UnknownTokenID),
         };
-        let token_iter = token.0.iter().copied();
         Self::accept_bytes(
             &self.grammar,
             &mut self.earley_sets,
@@ -1623,7 +1645,7 @@ where
             &mut self.deduplication_buffer,
             &self.config,
             &mut self.finished,
-            token_iter,
+            token.0.iter().copied(),
         )
     }
 
@@ -1712,15 +1734,18 @@ where
                     .view_unchecked::<1, 1>([token_id])
                     .as_slice()
             };
-            let mut already_rejected = false;
-            for prefix_len in 1..=token.len() {
-                if rejected_prefixes.contains(&token[..prefix_len]) {
-                    already_rejected = true;
-                    break;
+            if self.config.rejected_token_prefix_cache_enabled {
+                let mut already_rejected = false;
+                for prefix_len in 1..=token.len() {
+                    if rejected_prefixes.contains(&token[..prefix_len]) {
+                        // println!("rejected prefix: {:?}, token: {:?}", String::from_utf8_lossy(&token[..prefix_len]), String::from_utf8_lossy(token));
+                        already_rejected = true;
+                        break;
+                    }
                 }
-            }
-            if already_rejected {
-                continue;
+                if already_rejected {
+                    continue;
+                }
             }
             for (index, byte) in token.iter().copied().enumerate() {
                 let skipped = eager_cache && index == 0;
@@ -1757,7 +1782,9 @@ where
                 // The token is rejected
                 {
                     accepted = false;
-                    rejected_prefixes.insert(&token[..index + 1]);
+                    if self.config.rejected_token_prefix_cache_enabled {
+                        rejected_prefixes.insert(&token[..index + 1]);
+                    }
                     break;
                 }
             }

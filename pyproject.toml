@@ -6,7 +6,7 @@ python-source = "python"
 features = ["python"]
 [project]
 name = "kbnf"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = ["numpy"]
 requires-python = ">=3.7"
 classifiers = [
@@ -21,3 +21,4 @@ classifiers = [
 ]
 [project.optional-dependencies]
 torch = ["torch"]
+efficient_logits_mask = ["triton"]

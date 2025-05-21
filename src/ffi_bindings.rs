@@ -786,6 +786,72 @@ impl Engine {
         EngineLike::update_logits(self, token_id, logits)
     }
 
+    /// Fills the given bitmask with the allowed token IDs.
+    ///
+    /// # Signature
+    ///
+    /// (self, bitmask_ptr: int) -> None
+    ///
+    /// # Arguments
+    ///
+    /// * `bitmask_ptr` - The pointer to the bitmask.
+    ///
+    /// # Safety
+    ///
+    /// Behavior is undefined if any of the following conditions are violated:
+    ///
+    /// * `ptr` must be [valid] for both reads and writes for `vocab().vocab_size() * 4` many bytes,
+    ///   and it must be properly aligned. This means in particular:
+    ///
+    ///     * The entire memory range of this slice must be contained within a single allocated object!
+    ///       Slices can never span across multiple allocated objects.
+    ///     * `ptr` must be non-null and aligned even for zero-length slices. One
+    ///       reason for this is that enum layout optimizations may rely on references
+    ///       (including slices of any length) being aligned and non-null to distinguish
+    ///       them from other data. You can obtain a pointer that is usable as `ptr`
+    ///       for zero-length slices using [`NonNull::dangling()`].
+    ///
+    /// * `ptr` must point to `len` consecutive properly initialized values of type `u32`.
+    ///
+    /// * The memory referenced by the returned slice must not be accessed through any other pointer
+    ///   (not derived from the return value) for the duration of lifetime `'a`.
+    ///   Both read and write accesses are forbidden.
+    ///
+    /// * The total size `vocab().vocab_size() * 4` of the slice must be no larger than `isize::MAX`,
+    ///   and adding that size to `data` must not "wrap around" the address space.
+    ///   See the safety documentation of [`pointer::offset`].
+    #[pyo3(name = "fill_torch_bitmask")]
+    pub unsafe fn fill_torch_bitmask_py(&mut self, bitmask_ptr: usize) {
+        let u64_bitmask = self.allowed_token_ids_from_last_computation().as_slice();
+        // Check if the platform is little endian
+        if cfg!(target_endian = "little") {
+            // Use memcpy for better performance on little-endian platforms
+            std::ptr::copy_nonoverlapping(
+                u64_bitmask.as_ptr() as *const u8,
+                bitmask_ptr as *mut u8,
+                u64_bitmask.len() * 8
+            );
+            return;
+        }
+        let bitmask = std::slice::from_raw_parts_mut(
+            bitmask_ptr as *mut u32,
+            u64_bitmask.len() * 2,
+        );
+        for (i, u64_block) in u64_bitmask.iter().copied().enumerate() {
+            *bitmask.get_unchecked_mut(2*i) = u64_block as u32;
+            *bitmask.get_unchecked_mut(2*i + 1) = (u64_block >> 32) as u32;
+        }
+    }
+    /// Shrinks the memory of the engine. Used for benchmarking.
+    ///
+    /// # Signature
+    ///
+    /// (self) -> None
+    #[pyo3(name = "shrink_to_fit")]
+    pub fn shrink_to_fit_py(&mut self) {
+        self.shrink_to_fit();
+    }
+
     fn __repr__(&self) -> String {
         format!("Engine({:#?})", self)
     }

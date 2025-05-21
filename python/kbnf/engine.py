@@ -142,11 +142,17 @@ class Engine:
     def write_allowed_token_ids_to_buffer(self, ptr:int, length:int)->None:
         self._internal.write_allowed_token_ids_to_buffer(ptr, length)
 
+    def fill_torch_bitmask(self, bitmask_ptr:int)->None:
+        self._internal.fill_torch_bitmask(bitmask_ptr)
+
     def is_finished(self)->bool:
         return self._internal.is_finished()
     
     def get_vocab(self)->Vocabulary:
         return self._internal.get_vocab()
+
+    def shrink_to_fit(self)->None:
+        self._internal.shrink_to_fit()
 
     def reset(self)->None:
         self._internal.reset()

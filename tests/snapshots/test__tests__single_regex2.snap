@@ -359,6 +359,7 @@ Engine {
             config: EngineConfig {
                 cache_enabled: true,
                 compaction_enabled: false,
+                rejected_token_prefix_cache_enabled: true,
             },
         },
     ),
