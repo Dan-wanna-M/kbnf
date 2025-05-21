@@ -35,7 +35,7 @@ jobs:
           pip install kbnf --find-links dist --force-reinstall
           python -c "import kbnf"
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -62,7 +62,7 @@ jobs:
           pip install kbnf --find-links dist --force-reinstall
           python -c "import kbnf"
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: dist
@@ -89,7 +89,7 @@ jobs:
         pip install kbnf --find-links dist --force-reinstall
         python -c "import kbnf"
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheels
         path: dist
@@ -129,7 +129,7 @@ jobs:
           pip3 install kbnf --find-links dist/ --force-reinstall
           python3 -c "import kbnf"
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheels
         path: dist
@@ -163,7 +163,7 @@ jobs:
           pip3 install kbnf --find-links /io/dist/ --force-reinstall --break-system-packages
           python3 -c "import kbnf"
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheels
         path: dist
@@ -205,7 +205,7 @@ jobs:
           pip3 install kbnf --find-links dist/ --force-reinstall --break-system-packages
           python3 -c "import kbnf"
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheels
         path: dist
