@@ -41,7 +41,7 @@ jobs:
           path: dist
           
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix:
         target: [x64, x86]
@@ -56,7 +56,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc" --cargo-extra-args="-C link-arg=/DEFAULTLIB:advapi32.lib"'
+          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
