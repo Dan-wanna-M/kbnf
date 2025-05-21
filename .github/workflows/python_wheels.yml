@@ -52,14 +52,11 @@ jobs:
           python-version: 3.9
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set flags
-        run: |
-          set RUSTFLAGS=-l advapi32
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
+          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc" --cargo-extra-args="-C link-arg=/DEFAULTLIB:advapi32.lib"'
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
