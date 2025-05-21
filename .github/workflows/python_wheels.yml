@@ -52,6 +52,9 @@ jobs:
           python-version: 3.9
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Set flags
+        run: |
+          set RUSTFLAGS=-l advapi32
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
