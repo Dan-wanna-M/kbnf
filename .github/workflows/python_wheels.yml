@@ -83,7 +83,7 @@ jobs:
           Write-Host "Setting RUSTFLAGS for subsequent steps to: $calculated_rustflags"
           
           # Write to $GITHUB_ENV to make RUSTFLAGS available to next steps
-          "RUSTFLAGS=\"$calculated_rustflags\"" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'RUSTFLAGS="' + $calculated_rustflags + '"' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - uses: dtolnay/rust-toolchain@stable
       - name: Check RUSTFLAGS
         shell: pwsh
