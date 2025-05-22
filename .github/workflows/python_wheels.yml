@@ -53,7 +53,7 @@ jobs:
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Build wheels
-        uses: PyO3/maturin-action@v1.45
+        uses: PyO3/maturin-action@v1.45.0
         with:
           target: ${{ matrix.target }}
           args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
