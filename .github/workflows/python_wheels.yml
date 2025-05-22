@@ -41,7 +41,7 @@ jobs:
           path: dist
           
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix:
         target: [x64, x86]
@@ -51,112 +51,9 @@ jobs:
         with:
           python-version: 3.9
           architecture: ${{ matrix.target }}
-      - name: Find Advapi32.lib
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "SilentlyContinue" # Continue script even if some paths don't exist or access is denied
-
-          $libNameToFind = "Advapi32.lib"
-          $architectureHint = "x86" # For your i686-pc-windows-msvc target
-
-          Write-Host "Attempting to find '$libNameToFind' for architecture hint '$architectureHint'..."
-          Write-Host "-------------------------------------------------------------------"
-
-          $foundPaths = [System.Collections.Generic.List[string]]::new()
-
-          # 1. Check paths in the LIB environment variable
-          # This is the primary way the MSVC linker finds libraries.
-          # GitHub Actions runners with MSVC usually have this pre-configured.
-          Write-Host "Step 1: Checking LIB environment variable..."
-          $libEnvVar = $env:LIB
-          if (-not [string]::IsNullOrEmpty($libEnvVar)) {
-              Write-Host "LIB environment variable is currently set to:"
-              $libEnvVar.Split(';') | ForEach-Object { Write-Host "  - $_" }
-
-              $pathsInLib = $libEnvVar.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrEmpty($_) }
-              
-              foreach ($pathEntry in $pathsInLib) {
-                  $fullLibPath = Join-Path -Path $pathEntry -ChildPath $libNameToFind
-                  if (Test-Path $fullLibPath) {
-                      Write-Host "FOUND '$libNameToFind' in a LIB path entry: $fullLibPath"
-                      if (-not $foundPaths.Contains($fullLibPath)) { $foundPaths.Add($fullLibPath) }
-                  }
-              }
-          } else {
-              Write-Host "LIB environment variable is NOT SET or is empty. This is unusual in an MSVC build environment."
-          }
-          Write-Host "-------------------------------------------------------------------"
-
-          # 2. Check common Windows SDK installation directories
-          # These are typical base paths for Windows 10/11 SDKs.
-          Write-Host "Step 2: Checking common Windows SDK directories (looking for '$architectureHint' subfolders)..."
-          $sdkBasePaths = @(
-              "C:\Program Files (x86)\Windows Kits\10\Lib",
-              "C:\Program Files (x86)\Windows Kits\11\Lib" # Adding 11 as well
-          )
-
-          foreach ($basePath in $sdkBasePaths) {
-              if (Test-Path $basePath) {
-                  Write-Host "Searching in base SDK path: $basePath"
-                  # Get all SDK version subdirectories (e.g., 10.0.19041.0, 10.0.22621.0)
-                  Get-ChildItem -Path $basePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-                      $sdkVersionDir = $_.FullName
-                      # Look for architecture specific paths like 'um\x86' or 'ucrt\x86'
-                      $archSpecificSubFolders = @("um\$architectureHint", "ucrt\$architectureHint", $architectureHint) # e.g. um\x86, ucrt\x86, x86
-                      foreach ($subFolder in $archSpecificSubFolders) {
-                          $archPath = Join-Path -Path $sdkVersionDir -ChildPath $subFolder
-                          if (Test-Path $archPath) {
-                              $potentialLibPath = Join-Path -Path $archPath -ChildPath $libNameToFind
-                              if (Test-Path $potentialLibPath) {
-                                  Write-Host "FOUND '$libNameToFind' in SDK path: $potentialLibPath"
-                                  if (-not $foundPaths.Contains($potentialLibPath)) { $foundPaths.Add($potentialLibPath) }
-                              }
-                          }
-                      }
-                  }
-              } else {
-                  Write-Host "Base SDK path not found or not accessible: $basePath"
-              }
-          }
-          Write-Host "-------------------------------------------------------------------"
-
-          # 3. Broader recursive search in Windows Kits\10\Lib (can be slower)
-          # This is a fallback if the more structured search above misses a less common layout.
-          Write-Host "Step 3: Performing a broader recursive search in 'C:\Program Files (x86)\Windows Kits\10\Lib' (may take a moment)..."
-          $broadSearchBase = "C:\Program Files (x86)\Windows Kits\10\Lib"
-          if (Test-Path $broadSearchBase) {
-              Get-ChildItem -Path $broadSearchBase -Filter $libNameToFind -Recurse -ErrorAction SilentlyContinue | Where-Object {
-                  # Check if the path contains the architecture hint, e.g., "\x86\", "\um\x86\"
-                  $_.FullName -match "\\$($architectureHint)\\|\\[a-zA-Z0-9]+\\$($architectureHint)\\"
-              } | ForEach-Object {
-                  Write-Host "FOUND '$libNameToFind' via broad search: $($_.FullName)"
-                  if (-not $foundPaths.Contains($_.FullName)) { $foundPaths.Add($_.FullName) }
-              }
-          } else {
-              Write-Host "'$broadSearchBase' not found for broad search."
-          }
-          Write-Host "-------------------------------------------------------------------"
-
-          # Report summary
-          if ($foundPaths.Count -gt 0) {
-              Write-Host "SUMMARY: '$libNameToFind' was FOUND at the following unique locations (for '$architectureHint'):"
-              $foundPaths | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
-              Write-Host ""
-              Write-Host "This confirms the library file exists on disk in the SDK."
-              Write-Host "If you are still facing linker errors (like LNK2019), the issue likely lies in:"
-              Write-Host "  1. The build script (`build.rs` of `mimalloc-sys` or your own) not correctly issuing `cargo:rustc-link-lib=advapi32`."
-              Write-Host "  2. The `LIB` environment variable not being properly propagated or set up for `link.exe` when Cargo invokes it."
-              Write-Host "  3. Maturin or other build tooling unintentionally interfering with the linker's library resolution."
-              Write-Host "Ensure your build verbosity is high (`-vv`) to see the exact linker command and its library paths."
-          } else {
-              Write-Host "SUMMARY: '$libNameToFind' was NOT FOUND in the checked locations for architecture '$architectureHint'."
-              Write-Host "This is highly unusual for a standard GitHub Actions Windows runner with an MSVC toolchain correctly set up."
-              Write-Host "If this occurs, it suggests a fundamental problem with the Windows SDK installation or the runner environment configuration."
-          }
-      - name: Setup MSVC Developer Environment
-        uses: microsoft/setup-msvc-dev@v3
+      - uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
-          architecture: ${{matrix.target}}
+          arch: x64
       - uses: dtolnay/rust-toolchain@stable
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -172,7 +69,6 @@ jobs:
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
-
   linux:
     runs-on: ubuntu-latest
     strategy:
