@@ -153,6 +153,10 @@ jobs:
               Write-Host "This is highly unusual for a standard GitHub Actions Windows runner with an MSVC toolchain correctly set up."
               Write-Host "If this occurs, it suggests a fundamental problem with the Windows SDK installation or the runner environment configuration."
           }
+      - name: Setup MSVC Developer Environment
+        uses: microsoft/setup-msvc-dev@v3
+        with:
+          architecture: ${{matrix.target}}
       - uses: dtolnay/rust-toolchain@stable
       - name: Build wheels
         uses: PyO3/maturin-action@v1
