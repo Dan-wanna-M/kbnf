@@ -51,9 +51,53 @@ jobs:
         with:
           python-version: 3.9
           architecture: ${{ matrix.target }}
-      - uses: TheMrMilchmann/setup-msvc-dev@v3
-        with:
-          arch: x64
+      - name: Find Advapi32.lib and Build with RUSTFLAGS
+        shell: pwsh # Using PowerShell for better path manipulation and environment variable setting
+        run: |
+          $ErrorActionPreference = "Stop" # Stop on errors for clarity
+          $libToFind = "Advapi32.lib"
+          $architectureHint = "x86" # For your i686-pc-windows-msvc target
+
+          Write-Host "Searching for '$libToFind' for architecture '$architectureHint'..."
+          $advapiLibPath = $null
+          $sdkSearchBase = "C:\Program Files (x86)\Windows Kits\10\Lib"
+
+          if (Test-Path $sdkSearchBase) {
+              # Try to find the lib in a typical SDK structure: SDKVersion\um\x86\Advapi32.lib
+              $foundLibs = Get-ChildItem -Path $sdkSearchBase -Filter $libToFind -Recurse -ErrorAction SilentlyContinue | Where-Object {
+                  $_.FullName -match "\\\d+\.\d+\.\d+\.\d+\\um\\$($architectureHint)\\" # Matches SDK version\um\x86
+              } | Select-Object -First 1
+
+              if ($foundLibs) {
+                  $advapiLibPath = $foundLibs.FullName
+                  Write-Host "Found '$libToFind' at: $advapiLibPath"
+              }
+          }
+
+          if (-not $advapiLibPath) {
+              Write-Host "ERROR: Could not automatically find '$libToFind' in expected SDK locations for '$architectureHint'."
+              Write-Host "You might need to adjust the search path or ensure the Windows SDK for x86 is correctly installed on the runner."
+              exit 1
+          }
+
+          # Get the directory containing the .lib file
+          $advapiLibDir = Split-Path -Path $advapiLibPath -Parent
+          Write-Host "Library directory for linker: $advapiLibDir"
+
+          # Determine the corresponding DLL path (for informational purposes, linker uses .lib)
+          # For an i686 (32-bit) target, the 32-bit DLLs are in SysWOW64 on a 64-bit Windows
+          $advapiDllPath = "C:\Windows\SysWOW64\Advapi32.dll"
+          if (Test-Path $advapiDllPath) {
+              Write-Host "Corresponding '$libToFind' (runtime DLL) should be at: $advapiDllPath"
+          } else {
+              Write-Host "Warning: Could not verify corresponding DLL at $advapiDllPath (this is unusual)."
+          }
+
+          # Set RUSTFLAGS
+          # -L tells the linker to add a directory to the library search path.
+          # -l tells the linker to link a specific library (rustc adds .lib suffix for MSVC).
+          $env:RUSTFLAGS = "-L `"$advapiLibDir`" -l advapi32"
+          Write-Host "RUSTFLAGS set to: $env:RUSTFLAGS"
       - uses: dtolnay/rust-toolchain@stable
       - name: Build wheels
         uses: PyO3/maturin-action@v1
