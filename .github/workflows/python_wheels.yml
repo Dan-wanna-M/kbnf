@@ -41,10 +41,10 @@ jobs:
           path: dist
           
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix:
-        target: [x64, x86]
+        target: [x64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -52,14 +52,14 @@ jobs:
           python-version: 3.9
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set flags
-        run: |
-          set RUSTFLAGS=-l advapi32
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
+          command: help
+      - name: Build wheels
+        run: |
+          $env:RUSTFLAGS = "$env:RUSTFLAGS -C link-arg=advapi32.lib"
+          maturin build --release --out dist --sdist -m Cargo.toml --features="python mimalloc" --target x86_64-pc-windows-msvc 
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
@@ -69,7 +69,6 @@ jobs:
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
-
   linux:
     runs-on: ubuntu-latest
     strategy:
@@ -101,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [aarch64, armv7, s390x, ppc64le]
+        target: [aarch64]
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -178,8 +177,6 @@ jobs:
         platform:
           - target: aarch64-unknown-linux-musl
             arch: aarch64
-          - target: armv7-unknown-linux-musleabihf
-            arch: armv7
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
