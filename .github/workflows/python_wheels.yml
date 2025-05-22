@@ -52,6 +52,10 @@ jobs:
           python-version: 3.9
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          command: help
       - name: Build wheels
         run: |
           maturin build --release --verbose --out dist --sdist -m Cargo.toml --features="python mimalloc" --target x86_64-pc-windows-msvc 
