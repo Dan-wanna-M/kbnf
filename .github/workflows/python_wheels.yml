@@ -153,21 +153,21 @@ jobs:
               Write-Host "This is highly unusual for a standard GitHub Actions Windows runner with an MSVC toolchain correctly set up."
               Write-Host "If this occurs, it suggests a fundamental problem with the Windows SDK installation or the runner environment configuration."
           }
-            - uses: dtolnay/rust-toolchain@stable
-            - name: Build wheels
-              uses: PyO3/maturin-action@v1
-              with:
-                target: ${{ matrix.target }}
-                args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
-            - name: Install built wheel
-              run: |
-                pip install kbnf --find-links dist --force-reinstall
-                python -c "import kbnf"
-            - name: Upload wheels
-              uses: actions/upload-artifact@v4
-              with:
-                name: wheels-windows-${{ matrix.target }}
-                path: dist
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
+      - name: Install built wheel
+        run: |
+          pip install kbnf --find-links dist --force-reinstall
+          python -c "import kbnf"
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.target }}
+          path: dist
 
   linux:
     runs-on: ubuntu-latest
