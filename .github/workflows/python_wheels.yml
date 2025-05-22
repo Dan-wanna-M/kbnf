@@ -51,46 +51,9 @@ jobs:
         with:
           python-version: 3.9
           architecture: ${{ matrix.target }}
-      - name: Find Advapi32.lib and Prepare RUSTFLAGS
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $libToFind = "Advapi32.lib"
-          $architectureHint = "x86" # For your i686-pc-windows-msvc target
-          $advapiLibPath = $null
-          $sdkSearchBase = "C:\Program Files (x86)\Windows Kits\10\Lib"
-
-          Write-Host "Searching for '$libToFind' for architecture '$architectureHint' in $sdkSearchBase..."
-          if (Test-Path $sdkSearchBase) {
-              $foundLibs = Get-ChildItem -Path $sdkSearchBase -Filter $libToFind -Recurse -ErrorAction SilentlyContinue | Where-Object {
-                  $_.FullName -match "\\\d+\.\d+\.\d+\.\d+\\um\\$($architectureHint)\\"
-              } | Select-Object -First 1
-              if ($foundLibs) {
-                  $advapiLibPath = $foundLibs.FullName
-              }
-          }
-
-          if (-not $advapiLibPath) {
-              Write-Error "ERROR: Could not automatically find '$libToFind' for '$architectureHint'."
-              exit 1
-          }
-          Write-Host "Found '$libToFind' at: $advapiLibPath"
-          $advapiLibDir = Split-Path -Path $advapiLibPath -Parent
-          Write-Host "Library directory for linker: $advapiLibDir"
-
-          # Construct RUSTFLAGS
-          $calculated_rustflags = "-L `"$advapiLibDir`" -l advapi32"
-          Write-Host "Setting RUSTFLAGS for subsequent steps to: $calculated_rustflags"
-          
-          # Write to $GITHUB_ENV to make RUSTFLAGS available to next steps
-          'RUSTFLAGS="' + $calculated_rustflags + '"' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - uses: dtolnay/rust-toolchain@stable
-      - name: Check RUSTFLAGS
-        shell: pwsh
-        run: |
-          Write-Host "$RUSTFLAGS"
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@v1.45
         with:
           target: ${{ matrix.target }}
           args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
