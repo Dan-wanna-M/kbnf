@@ -44,7 +44,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        target: [x64,x86]
+        target: [x64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -52,18 +52,14 @@ jobs:
           python-version: 3.9
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set up mimalloc's environment
-        run: |
-            $env:RUSTFLAGS = "$env:RUSTFLAGS -C link-arg=advapi32.lib"
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           command: help
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: '--release --out dist --sdist -m Cargo.toml --features="python mimalloc"'
+        run: |
+          $env:RUSTFLAGS = "$env:RUSTFLAGS -C link-arg=advapi32.lib"
+          maturin build --release --out dist --sdist -m Cargo.toml --features="python mimalloc" --target x86_64-pc-windows-msvc 
       - name: Install built wheel
         run: |
           pip install kbnf --find-links dist --force-reinstall
